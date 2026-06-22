@@ -4,3 +4,4 @@ __pycache__/
 data/sources/.cache/
 .venv/
 enrich/work/
+expand/work/
