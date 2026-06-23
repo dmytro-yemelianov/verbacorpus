@@ -1,0 +1,88 @@
+{
+  "count": 40444,
+  "with_explanation": 30532,
+  "taxonomy": {
+    "work_labor": "Праця і ремесло",
+    "poverty_wealth": "Бідність і багатство",
+    "food_hunger": "Їжа і голод",
+    "drink_alcohol": "Пиття і п'янство",
+    "family_kinship": "Родина і спорідненість",
+    "marriage_gender": "Шлюб і стать",
+    "speech_lying": "Мова і брехня",
+    "wisdom_folly": "Розум і дурість",
+    "fate_luck": "Доля і щастя",
+    "time_seasons": "Час і пори року",
+    "death_illness": "Смерть і хвороба",
+    "religion_god": "Бог і церква",
+    "social_relations": "Громада і сусідство",
+    "class_power": "Стани і влада",
+    "justice_truth": "Правда і кривда",
+    "animals": "Тварини",
+    "body_health": "Тіло і здоров'я",
+    "home_household": "Хата і господарство",
+    "conflict_enmity": "Сварка і ворожнеча",
+    "friendship_love": "Дружба і любов",
+    "travel_distance": "Дорога і мандри",
+    "trade_money": "Торгівля і гроші",
+    "ethnic_local": "Народи і місця",
+    "emotion_mood": "Почуття і настрій",
+    "nature_weather": "Природа і погода",
+    "appearance_reputation": "Зовнішність і слава",
+    "idiom_expressive": "Фразеологія та вигуки"
+  },
+  "sources": [
+    {
+      "key": "Franko1901",
+      "title": "Галицько-руські народні приповідки",
+      "year": "1901",
+      "author": "Іван Франко"
+    },
+    {
+      "key": "Mlodzynskyi2009",
+      "title": "Практичний російсько-український словник приказок",
+      "year": "2009",
+      "author": ""
+    },
+    {
+      "key": "Ilkevich1841",
+      "title": "Галицкіи приповѣдки и загадки",
+      "year": "1841",
+      "author": "Григорій Ількевич"
+    },
+    {
+      "key": "Bobkova",
+      "title": "Українські народні прислів'я та приказки",
+      "year": "",
+      "author": "Бобкова В.І. (упоряд.)"
+    }
+  ],
+  "per_category": {
+    "emotion_mood": 5505,
+    "wisdom_folly": 4429,
+    "idiom_expressive": 4031,
+    "work_labor": 3865,
+    "social_relations": 2905,
+    "poverty_wealth": 2825,
+    "animals": 2818,
+    "fate_luck": 2687,
+    "conflict_enmity": 2602,
+    "speech_lying": 2528,
+    "appearance_reputation": 2227,
+    "religion_god": 2189,
+    "food_hunger": 2172,
+    "class_power": 1907,
+    "body_health": 1788,
+    "time_seasons": 1706,
+    "family_kinship": 1540,
+    "trade_money": 1488,
+    "marriage_gender": 1428,
+    "justice_truth": 1373,
+    "death_illness": 1224,
+    "home_household": 1037,
+    "nature_weather": 906,
+    "travel_distance": 705,
+    "drink_alcohol": 615,
+    "ethnic_local": 582,
+    "friendship_love": 562
+  }
+}
