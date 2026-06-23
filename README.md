@@ -10,19 +10,30 @@ It is **enriched**: every entry carries a modern-spelling rendering and 1–3 th
 A Cloudflare Worker serves a searchable, offline-capable PWA and a JSON REST API over the corpus
 (in `app/`, mirroring the ua-bez-tabu stack). Live: **https://ukr-proverbs-corpus.miwaniza.workers.dev**
 
-REST API:
-- `GET /api/search?q=&category=&source=&limit=&offset=` → `{total, results}` (lexical)
-- `GET /api/semantic?q=&category=&source=&limit=&minScore=` → `{total, results}` (meaning-based; see below)
-- `GET /api/similar/:id?limit=` → semantically similar proverbs
-- `GET /api/proverb/:id` → proverb + explanation
-- `GET /api/random?category=&source=` → one random proverb
-- `GET /api/categories` → 27 themes with counts
-- `GET /api/meta` → corpus metadata
+### REST API (`/api/v1`, multi-format)
+
+Versioned, content-negotiated API — every data endpoint serves **JSON · JSONL · XML · CSV · TSV** via
+`?format=` (default `json`) or the `Accept` header. Docs + curl examples at **[/api.html](https://ukr-proverbs-corpus.miwaniza.workers.dev/api.html)**; OpenAPI 3 at `/api/v1/openapi.json`.
+
+- `GET /api/v1/search?q=&category=&source=&limit=&offset=&format=` — lexical
+- `GET /api/v1/semantic?q=&category=&source=&minScore=&limit=&format=` — meaning-based (see below)
+- `GET /api/v1/random?n=&category=&source=&format=` — N random
+- `GET /api/v1/query?category=&source=&variant_group=&has_explanation=&limit=&offset=&format=` — flexible filter
+- `GET /api/v1/proverb/:id?format=` — single proverb + explanation
+- `GET /api/v1/export?category=&source=&format=` — whole corpus (or filtered), incl. explanations
+- `GET /api/v1/categories` · `GET /api/v1/meta` · `GET /api/v1/similar/:id`
+
+Collections return `{total, limit, offset, results}` (+ `X-Total-Count`); file formats download with a filename.
+The unversioned `/api/*` paths remain as back-compatible aliases. Example:
+```bash
+curl 'https://ukr-proverbs-corpus.miwaniza.workers.dev/api/v1/search?q=гроші&format=csv'
+curl -H 'Accept: application/x-ndjson' 'https://ukr-proverbs-corpus.miwaniza.workers.dev/api/v1/export'
+```
 
 ### Semantic search (embeddings + Vectorize)
 
 The PWA's **«за змістом»** toggle and the **«Схожі прислів'я»** detail section are powered by
-Workers AI `@cf/baai/bge-m3` embeddings stored in a Cloudflare **Vectorize** index (`proverbs-bge-m3`).
+Workers AI `@cf/baai/bge-m3` embeddings stored in a Cloudflare **Vectorize** index (`proverbs-bge-m3-v2`).
 Lexical search stays the offline default; semantic search is opt-in and network-only.
 
 Build/refresh the index (incremental — embeds only new/changed entries; **requires the Workers Paid plan**
