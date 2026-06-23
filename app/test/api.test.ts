@@ -29,4 +29,8 @@ describe("API", () => {
     const body = await (await call("/api/categories")).json() as any;
     expect(body.find((c: any) => c.key === "work_labor").count).toBe(1);
   });
+  it("NaN limit is coerced to default — returns non-empty results", async () => {
+    const body = await (await call("/api/search?limit=abc")).json() as any;
+    expect(body.results.length).toBeGreaterThan(0);
+  });
 });

@@ -7,6 +7,7 @@ let mini: MiniSearch<Proverb>;
 let meta: any;
 let activeCat = "";
 let activeSource = "";
+let explanationsCache: Record<string, string> | null = null;
 
 async function boot() {
   [all, meta] = await Promise.all([
@@ -27,9 +28,9 @@ async function boot() {
 
 function renderFilters() {
   const cats = Object.entries(meta.taxonomy as Record<string, string>)
-    .map(([k, label]) => `<span class="chip" data-cat="${k}">${label}</span>`).join("");
+    .map(([k, label]) => `<span class="chip" data-cat="${k}">${escapeHtml(label)}</span>`).join("");
   const srcs = (["Franko1901", "Mlodzynskyi2009", "Ilkevich1841", "Bobkova"])
-    .map((s) => `<span class="chip" data-src="${s}">${s}</span>`).join("");
+    .map((s) => `<span class="chip" data-src="${s}">${escapeHtml(s)}</span>`).join("");
   $("filters").innerHTML = cats + srcs;
   $("filters").querySelectorAll<HTMLElement>(".chip").forEach((chip) => {
     chip.addEventListener("click", () => {
@@ -52,19 +53,30 @@ function render() {
   }
   const { total, results } = searchProverbs(pool, { category: activeCat || undefined, source: activeSource || undefined, limit: 200 });
   $("count").textContent = `Знайдено: ${total}`;
-  $("results").innerHTML = results.map((p, i) =>
-    `<div class="card" data-i="${i}">${escapeHtml(p.text)}${p.modern_text && p.modern_text !== p.text ? `<div class="modern">${escapeHtml(p.modern_text)}</div>` : ""}<div>${p.category.map((c) => `<span class="badge">${meta.taxonomy[c] ?? c}</span>`).join("")}</div></div>`).join("");
-  $("results").querySelectorAll<HTMLElement>(".card").forEach((card) =>
-    card.addEventListener("click", () => openDetail(results[Number(card.dataset.i)])));
+  if (results.length === 0) {
+    $("results").innerHTML = `<p>Нічого не знайдено.</p>`;
+  } else {
+    $("results").innerHTML = results.map((p, i) =>
+      `<div class="card" data-i="${i}">${escapeHtml(p.text)}${p.modern_text && p.modern_text !== p.text ? `<div class="modern">${escapeHtml(p.modern_text)}</div>` : ""}<div>${p.category.map((c) => `<span class="badge">${escapeHtml(meta.taxonomy[c] ?? c)}</span>`).join("")}</div></div>`).join("");
+    $("results").querySelectorAll<HTMLElement>(".card").forEach((card) =>
+      card.addEventListener("click", () => openDetail(results[Number(card.dataset.i)])));
+  }
 }
 
 async function openDetail(p: Proverb) {
-  const expl = await fetch(`/data/explanations.json`).then((r) => r.json()).then((e) => e[p.id]).catch(() => null);
+  if (!explanationsCache) {
+    explanationsCache = await fetch(`/data/explanations.json`).then((r) => r.json()).catch(() => ({}));
+  }
+  const expl = explanationsCache ? explanationsCache[p.id] ?? null : null;
+  const variants = p.variant_group
+    ? all.filter((x) => x.id !== p.id && x.variant_group === p.variant_group)
+    : [];
   const dlg = $("detail") as HTMLDialogElement;
   dlg.innerHTML = `<form method="dialog"><h3>${escapeHtml(p.text)}</h3>` +
     (p.modern_text && p.modern_text !== p.text ? `<p><i>${escapeHtml(p.modern_text)}</i></p>` : "") +
     (expl ? `<p>${escapeHtml(expl)}</p>` : "") +
-    `<p>${p.category.map((c) => `<span class="badge">${meta.taxonomy[c] ?? c}</span>`).join("")} · ${p.sources.join(", ")}</p>` +
+    `<p>${p.category.map((c) => `<span class="badge">${escapeHtml(meta.taxonomy[c] ?? c)}</span>`).join("")} · ${p.sources.map(escapeHtml).join(", ")}</p>` +
+    (variants.length > 0 ? `<p><b>Варіанти:</b> ${variants.map((v) => escapeHtml(v.text)).join("; ")}</p>` : "") +
     `<button>Закрити</button></form>`;
   dlg.showModal();
 }
