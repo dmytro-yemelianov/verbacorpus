@@ -1,5 +1,5 @@
-const CACHE = "ukr-proverbs-v4";
-const SHELL = ["/", "/styles.css", "/fonts/spectral.css", "/app.js", "/manifest.webmanifest", "/data/proverbs.json", "/data/meta.json"];
+const CACHE = "ukr-proverbs-v5";
+const SHELL = ["/", "/styles.css", "/fonts/spectral.css", "/app.js", "/manifest.webmanifest", "/data/proverbs.json", "/data/meta.json", "/api.html"];
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
 });
