@@ -25,14 +25,15 @@ def test_build_outputs(tmp_path):
 
 
 def test_read_version(tmp_path):
-    from build_data import _read_version
+    from app.build_data import _read_version
     (tmp_path / "VERSION").write_text("1.0.0\n", encoding="utf-8")
     corpus = tmp_path / "corpus.csv"
     corpus.write_text("id,text\n", encoding="utf-8")
     assert _read_version(str(corpus)) == "1.0.0"
 
+
 def test_read_version_missing(tmp_path):
-    from build_data import _read_version
+    from app.build_data import _read_version
     corpus = tmp_path / "corpus.csv"
     corpus.write_text("x", encoding="utf-8")
     assert _read_version(str(corpus)) is None
