@@ -10,6 +10,12 @@
     "run_worker_first": ["/api/*"]
   },
   "observability": { "enabled": true },
+  "workers_dev": true,
+  "preview_urls": true,
   "ai": { "binding": "AI" },
-  "vectorize": [{ "binding": "VECTORIZE", "index_name": "proverbs-bge-m3-v2" }]
+  "vectorize": [{ "binding": "VECTORIZE", "index_name": "proverbs-bge-m3-v2" }],
+  "routes": [
+    { "pattern": "verbacorpus.org", "custom_domain": true },
+    { "pattern": "www.verbacorpus.org", "custom_domain": true }
+  ]
 }
