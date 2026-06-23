@@ -85,16 +85,25 @@ function buildDeck(): Proverb[] {
   return sample(pool, pool.length); // shuffle all
 }
 
+function setBackgroundInert(on: boolean) {
+  for (const el of Array.from(document.body.children)) {
+    if (el.id === "swipe" || el.id === "detail" || el.tagName === "SCRIPT") continue;
+    if (on) el.setAttribute("inert", ""); else el.removeAttribute("inert");
+  }
+}
+
 function openSwipe() {
   deck = buildDeck(); deckI = 0;
   if (!deck.length) return;
   document.body.classList.add("swipe-open");
   const ov = $("swipe"); ov.hidden = false;
+  setBackgroundInert(true);
   renderSwipeCard();
   $("swipeClose").focus();
 }
 function closeSwipe() {
   $("swipe").hidden = true; document.body.classList.remove("swipe-open");
+  setBackgroundInert(false);
   $("swipeBtn").focus();
 }
 function advance(dir: 1 | -1) {
@@ -117,6 +126,7 @@ function renderSwipeCard() {
      ${differs(p) ? `<p class="sw-modern">${esc(p.modern_text)}</p>` : ""}
      <div class="sw-tags">${p.category.map((c) => `<span class="tag">${esc(catLabel(c))}</span>`).join("")}<span class="tag-src">${esc(p.sources.map(srcLabel).join(" · "))}</span></div>`;
   inner.onclick = () => openDetail(p);
+  inner.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openDetail(p); } };
   $("swSave").setAttribute("aria-pressed", String(isSavedId(p.id)));
   $("swSave").classList.toggle("on", isSavedId(p.id));
 }
@@ -186,7 +196,7 @@ async function boot() {
   $("swSave").addEventListener("click", () => { saveCurrent(); renderSwipeCard(); advance(1); });
   $("swShare").addEventListener("click", () => { const p = deck[deckI]; if (p) share(p); });
   document.addEventListener("keydown", (e) => {
-    if ($("swipe").hidden) return;
+    if ($("swipe").hidden || $<HTMLDialogElement>("detail").open) return;
     if (e.key === "Escape") closeSwipe();
     else if (e.key === "ArrowRight") { saveCurrent(); renderSwipeCard(); advance(1); }
     else if (e.key === "ArrowLeft") advance(-1);
@@ -304,8 +314,9 @@ function renderPage() {
   }
   const page = pageResults.slice(0, shown);
   const more = shown < pageResults.length;
+  const suffix = pageHead === "Навмання з корпусу" ? "" : ` · показано ${fmt(page.length)} з ${fmt(pageResults.length)}`;
   $("results").innerHTML =
-    `<p class="results-head">${esc(pageHead)} · показано ${fmt(page.length)} з ${fmt(pageResults.length)}</p>` +
+    `<p class="results-head">${esc(pageHead)}${suffix}</p>` +
     page.map((p) =>
       `<article class="entry" data-id="${esc(p.id)}">
         <div class="entry-cat">№&nbsp;${esc(p.id.replace(/^p0*/, ""))}${pageShowScore && p.score !== undefined ? `<br><span class="entry-score">${p.score.toFixed(2)}</span>` : ""}</div>
