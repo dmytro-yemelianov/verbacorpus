@@ -11,5 +11,5 @@
   },
   "observability": { "enabled": true },
   "ai": { "binding": "AI" },
-  "vectorize": [{ "binding": "VECTORIZE", "index_name": "proverbs-bge-m3" }]
+  "vectorize": [{ "binding": "VECTORIZE", "index_name": "proverbs-bge-m3-v2" }]
 }
