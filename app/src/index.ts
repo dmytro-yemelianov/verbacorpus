@@ -1,6 +1,16 @@
 import { searchProverbs, randomProverb, type Proverb } from "./shared/corpus";
+import { mapMatches, type Match } from "./shared/semantic";
 
-interface Env { ASSETS: { fetch: (req: Request | string) => Promise<Response> } }
+interface Env {
+  ASSETS: { fetch: (req: Request | string) => Promise<Response> };
+  AI: { run: (model: string, inputs: { text: string[] }) => Promise<{ data: number[][] }> };
+  VECTORIZE: {
+    query: (vector: number[], opts: { topK: number }) => Promise<{ matches: Match[] }>;
+    getByIds: (ids: string[]) => Promise<Array<{ id: string; values: number[] }>>;
+  };
+}
+
+const SEMANTIC_MIN_SCORE = 0.4;
 
 let cache: Promise<{ proverbs: Proverb[]; explanations: Record<string, string>; meta: any }> | null = null;
 
@@ -64,6 +74,40 @@ export default {
       if (m) {
         const p = proverbs.find((x) => x.id === decodeURIComponent(m[1]));
         return p ? J({ ...p, explanation: explanations[p.id] ?? null }) : J({ error: "not found" }, 404);
+      }
+      if (path === "/api/semantic") {
+        const q = (qp.get("q") ?? "").trim();
+        if (!q) return J({ error: "missing q" }, 400);
+        if (!env.AI || !env.VECTORIZE) return J({ error: "semantic search unavailable" }, 503);
+        try {
+          const { data } = await env.AI.run("@cf/baai/bge-m3", { text: [q] });
+          const { matches } = await env.VECTORIZE.query(data[0], { topK: 100 });
+          const byId = new Map(proverbs.map((p) => [p.id, p]));
+          const minScore = qp.get("minScore") ? Number(qp.get("minScore")) : SEMANTIC_MIN_SCORE;
+          return J(mapMatches(matches, byId, {
+            category: qp.get("category") ?? undefined,
+            source: qp.get("source") ?? undefined,
+            minScore: Number.isFinite(minScore) ? minScore : SEMANTIC_MIN_SCORE,
+            limit: qp.get("limit") ? Number(qp.get("limit")) : undefined,
+          }));
+        } catch {
+          return J({ error: "semantic search failed" }, 502);
+        }
+      }
+      const sim = path.match(/^\/api\/similar\/(.+)$/);
+      if (sim) {
+        if (!env.VECTORIZE) return J({ error: "semantic search unavailable" }, 503);
+        const id = decodeURIComponent(sim[1]);
+        try {
+          const recs = await env.VECTORIZE.getByIds([id]);
+          if (!recs.length) return J({ error: "not indexed" }, 404);
+          const lim = qp.get("limit") ? Number(qp.get("limit")) : 6;
+          const { matches } = await env.VECTORIZE.query(recs[0].values, { topK: Math.min((Number.isFinite(lim) ? lim : 6) + 1, 100) });
+          const byId = new Map(proverbs.map((p) => [p.id, p]));
+          return J(mapMatches(matches, byId, { excludeId: id, limit: Number.isFinite(lim) ? lim : 6 }));
+        } catch {
+          return J({ error: "similar lookup failed" }, 502);
+        }
       }
       return J({ error: "unknown endpoint" }, 404);
     } catch {
