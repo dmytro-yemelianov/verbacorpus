@@ -217,3 +217,8 @@ a { color: var(--willow); text-underline-offset: 2px; }
   .search-wrap { flex-wrap: wrap; row-gap: .45rem; align-items: center; }
   #q { flex: 1 1 100%; }
 }
+
+.more-btn { display: block; margin: 1.4rem auto 0; font-family: var(--sans); font-size: .82rem; letter-spacing: .02em;
+  cursor: pointer; background: none; border: 1px solid var(--rule); color: var(--ink); border-radius: 999px; padding: .55rem 1.4rem;
+  transition: background .15s, color .15s, border-color .15s; }
+.more-btn:hover { background: var(--willow); color: #fff; border-color: var(--willow); }

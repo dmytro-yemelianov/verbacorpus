@@ -1,9 +1,11 @@
 import MiniSearch from "minisearch";
-import { searchProverbs, type Proverb } from "../shared/corpus";
+import { type Proverb } from "../shared/corpus";
+import { isPresentable, deckFor, toggleSaved, nextShown } from "../shared/browse";
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 
 let all: Proverb[] = [];
+let byId = new Map<string, Proverb>();
 let meta: { count: number; taxonomy: Record<string, string>; sources: Array<{ key: string; title: string; year: string; author: string }> };
 let mini: MiniSearch<Proverb>;
 let presentable: Proverb[] = [];
@@ -39,11 +41,6 @@ function plural(n: number, forms: [string, string, string]): string {
 function catLabel(k: string): string { return meta.taxonomy[k] ?? k; }
 function srcLabel(k: string): string { return SOURCE_LABELS[k] ?? k; }
 
-// Curate the landing/hero so first impressions aren't OCR fragments.
-function isPresentable(p: Proverb): boolean {
-  const t = p.text.trim();
-  return t.length >= 18 && t.length <= 90 && t.split(/\s+/).length >= 4 && /^[А-ЯІЇЄҐ]/.test(t);
-}
 function differs(p: Proverb): boolean {
   return !!p.modern_text && p.modern_text.trim() !== p.text.trim();
 }
@@ -66,8 +63,9 @@ async function boot() {
     fetch("/data/meta.json").then((r) => r.json()),
   ]);
   all = proverbs;
+  byId = new Map(all.map((p) => [p.id, p]));
   meta = metaData;
-  presentable = all.filter(isPresentable);
+  presentable = all.filter((p) => isPresentable(p.text));
   landingSample = sample(presentable.length ? presentable : all, 40);
   mini = new MiniSearch<Proverb>({ fields: ["text", "modern_text"], storeFields: ["id"], idField: "id" });
   mini.addAll(all);
@@ -142,11 +140,11 @@ async function renderResults() {
     $("count").textContent = "Пошук за змістом…";
     try {
       const url = `/api/semantic?q=${encodeURIComponent(q)}` +
-        (activeCat ? `&category=${activeCat}` : "") + (activeSource ? `&source=${activeSource}` : "") + "&limit=80";
+        (activeCat ? `&category=${activeCat}` : "") + (activeSource ? `&source=${activeSource}` : "") + "&limit=100";
       const data = await fetch(url).then((r) => r.json());
       if (seq !== renderSeq) return;
       $("count").textContent = `За змістом: ${fmt(data.total)}`;
-      paintEntries(data.results, "За змістом", true);
+      showResults(data.results, "За змістом", true);
     } catch {
       $("count").textContent = "";
       $("results").innerHTML = `<p class="empty">Семантичний пошук недоступний. Спробуйте звичайний пошук.</p>`;
@@ -155,32 +153,46 @@ async function renderResults() {
   }
 
   const filtering = !!(q || activeCat || activeSource);
-  let head: string, count: string, results: Proverb[];
   if (!filtering) {
-    results = landingSample; head = "Навмання з корпусу"; count = `${fmt(meta.count)} всього`;
-  } else {
-    let pool = all;
-    if (q) {
-      const ids = new Set(mini.search(q, { prefix: true, fuzzy: 0.2 }).map((r) => r.id as string));
-      pool = all.filter((p) => ids.has(p.id));
-    }
-    const r = searchProverbs(pool, { category: activeCat || undefined, source: activeSource || undefined, limit: 80 });
-    results = r.results; head = "Результати"; count = `Знайдено ${fmt(r.total)}`;
+    $("count").textContent = `${fmt(meta.count)} всього`;
+    showResults(landingSample, "Навмання з корпусу", false);
+    return;
   }
-  $("count").textContent = count;
-  paintEntries(results, head, false);
+  let pool = all;
+  if (q) {
+    const ids = new Set(mini.search(q, { prefix: true, fuzzy: 0.2 }).map((r) => r.id as string));
+    pool = all.filter((p) => ids.has(p.id));
+  }
+  let resultsAll = pool;
+  if (activeCat) resultsAll = resultsAll.filter((p) => p.category.includes(activeCat));
+  if (activeSource) resultsAll = resultsAll.filter((p) => p.sources.includes(activeSource));
+  $("count").textContent = `Знайдено ${fmt(resultsAll.length)}`;
+  showResults(resultsAll, "Результати", false);
 }
 
-function paintEntries(results: Array<Proverb & { score?: number }>, head: string, showScore: boolean) {
-  if (!results.length) {
+let pageResults: Array<Proverb & { score?: number }> = [];
+let pageHead = "";
+let pageShowScore = false;
+let shown = 80;
+const STEP = 80;
+
+function showResults(results: Array<Proverb & { score?: number }>, head: string, showScore: boolean) {
+  pageResults = results; pageHead = head; pageShowScore = showScore; shown = Math.min(STEP, results.length || STEP);
+  renderPage();
+}
+
+function renderPage() {
+  if (!pageResults.length) {
     $("results").innerHTML = `<p class="empty">Нічого не знайдено. Спробуйте інше слово або зніміть фільтри.</p>`;
     return;
   }
+  const page = pageResults.slice(0, shown);
+  const more = shown < pageResults.length;
   $("results").innerHTML =
-    `<p class="results-head">${head}</p>` +
-    results.map((p) =>
+    `<p class="results-head">${esc(pageHead)} · показано ${fmt(page.length)} з ${fmt(pageResults.length)}</p>` +
+    page.map((p) =>
       `<article class="entry" data-id="${esc(p.id)}">
-        <div class="entry-cat">№&nbsp;${esc(p.id.replace(/^p0*/, ""))}${showScore && p.score !== undefined ? `<br><span class="entry-score">${p.score.toFixed(2)}</span>` : ""}</div>
+        <div class="entry-cat">№&nbsp;${esc(p.id.replace(/^p0*/, ""))}${pageShowScore && p.score !== undefined ? `<br><span class="entry-score">${p.score.toFixed(2)}</span>` : ""}</div>
         <div>
           <div class="entry-text">${esc(p.text)}</div>
           ${differs(p) ? `<div class="entry-modern">${esc(p.modern_text)}</div>` : ""}
@@ -189,13 +201,13 @@ function paintEntries(results: Array<Proverb & { score?: number }>, head: string
             <span class="tag-src">${esc(p.sources.map(srcLabel).join(" · "))}</span>
           </div>
         </div>
-      </article>`).join("");
+      </article>`).join("") +
+    (more ? `<button id="moreBtn" class="more-btn" type="button">Показати ще</button>` : "");
   for (const el of Array.from(document.querySelectorAll<HTMLElement>(".entry"))) {
-    el.addEventListener("click", () => {
-      const p = all.find((x) => x.id === el.dataset.id);
-      if (p) openDetail(p);
-    });
+    el.addEventListener("click", () => { const p = byId.get(el.dataset.id!); if (p) openDetail(p); });
   }
+  const moreBtn = $("moreBtn") as HTMLButtonElement | null;
+  if (moreBtn) moreBtn.addEventListener("click", () => { shown = nextShown(shown, STEP, pageResults.length); renderPage(); });
 }
 
 async function openDetail(p: Proverb) {
@@ -233,7 +245,7 @@ async function openDetail(p: Proverb) {
       sec.innerHTML = `<h4>Схожі прислів'я</h4><ul>${data.results.map((s: Proverb) => `<li data-id="${esc(s.id)}">${esc(s.text)}</li>`).join("")}</ul>`;
       form.insertBefore(sec, form.querySelector(".detail-close"));
       for (const li of Array.from(sec.querySelectorAll<HTMLElement>("li"))) {
-        li.addEventListener("click", () => { const sp = all.find((x) => x.id === li.dataset.id); if (sp) { dlg.close(); openDetail(sp); } });
+        li.addEventListener("click", () => { const sp = byId.get(li.dataset.id!); if (sp) { dlg.close(); openDetail(sp); } });
       }
     }).catch(() => {});
   }
