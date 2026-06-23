@@ -11,6 +11,7 @@ let landingSample: Proverb[] = [];
 let explCache: Record<string, string> | null = null;
 let activeCat = "";
 let activeSource = "";
+let semanticMode = false;
 
 const SOURCE_LABELS: Record<string, string> = {
   Franko1901: "Франко 1901",
@@ -24,7 +25,7 @@ function esc(s: string): string {
   return s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]!));
 }
 function fmt(n: number): string {
-  return n.toLocaleString("uk-UA").replace(/[ ,\s]/g, " ");
+  return n.toLocaleString("uk-UA").replace(/[ ,\s]/g, " ");
 }
 function catLabel(k: string): string { return meta.taxonomy[k] ?? k; }
 function srcLabel(k: string): string { return SOURCE_LABELS[k] ?? k; }
@@ -69,6 +70,19 @@ async function boot() {
   renderResults();
 
   $<HTMLInputElement>("q").addEventListener("input", debounce(renderResults, 180));
+
+  const semBtn = $("semToggle") as HTMLButtonElement;
+  const syncOnline = () => { if (!navigator.onLine) { semanticMode = false; semBtn.setAttribute("aria-checked", "false"); } semBtn.disabled = !navigator.onLine; };
+  syncOnline();
+  window.addEventListener("online", syncOnline);
+  window.addEventListener("offline", syncOnline);
+  semBtn.addEventListener("click", () => {
+    if (semBtn.disabled) return;
+    semanticMode = !semanticMode;
+    semBtn.setAttribute("aria-checked", String(semanticMode));
+    renderResults();
+  });
+
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js");
 }
 
@@ -111,15 +125,28 @@ function renderFilters() {
   }
 }
 
-function renderResults() {
-  const q = $<HTMLInputElement>("q").value.trim();
-  const filtering = !!(q || activeCat || activeSource);
+async function renderResults() {
+  const q = ($("q") as HTMLInputElement).value.trim();
 
+  if (semanticMode && q) {
+    $("count").textContent = "Пошук за змістом…";
+    try {
+      const url = `/api/semantic?q=${encodeURIComponent(q)}` +
+        (activeCat ? `&category=${activeCat}` : "") + (activeSource ? `&source=${activeSource}` : "") + "&limit=80";
+      const data = await fetch(url).then((r) => r.json());
+      $("count").textContent = `За змістом: ${fmt(data.total)}`;
+      paintEntries(data.results, "За змістом", true);
+    } catch {
+      $("count").textContent = "";
+      $("results").innerHTML = `<p class="empty">Семантичний пошук недоступний. Спробуйте звичайний пошук.</p>`;
+    }
+    return;
+  }
+
+  const filtering = !!(q || activeCat || activeSource);
   let head: string, count: string, results: Proverb[];
   if (!filtering) {
-    results = landingSample;
-    head = "Навмання з корпусу";
-    count = `${fmt(meta.count)} всього`;
+    results = landingSample; head = "Навмання з корпусу"; count = `${fmt(meta.count)} всього`;
   } else {
     let pool = all;
     if (q) {
@@ -127,13 +154,14 @@ function renderResults() {
       pool = all.filter((p) => ids.has(p.id));
     }
     const r = searchProverbs(pool, { category: activeCat || undefined, source: activeSource || undefined, limit: 80 });
-    results = r.results;
-    head = "Результати";
-    count = `Знайдено ${fmt(r.total)}`;
+    results = r.results; head = "Результати"; count = `Знайдено ${fmt(r.total)}`;
   }
   $("count").textContent = count;
+  paintEntries(results, head, false);
+}
 
-  if (results.length === 0) {
+function paintEntries(results: Array<Proverb & { score?: number }>, head: string, showScore: boolean) {
+  if (!results.length) {
     $("results").innerHTML = `<p class="empty">Нічого не знайдено. Спробуйте інше слово або зніміть фільтри.</p>`;
     return;
   }
@@ -141,7 +169,7 @@ function renderResults() {
     `<p class="results-head">${head}</p>` +
     results.map((p) =>
       `<article class="entry" data-id="${p.id}">
-        <div class="entry-cat">№&nbsp;${esc(p.id.replace(/^p0*/, ""))}</div>
+        <div class="entry-cat">№&nbsp;${esc(p.id.replace(/^p0*/, ""))}${showScore && p.score !== undefined ? `<br><span class="entry-score">${p.score.toFixed(2)}</span>` : ""}</div>
         <div>
           <div class="entry-text">${esc(p.text)}</div>
           ${differs(p) ? `<div class="entry-modern">${esc(p.modern_text)}</div>` : ""}
@@ -183,6 +211,22 @@ async function openDetail(p: Proverb) {
       <div class="detail-meta">${p.category.map((c) => `<span class="tag">${esc(catLabel(c))}</span>`).join("")}<span>${cite}</span></div>
       <button class="detail-close" type="submit" value="close">Закрити</button>
     </form>`;
+
+  if (navigator.onLine) {
+    fetch(`/api/similar/${encodeURIComponent(p.id)}?limit=6`).then((r) => r.json()).then((data) => {
+      if (!data.results || !data.results.length) return;
+      const form = dlg.querySelector(".detail-inner");
+      if (!form) return;
+      const sec = document.createElement("div");
+      sec.className = "detail-similar";
+      sec.innerHTML = `<h4>Схожі прислів'я</h4><ul>${data.results.map((s: Proverb) => `<li data-id="${s.id}">${esc(s.text)}</li>`).join("")}</ul>`;
+      form.insertBefore(sec, form.querySelector(".detail-close"));
+      for (const li of Array.from(sec.querySelectorAll<HTMLElement>("li"))) {
+        li.addEventListener("click", () => { const sp = all.find((x) => x.id === li.dataset.id); if (sp) { dlg.close(); openDetail(sp); } });
+      }
+    }).catch(() => {});
+  }
+
   dlg.showModal();
 }
 
