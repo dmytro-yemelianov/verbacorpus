@@ -11,11 +11,25 @@ A Cloudflare Worker serves a searchable, offline-capable PWA and a JSON REST API
 (in `app/`, mirroring the ua-bez-tabu stack). Live: **https://ukr-proverbs-corpus.miwaniza.workers.dev**
 
 REST API:
-- `GET /api/search?q=&category=&source=&limit=&offset=` → `{total, results}`
+- `GET /api/search?q=&category=&source=&limit=&offset=` → `{total, results}` (lexical)
+- `GET /api/semantic?q=&category=&source=&limit=&minScore=` → `{total, results}` (meaning-based; see below)
+- `GET /api/similar/:id?limit=` → semantically similar proverbs
 - `GET /api/proverb/:id` → proverb + explanation
 - `GET /api/random?category=&source=` → one random proverb
 - `GET /api/categories` → 27 themes with counts
 - `GET /api/meta` → corpus metadata
+
+### Semantic search (embeddings + Vectorize)
+
+The PWA's **«за змістом»** toggle and the **«Схожі прислів'я»** detail section are powered by
+Workers AI `@cf/baai/bge-m3` embeddings stored in a Cloudflare **Vectorize** index (`proverbs-bge-m3`).
+Lexical search stays the offline default; semantic search is opt-in and network-only.
+
+Build/refresh the index (incremental — embeds only new/changed entries; **requires the Workers Paid plan**
+plus an API token with `Vectorize:Edit` + `Workers AI:Read`):
+```bash
+CLOUDFLARE_ACCOUNT_ID=<acct> python -m embed.run   # uses embed/manifest.json as incremental state
+```
 
 Run locally:
 ```bash
