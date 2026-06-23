@@ -32,4 +32,20 @@ describe("randomProverb", () => {
     expect(p?.sources).toContain("Bobkova");
     expect(randomProverb([], {})).toBeNull();
   });
+
+  it("samples full filtered pool, not capped to 200", () => {
+    // Create an array of 250 proverbs all with source "Bobkova"
+    const bigData: Proverb[] = Array.from({ length: 250 }, (_, i) => ({
+      id: `p${i}`,
+      text: `Proverb ${i}`,
+      modern_text: `Modern Proverb ${i}`,
+      category: ["test"],
+      sources: ["Bobkova"],
+      variant_group: "",
+    }));
+
+    // With rnd = 0.999, Math.floor(0.999 * 250) = 249, so we should get p249
+    const result = randomProverb(bigData, { source: "Bobkova" }, () => 0.999);
+    expect(result?.id).toBe("p249");
+  });
 });
