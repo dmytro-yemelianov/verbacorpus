@@ -33,7 +33,12 @@ def segment_page(raw_text: str) -> list[str]:
                 proverbs.append(_finish(buf))
                 buf = []
         else:
-            buf.append(line.strip())
+            stripped = line.strip()
+            # De-hyphenate: if previous line ends with hyphen, join without space
+            if buf and buf[-1] and buf[-1][-1] in ('-', '‐', '¬'):
+                buf[-1] = buf[-1][:-1] + stripped
+            else:
+                buf.append(stripped)
     if buf:
         proverbs.append(_finish(buf))
     return [p for p in proverbs if p]

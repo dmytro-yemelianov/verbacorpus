@@ -22,3 +22,8 @@ def test_segments_drops_junk_joins_wraps():
 
 def test_empty_page():
     assert segment_page("\n\n12\nж\n") == []
+
+
+def test_dehyphenates_line_breaks():
+    raw = "Кого біда учепиться, то на спину сте-\nребиться.\n"
+    assert segment_page(raw) == ["Кого біда учепиться, то на спину стеребиться."]
