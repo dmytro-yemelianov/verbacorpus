@@ -107,6 +107,7 @@ async function boot() {
     if (semBtn.disabled) return;
     semanticMode = !semanticMode;
     semBtn.setAttribute("aria-checked", String(semanticMode));
+    savedView = false; $("savedBtn").classList.remove("active");
     renderResults();
   });
 
@@ -236,7 +237,7 @@ function renderPage() {
     el.addEventListener("click", () => { const p = byId.get(el.dataset.id!); if (p) openDetail(p); });
   }
   for (const b of Array.from(document.querySelectorAll<HTMLElement>(".entry-save"))) {
-    b.addEventListener("click", (e) => { e.stopPropagation(); setSaved(b.dataset.save!); b.classList.toggle("on"); b.setAttribute("aria-pressed", String(isSavedId(b.dataset.save!))); if (savedView) renderSavedView(); });
+    b.addEventListener("click", (e) => { e.stopPropagation(); setSaved(b.dataset.save!); if (!savedView) { b.classList.toggle("on"); b.setAttribute("aria-pressed", String(isSavedId(b.dataset.save!))); } });
   }
   const moreBtn = $("moreBtn") as HTMLButtonElement | null;
   if (moreBtn) moreBtn.addEventListener("click", () => { shown = nextShown(shown, STEP, pageResults.length); renderPage(); });
