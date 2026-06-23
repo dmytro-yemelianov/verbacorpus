@@ -6,7 +6,7 @@
 
 **Architecture:** 3 small TDD modules (`expand/segment.py`, `expand/spellcheck.py`, `expand/consolidate_pages.py`). OCR (pdftoppm+tesseract), the LLM verify-residuals pass, and re-ingest are controller-run, reusing SP3a's `adapters/bobkova.py`, `build.py` hook, and `expand/reattach.py` unchanged.
 
-**Tech Stack:** pdftoppm + tesseract-ocr(ukr) + hunspell-uk; Python 3 (pandas, rapidfuzz, pytest); Workflow tool (haiku) for verify-residuals + net-new categorize.
+**Tech Stack:** pdftoppm + **tesseract 5.5.2** (alex-p PPA) with the **`tessdata_best` ukr model**, config **`--psm 6 --oem 1 -r 300`** + hunspell-uk; Python 3 (pandas, rapidfuzz, pytest); Workflow tool (haiku) for verify-residuals + net-new categorize.
 
 **Spec:** `docs/superpowers/specs/2026-06-23-ukr-proverbs-expansion-bobkova-full.md`
 
@@ -280,14 +280,19 @@ git commit -m "feat(expand): apply OCR corrections, preserve order"
 
 Controller-run.
 
-- [ ] **Step 1: Install hunspell-uk** non-interactively (the plain install hangs on a debconf dialog):
-  `sudo -n DEBIAN_FRONTEND=noninteractive apt-get install -y hunspell-uk`. Confirm
-  `/usr/share/hunspell/uk_UA.dic` exists (else fall back to corpus-only vocab — spec §10).
+**OCR engine (locked, validated on sample):** tesseract **5.5.2** (alex-p PPA, already installed) with
+the **`tessdata_best` ukr model** at `expand/work/tessdata_best/ukr.traineddata` (10.9 MB float LSTM,
+already downloaded; re-fetch from `github.com/tesseract-ocr/tessdata_best/raw/main/ukr.traineddata` if
+missing). Config: **`--psm 6 --oem 1 -r 300`** (PSM 6 = uniform text block, fixed the capitalization
+that default PSM 3 got wrong on the sample).
+
+- [ ] **Step 1: Ensure tooling** — `hunspell-uk` (`sudo -n DEBIAN_FRONTEND=noninteractive NEEDRESTART_MODE=a apt-get install -y hunspell-uk`; confirm `/usr/share/hunspell/uk_UA.dic`, else corpus-only vocab — spec §10); tesseract 5.5.2 present (`tesseract --version`); `expand/work/tessdata_best/ukr.traineddata` present.
 - [ ] **Step 2: Download PDF** from the Dropbox URL in the WIP `sources.csv` → `data/sources/bobkova.pdf`
   (the working copy at `/tmp/bobkova.pdf` may already exist; copy it).
 - [ ] **Step 3: OCR pp.19–516**, page by page to bound disk: for each page `n`,
   `pdftoppm -f n -l n -r 300 -png data/sources/bobkova.pdf <tmp>/pg` then
-  `tesseract <tmp>/pg-*.png stdout -l ukr` → write `expand/work/ocr/<n>.txt`; delete the PNG.
+  `tesseract <tmp>/pg-NNN.png stdout -l ukr --psm 6 --oem 1 --tessdata-dir expand/work/tessdata_best`
+  → write `expand/work/ocr/<n>.txt`; delete the PNG.
   (Color-profile `Syntax Warning`s from pdftoppm are harmless.)
 - [ ] **Step 4: Sanity** — ~498 page text files; spot-check 3 against the rendered pages.
 
