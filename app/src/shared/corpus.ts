@@ -41,3 +41,22 @@ export function randomProverb(
   if (pool.length === 0) return null;
   return pool[Math.floor(rnd() * pool.length)];
 }
+
+export function queryProverbs(
+  all: Proverb[],
+  opts: { category?: string; source?: string; variant_group?: string; has_explanation?: boolean; explanationIds?: Set<string>; limit?: number; offset?: number },
+): { total: number; results: Proverb[] } {
+  const limit = Math.min(Math.max(opts.limit ?? 50, 1), 200);
+  const offset = Math.max(opts.offset ?? 0, 0);
+  const matched = all.filter((p) => {
+    if (opts.category && !p.category.includes(opts.category)) return false;
+    if (opts.source && !p.sources.includes(opts.source)) return false;
+    if (opts.variant_group && p.variant_group !== opts.variant_group) return false;
+    if (opts.has_explanation !== undefined) {
+      const has = opts.explanationIds?.has(p.id) ?? false;
+      if (has !== opts.has_explanation) return false;
+    }
+    return true;
+  });
+  return { total: matched.length, results: matched.slice(offset, offset + limit) };
+}
