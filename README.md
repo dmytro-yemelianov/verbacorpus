@@ -52,6 +52,14 @@ npx wrangler dev        # http://127.0.0.1:8787
 npx vitest run          # API + search tests
 ```
 
+## Releases & citation
+
+The corpus is versioned (SemVer-for-data) and published as **[GitHub Releases](https://github.com/MurzikVasilyevich/verbacorpus/releases)** — each tag bundles `corpus.csv/json/jsonl/xml`, the data card, and the Croissant metadata. The current version (`VERSION`) is also stamped into `meta.json`, so the site (verbacorpus.org) and the API (`/api/v1/meta`) report which snapshot they serve.
+
+- **Data card:** [`DATACARD.md`](DATACARD.md) (Datasheets-for-Datasets) · **machine-readable:** [`croissant.json`](croissant.json) (MLCommons Croissant) · **changes:** [`CHANGELOG.md`](CHANGELOG.md)
+- **Cite:** see [`CITATION.cff`](CITATION.cff) (GitHub's "Cite this repository") — Yemelianov, Dmytro (2026). *verba — Ukrainian Proverbs Corpus* (v1.0.0).
+- **License:** compilation + enrichment **CC BY 4.0**; historical source texts public domain; modern-collection texts under their publishers' rights (see the data card).
+
 ## Contents
 - `corpus.csv` — canonical source-of-truth (48787 entries).
 - `corpus.json` — richer export (categories as arrays, per-source annotations).
@@ -104,7 +112,7 @@ python -m pytest     # run the test suite
 
 ## Known limitations
 - `sources.csv` carries `Citationkey, Title, Year, Author` only — the upstream source files provide no BibTeX/Year/Author metadata, so BibTeX output (mentioned in the spec) is omitted for lack of source data; Year and Author were added by hand where known.
-- Variant groups are link-only (non-destructive): records are grouped by fuzzy similarity (rapidfuzz `token_set_ratio` ≥ 85), never merged; groups larger than 8 are dissolved to curb over-linking. Final: 3413 groups.
+- Variant groups are link-only (non-destructive): records are grouped by fuzzy similarity (rapidfuzz `token_set_ratio` ≥ 85), never merged; groups larger than 8 are dissolved to curb over-linking. Final: 5064 groups.
 - Categorization is best-effort, single-pass: a quality audit (n=40) found modern_text ~95% acceptable and category tags ~85% acceptable (~15% debatable/wrong, usually secondary tags or themes outside the 27-key vocabulary). The primary category tag is the most reliable.
 
 ## Stats (last build)
