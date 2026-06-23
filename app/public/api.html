@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#7A2E3A" />
+  <meta name="description" content="REST API корпусу українських прислів'їв — документація, параметри та приклади curl." />
+  <title>API — українські прислів'я</title>
+  <link rel="stylesheet" href="/fonts/spectral.css" />
+  <link rel="stylesheet" href="/styles.css" />
+  <style>
+    .api-intro { font-family: var(--serif); font-size: 1.08rem; color: var(--muted); max-width: var(--measure); margin: 1.6rem 0 0; line-height: 1.6; }
+    .api-section { margin-top: 3rem; }
+    .api-section h2 { font-family: var(--serif); font-weight: 500; font-size: 1.55rem; margin: 0 0 .25rem; letter-spacing: -.01em; }
+    .api-section .section-desc { color: var(--muted); font-size: .92rem; margin: 0 0 1.2rem; max-width: var(--measure); }
+    .endpoint { border-top: 1px solid var(--rule); padding: 1.4rem 0 1rem; }
+    .endpoint:last-child { border-bottom: 1px solid var(--rule); }
+    .ep-line { display: flex; align-items: baseline; gap: .85rem; flex-wrap: wrap; margin-bottom: .5rem; }
+    .ep-method { font-family: var(--mono); font-size: .72rem; letter-spacing: .08em; font-weight: 700; color: #fff; background: var(--wine); border-radius: 3px; padding: .18rem .45rem; }
+    .ep-path { font-family: var(--mono); font-size: 1rem; color: var(--ink); }
+    .ep-summary { font-size: .9rem; color: var(--muted); }
+    .ep-desc { font-size: .88rem; color: var(--muted); max-width: var(--measure); margin: .35rem 0 .9rem; line-height: 1.55; }
+    .params { width: 100%; border-collapse: collapse; font-size: .83rem; margin-bottom: 1rem; }
+    .params th { text-align: left; font-size: .68rem; letter-spacing: .12em; text-transform: uppercase; color: var(--faint); border-bottom: 1px solid var(--rule); padding: .3rem .5rem .3rem 0; font-weight: 600; }
+    .params td { padding: .4rem .5rem .4rem 0; border-bottom: 1px solid var(--rule); vertical-align: top; }
+    .params tr:last-child td { border-bottom: none; }
+    .param-name { font-family: var(--mono); font-size: .82rem; color: var(--ink); }
+    .param-type { font-family: var(--mono); font-size: .76rem; color: var(--faint); }
+    .curl-block { margin: .7rem 0 0; }
+    .curl-label { font-size: .68rem; letter-spacing: .12em; text-transform: uppercase; color: var(--faint); font-weight: 600; margin-bottom: .3rem; }
+    .curl-example { background: var(--paper-2); border: 1px solid var(--rule); border-radius: 4px; padding: .6rem .85rem; font-family: var(--mono); font-size: .8rem; color: var(--ink); overflow-x: auto; white-space: pre; line-height: 1.55; }
+    .badge-formats { display: flex; flex-wrap: wrap; gap: .3rem .45rem; margin: .8rem 0 .2rem; }
+    .badge { font-family: var(--mono); font-size: .72rem; color: var(--muted); border: 1px solid var(--rule); border-radius: 3px; padding: .15rem .45rem; }
+    .negotiate-note { font-size: .82rem; color: var(--muted); margin: 1.4rem 0 0; max-width: var(--measure); line-height: 1.55; }
+    .negotiate-note code { font-family: var(--mono); font-size: .8em; background: var(--paper-2); border: 1px solid var(--rule); border-radius: 2px; padding: .05rem .3rem; }
+    .openapi-link { display: inline-block; margin-top: 1rem; font-size: .85rem; }
+    @media (max-width: 620px) {
+      .ep-line { gap: .5rem; }
+      .params { font-size: .79rem; }
+      .curl-example { font-size: .72rem; }
+    }
+  </style>
+</head>
+<body>
+  <header class="masthead">
+    <div class="wrap mast-inner">
+      <p class="eyebrow"><a href="/">← Корпус народної мудрості</a></p>
+      <h1 class="wordmark">API</h1>
+      <p class="standfirst">REST API корпусу українських прислів'їв — JSON, JSONL, XML, CSV та TSV.</p>
+    </div>
+  </header>
+
+  <main class="wrap" style="padding-block: 1.4rem 4rem;">
+
+    <p class="api-intro">
+      Базовий шлях: <code style="font-family:var(--mono);font-size:.9em;background:var(--paper-2);border:1px solid var(--rule);border-radius:2px;padding:.05rem .3rem;">https://ukr-proverbs-corpus.miwaniza.workers.dev/api/v1</code>.
+      Усі ендпоінти публічні, CORS відкрито (<code style="font-family:var(--mono);font-size:.9em;background:var(--paper-2);border:1px solid var(--rule);border-radius:2px;padding:.05rem .3rem;">*</code>), без ключа.
+    </p>
+
+    <p class="negotiate-note">
+      <strong>Формат відповіді</strong> обирається через параметр <code>?format=json|jsonl|xml|csv|tsv</code>
+      або заголовок <code>Accept</code> (наприклад <code>Accept: application/x-ndjson</code>).
+      За замовчуванням — <code>json</code>.
+      Ендпоінти колекцій повертають заголовок <code>X-Total-Count</code> із загальною кількістю результатів.
+    </p>
+
+    <div class="badge-formats">
+      <span class="badge">application/json</span>
+      <span class="badge">application/x-ndjson</span>
+      <span class="badge">application/xml</span>
+      <span class="badge">text/csv</span>
+      <span class="badge">text/tab-separated-values</span>
+    </div>
+
+    <a class="openapi-link" href="/api/v1/openapi.json">OpenAPI 3.0.3 специфікація (JSON) →</a>
+
+    <!-- ── SEARCH ─────────────────────────────────────────────────── -->
+    <section class="api-section">
+      <h2>Пошук</h2>
+      <p class="section-desc">Повнотекстовий і семантичний пошук по корпусу.</p>
+
+      <div class="endpoint">
+        <div class="ep-line">
+          <span class="ep-method">GET</span>
+          <span class="ep-path">/api/v1/search</span>
+          <span class="ep-summary">Повнотекстовий пошук</span>
+        </div>
+        <p class="ep-desc">Шукає прислів'я за ключовим словом (MiniSearch). Без <code style="font-family:var(--mono)">q</code> повертає весь корпус із пагінацією.</p>
+        <table class="params">
+          <thead><tr><th>Параметр</th><th>Тип</th><th>Опис</th></tr></thead>
+          <tbody>
+            <tr><td class="param-name">q</td><td class="param-type">string</td><td>Пошуковий запит.</td></tr>
+            <tr><td class="param-name">category</td><td class="param-type">string</td><td>Ключ теми (напр. <code style="font-family:var(--mono)">work_labor</code>).</td></tr>
+            <tr><td class="param-name">source</td><td class="param-type">string</td><td>Ідентифікатор джерела (напр. <code style="font-family:var(--mono)">Franko1901</code>).</td></tr>
+            <tr><td class="param-name">limit</td><td class="param-type">integer</td><td>Кількість (1–200, за замовч. 50).</td></tr>
+            <tr><td class="param-name">offset</td><td class="param-type">integer</td><td>Зміщення для пагінації.</td></tr>
+            <tr><td class="param-name">format</td><td class="param-type">enum</td><td>json · jsonl · xml · csv · tsv</td></tr>
+          </tbody>
+        </table>
+        <div class="curl-block">
+          <p class="curl-label">Приклади</p>
+          <pre class="curl-example">curl 'https://ukr-proverbs-corpus.miwaniza.workers.dev/api/v1/search?q=гроші&format=csv'</pre>
+          <pre class="curl-example" style="margin-top:.5rem">curl 'https://ukr-proverbs-corpus.miwaniza.workers.dev/api/v1/search?q=праця&source=Franko1901&limit=10'</pre>
+          <pre class="curl-example" style="margin-top:.5rem">curl -H 'Accept: application/x-ndjson' \
+  'https://ukr-proverbs-corpus.miwaniza.workers.dev/api/v1/search?q=вода'</pre>
+        </div>
+      </div>
+
+      <div class="endpoint">
+        <div class="ep-line">
+          <span class="ep-method">GET</span>
+          <span class="ep-path">/api/v1/semantic</span>
+          <span class="ep-summary">Семантичний пошук</span>
+        </div>
+        <p class="ep-desc">Вбудовує запит через BGE-M3 і знаходить найближчі прислів'я через Vectorize. Результати містять поле <code style="font-family:var(--mono)">score</code> (0–1).</p>
+        <table class="params">
+          <thead><tr><th>Параметр</th><th>Тип</th><th>Опис</th></tr></thead>
+          <tbody>
+            <tr><td class="param-name">q <span style="color:var(--wine);font-size:.75em">*</span></td><td class="param-type">string</td><td>Природномовний запит.</td></tr>
+            <tr><td class="param-name">category</td><td class="param-type">string</td><td>Фільтр за темою.</td></tr>
+            <tr><td class="param-name">source</td><td class="param-type">string</td><td>Фільтр за джерелом.</td></tr>
+            <tr><td class="param-name">minScore</td><td class="param-type">float</td><td>Мінімальний поріг схожості (0–1, за замовч. 0.4).</td></tr>
+            <tr><td class="param-name">limit</td><td class="param-type">integer</td><td>Кількість результатів.</td></tr>
+            <tr><td class="param-name">format</td><td class="param-type">enum</td><td>json · jsonl · xml · csv · tsv</td></tr>
+          </tbody>
+        </table>
+        <div class="curl-block">
+          <p class="curl-label">Приклад</p>
+          <pre class="curl-example">curl 'https://ukr-proverbs-corpus.miwaniza.workers.dev/api/v1/semantic?q=важка+праця+приносить+плоди'</pre>
+          <pre class="curl-example" style="margin-top:.5rem">curl 'https://ukr-proverbs-corpus.miwaniza.workers.dev/api/v1/semantic?q=дружба&minScore=0.5&format=tsv'</pre>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── BROWSE ─────────────────────────────────────────────────── -->
+    <section class="api-section">
+      <h2>Перегляд</h2>
+      <p class="section-desc">Фільтрація, випадкові записи та масове вивантаження.</p>
+
+      <div class="endpoint">
+        <div class="ep-line">
+          <span class="ep-method">GET</span>
+          <span class="ep-path">/api/v1/random</span>
+          <span class="ep-summary">Випадкові прислів'я</span>
+        </div>
+        <p class="ep-desc">Повертає одне або кілька випадкових прислів'їв, за потреби з фільтром.</p>
+        <table class="params">
+          <thead><tr><th>Параметр</th><th>Тип</th><th>Опис</th></tr></thead>
+          <tbody>
+            <tr><td class="param-name">n</td><td class="param-type">integer</td><td>Кількість (1–50, за замовч. 1).</td></tr>
+            <tr><td class="param-name">category</td><td class="param-type">string</td><td>Фільтр за темою.</td></tr>
+            <tr><td class="param-name">source</td><td class="param-type">string</td><td>Фільтр за джерелом.</td></tr>
+            <tr><td class="param-name">format</td><td class="param-type">enum</td><td>json · jsonl · xml · csv · tsv</td></tr>
+          </tbody>
+        </table>
+        <div class="curl-block">
+          <p class="curl-label">Приклади</p>
+          <pre class="curl-example">curl 'https://ukr-proverbs-corpus.miwaniza.workers.dev/api/v1/random?n=3'</pre>
+          <pre class="curl-example" style="margin-top:.5rem">curl 'https://ukr-proverbs-corpus.miwaniza.workers.dev/api/v1/random?n=5&category=family&format=xml'</pre>
+        </div>
+      </div>
+
+      <div class="endpoint">
+        <div class="ep-line">
+          <span class="ep-method">GET</span>
+          <span class="ep-path">/api/v1/query</span>
+          <span class="ep-summary">Структурований фільтр</span>
+        </div>
+        <p class="ep-desc">Фільтрує корпус за темою, джерелом, групою варіантів або наявністю пояснення. Без параметрів повертає всі записи з пагінацією.</p>
+        <table class="params">
+          <thead><tr><th>Параметр</th><th>Тип</th><th>Опис</th></tr></thead>
+          <tbody>
+            <tr><td class="param-name">category</td><td class="param-type">string</td><td>Ключ теми.</td></tr>
+            <tr><td class="param-name">source</td><td class="param-type">string</td><td>Ідентифікатор джерела.</td></tr>
+            <tr><td class="param-name">variant_group</td><td class="param-type">string</td><td>Група варіантів.</td></tr>
+            <tr><td class="param-name">has_explanation</td><td class="param-type">boolean</td><td><code style="font-family:var(--mono)">true</code> — тільки з поясненнями.</td></tr>
+            <tr><td class="param-name">limit</td><td class="param-type">integer</td><td>Кількість (1–200, за замовч. 50).</td></tr>
+            <tr><td class="param-name">offset</td><td class="param-type">integer</td><td>Зміщення.</td></tr>
+            <tr><td class="param-name">format</td><td class="param-type">enum</td><td>json · jsonl · xml · csv · tsv</td></tr>
+          </tbody>
+        </table>
+        <div class="curl-block">
+          <p class="curl-label">Приклади</p>
+          <pre class="curl-example">curl 'https://ukr-proverbs-corpus.miwaniza.workers.dev/api/v1/query?source=Franko1901&limit=20'</pre>
+          <pre class="curl-example" style="margin-top:.5rem">curl 'https://ukr-proverbs-corpus.miwaniza.workers.dev/api/v1/query?has_explanation=true&format=tsv'</pre>
+        </div>
+      </div>
+
+      <div class="endpoint">
+        <div class="ep-line">
+          <span class="ep-method">GET</span>
+          <span class="ep-path">/api/v1/proverb/{id}</span>
+          <span class="ep-summary">Отримати прислів'я за ID</span>
+        </div>
+        <p class="ep-desc">Повертає один запис разом із поясненням (якщо є).</p>
+        <table class="params">
+          <thead><tr><th>Параметр</th><th>Тип</th><th>Опис</th></tr></thead>
+          <tbody>
+            <tr><td class="param-name">id <span style="color:var(--wine);font-size:.75em">*</span></td><td class="param-type">path</td><td>Ідентифікатор запису, напр. <code style="font-family:var(--mono)">p000001</code>.</td></tr>
+            <tr><td class="param-name">format</td><td class="param-type">enum</td><td>json · jsonl · xml · csv · tsv</td></tr>
+          </tbody>
+        </table>
+        <div class="curl-block">
+          <p class="curl-label">Приклади</p>
+          <pre class="curl-example">curl 'https://ukr-proverbs-corpus.miwaniza.workers.dev/api/v1/proverb/p000001'</pre>
+          <pre class="curl-example" style="margin-top:.5rem">curl 'https://ukr-proverbs-corpus.miwaniza.workers.dev/api/v1/proverb/p000001?format=xml'</pre>
+        </div>
+      </div>
+
+      <div class="endpoint">
+        <div class="ep-line">
+          <span class="ep-method">GET</span>
+          <span class="ep-path">/api/v1/export</span>
+          <span class="ep-summary">Масове вивантаження</span>
+        </div>
+        <p class="ep-desc">Повертає весь корпус (або відфільтровану підмножину) одним запитом. Включає поле <code style="font-family:var(--mono)">explanation</code>. Для великих завантажень рекомендується CSV або TSV.</p>
+        <table class="params">
+          <thead><tr><th>Параметр</th><th>Тип</th><th>Опис</th></tr></thead>
+          <tbody>
+            <tr><td class="param-name">category</td><td class="param-type">string</td><td>Фільтр за темою.</td></tr>
+            <tr><td class="param-name">source</td><td class="param-type">string</td><td>Фільтр за джерелом.</td></tr>
+            <tr><td class="param-name">format</td><td class="param-type">enum</td><td>json · jsonl · xml · csv · tsv</td></tr>
+          </tbody>
+        </table>
+        <div class="curl-block">
+          <p class="curl-label">Приклади</p>
+          <pre class="curl-example">curl -H 'Accept: application/x-ndjson' \
+  'https://ukr-proverbs-corpus.miwaniza.workers.dev/api/v1/export' > proverbs.ndjson</pre>
+          <pre class="curl-example" style="margin-top:.5rem">curl 'https://ukr-proverbs-corpus.miwaniza.workers.dev/api/v1/export?format=csv' > proverbs.csv</pre>
+          <pre class="curl-example" style="margin-top:.5rem">curl 'https://ukr-proverbs-corpus.miwaniza.workers.dev/api/v1/export?source=Franko1901&format=tsv'</pre>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── META ──────────────────────────────────────────────────── -->
+    <section class="api-section">
+      <h2>Метадані</h2>
+      <p class="section-desc">Теми та статистика корпусу.</p>
+
+      <div class="endpoint">
+        <div class="ep-line">
+          <span class="ep-method">GET</span>
+          <span class="ep-path">/api/v1/categories</span>
+          <span class="ep-summary">Список тем із лічильниками</span>
+        </div>
+        <p class="ep-desc">Повертає масив об'єктів <code style="font-family:var(--mono)">{key, label, count}</code> для всіх тематичних категорій.</p>
+        <div class="curl-block">
+          <p class="curl-label">Приклад</p>
+          <pre class="curl-example">curl 'https://ukr-proverbs-corpus.miwaniza.workers.dev/api/v1/categories'</pre>
+        </div>
+      </div>
+
+      <div class="endpoint">
+        <div class="ep-line">
+          <span class="ep-method">GET</span>
+          <span class="ep-path">/api/v1/meta</span>
+          <span class="ep-summary">Метадані корпусу</span>
+        </div>
+        <p class="ep-desc">Повна статистика: загальна кількість, розбивка за джерелами та темами, дата збірки.</p>
+        <div class="curl-block">
+          <p class="curl-label">Приклад</p>
+          <pre class="curl-example">curl 'https://ukr-proverbs-corpus.miwaniza.workers.dev/api/v1/meta'</pre>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── SCHEMA ─────────────────────────────────────────────────── -->
+    <section class="api-section">
+      <h2>Схема запису</h2>
+      <p class="section-desc">Структура об'єкта <code style="font-family:var(--mono)">Proverb</code> у відповідях JSON/JSONL/XML.</p>
+      <table class="params">
+        <thead><tr><th>Поле</th><th>Тип</th><th>Опис</th></tr></thead>
+        <tbody>
+          <tr><td class="param-name">id</td><td class="param-type">string</td><td>Унікальний ідентифікатор запису (<code style="font-family:var(--mono)">p000001</code>).</td></tr>
+          <tr><td class="param-name">text</td><td class="param-type">string</td><td>Оригінальний текст.</td></tr>
+          <tr><td class="param-name">modern_text</td><td class="param-type">string</td><td>Сучасне написання.</td></tr>
+          <tr><td class="param-name">category</td><td class="param-type">string[]</td><td>Масив ключів тем.</td></tr>
+          <tr><td class="param-name">sources</td><td class="param-type">string[]</td><td>Масив ідентифікаторів джерел.</td></tr>
+          <tr><td class="param-name">variant_group</td><td class="param-type">string | null</td><td>Ключ групи варіантів.</td></tr>
+          <tr><td class="param-name">explanation</td><td class="param-type">string | null</td><td>Наукове пояснення (де є).</td></tr>
+        </tbody>
+      </table>
+      <p style="font-size:.82rem;color:var(--muted);margin-top:.6rem;">
+        CSV та TSV включають ті ж поля як рядки; масиви подаються через кому. <code style="font-family:var(--mono)">explanation</code> з'являється тільки в /export та /proverb/{id}.
+      </p>
+    </section>
+
+  </main>
+
+  <footer class="colophon">
+    <div class="wrap">
+      <p class="col-note"><a href="/">← Корпус народної мудрості</a> · <a href="/api/v1/openapi.json">OpenAPI JSON</a> · <a href="https://github.com/MurzikVasilyevich/ukr-proverbs-corpus" rel="noopener">GitHub</a></p>
+    </div>
+  </footer>
+</body>
+</html>

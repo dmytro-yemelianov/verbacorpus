@@ -1,1 +1,423 @@
-{ "openapi": "3.0.3", "info": { "title": "Ukrainian Proverbs API", "version": "1.0.0" }, "paths": {} }
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Ukrainian Proverbs API",
+    "description": "REST API for the Ukrainian Proverbs Corpus — 40 444 proverbs, sayings and expressions from four historical collections. Supports JSON, JSONL, XML, CSV and TSV output via ?format= or Accept negotiation.",
+    "version": "1.0.0",
+    "license": { "name": "CC0-1.0", "url": "https://creativecommons.org/publicdomain/zero/1.0/" }
+  },
+  "servers": [
+    { "url": "https://ukr-proverbs-corpus.miwaniza.workers.dev", "description": "Production" }
+  ],
+  "tags": [
+    { "name": "search", "description": "Full-text and semantic search" },
+    { "name": "browse", "description": "Browse, filter, export" },
+    { "name": "meta", "description": "Corpus metadata" }
+  ],
+  "components": {
+    "parameters": {
+      "format": {
+        "name": "format",
+        "in": "query",
+        "description": "Response format. Alternatively supply an Accept header.",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "enum": ["json", "jsonl", "xml", "csv", "tsv"],
+          "default": "json"
+        }
+      },
+      "category": {
+        "name": "category",
+        "in": "query",
+        "description": "Filter by category key (e.g. work_labor).",
+        "required": false,
+        "schema": { "type": "string" }
+      },
+      "source": {
+        "name": "source",
+        "in": "query",
+        "description": "Filter by source identifier (e.g. Franko1901).",
+        "required": false,
+        "schema": { "type": "string" }
+      },
+      "limit": {
+        "name": "limit",
+        "in": "query",
+        "description": "Maximum number of results to return (1–200, default 50).",
+        "required": false,
+        "schema": { "type": "integer", "minimum": 1, "maximum": 200, "default": 50 }
+      },
+      "offset": {
+        "name": "offset",
+        "in": "query",
+        "description": "Zero-based offset for pagination.",
+        "required": false,
+        "schema": { "type": "integer", "minimum": 0, "default": 0 }
+      }
+    },
+    "schemas": {
+      "Proverb": {
+        "type": "object",
+        "required": ["id", "text", "modern_text", "category", "sources"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Unique proverb identifier (e.g. p000001).",
+            "example": "p000001"
+          },
+          "text": {
+            "type": "string",
+            "description": "Original proverb text.",
+            "example": "Без труда нема плода."
+          },
+          "modern_text": {
+            "type": "string",
+            "description": "Modernised spelling of the text.",
+            "example": "Без труда нема плода."
+          },
+          "category": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Thematic category keys.",
+            "example": ["work_labor"]
+          },
+          "sources": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Source collection identifiers.",
+            "example": ["Franko1901"]
+          },
+          "variant_group": {
+            "type": "string",
+            "nullable": true,
+            "description": "Variant group key linking equivalent proverbs.",
+            "example": "vg_труд_плід"
+          },
+          "explanation": {
+            "type": "string",
+            "nullable": true,
+            "description": "Optional scholarly explanation or annotation.",
+            "example": null
+          }
+        }
+      },
+      "SearchEnvelope": {
+        "type": "object",
+        "required": ["results", "total", "limit", "offset"],
+        "properties": {
+          "results": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/Proverb" }
+          },
+          "total": { "type": "integer", "description": "Total matching records before pagination." },
+          "limit": { "type": "integer" },
+          "offset": { "type": "integer" }
+        }
+      },
+      "CategoryItem": {
+        "type": "object",
+        "required": ["key", "label", "count"],
+        "properties": {
+          "key": { "type": "string", "example": "work_labor" },
+          "label": { "type": "string", "example": "Праця та труд" },
+          "count": { "type": "integer", "example": 1234 }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "required": ["error"],
+        "properties": {
+          "error": { "type": "string", "example": "not found" }
+        }
+      }
+    },
+    "responses": {
+      "MultiFormat200": {
+        "description": "Successful response — body format depends on ?format or Accept.",
+        "headers": {
+          "X-Total-Count": {
+            "description": "Total number of matching records (collection responses only).",
+            "schema": { "type": "integer" }
+          },
+          "Access-Control-Allow-Origin": {
+            "description": "CORS header — always *.",
+            "schema": { "type": "string", "example": "*" }
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/SearchEnvelope" }
+          },
+          "application/x-ndjson": {
+            "schema": { "type": "string", "description": "Newline-delimited JSON; one Proverb object per line." }
+          },
+          "application/xml": {
+            "schema": { "type": "string", "description": "XML document with <proverbs> root and <proverb> children." }
+          },
+          "text/csv": {
+            "schema": { "type": "string", "description": "RFC 4180 CSV with header row." }
+          },
+          "text/tab-separated-values": {
+            "schema": { "type": "string", "description": "TSV with header row." }
+          }
+        }
+      },
+      "SingleProverb200": {
+        "description": "Single proverb record in the requested format.",
+        "headers": {
+          "Access-Control-Allow-Origin": {
+            "schema": { "type": "string", "example": "*" }
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Proverb" }
+          },
+          "application/x-ndjson": {
+            "schema": { "type": "string" }
+          },
+          "application/xml": {
+            "schema": { "type": "string" }
+          },
+          "text/csv": {
+            "schema": { "type": "string" }
+          },
+          "text/tab-separated-values": {
+            "schema": { "type": "string" }
+          }
+        }
+      }
+    }
+  },
+  "paths": {
+    "/api/v1/search": {
+      "get": {
+        "operationId": "searchProverbs",
+        "summary": "Full-text search",
+        "description": "Search proverbs by keyword(s) using MiniSearch full-text index. Supports filtering by category and source. Returns a paginated envelope (JSON) or flat records (other formats).",
+        "tags": ["search"],
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "description": "Search query string. Leave empty to match all.",
+            "required": false,
+            "schema": { "type": "string", "example": "гроші" }
+          },
+          { "$ref": "#/components/parameters/category" },
+          { "$ref": "#/components/parameters/source" },
+          { "$ref": "#/components/parameters/limit" },
+          { "$ref": "#/components/parameters/offset" },
+          { "$ref": "#/components/parameters/format" }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/MultiFormat200" },
+          "400": {
+            "description": "Invalid format parameter.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+          }
+        }
+      }
+    },
+    "/api/v1/semantic": {
+      "get": {
+        "operationId": "semanticSearch",
+        "summary": "Semantic / vector search",
+        "description": "Embed the query with BGE-M3 and find nearest proverbs via Vectorize. Requires AI and Vectorize bindings. Results include a `score` field (0–1).",
+        "tags": ["search"],
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "description": "Natural-language query to embed.",
+            "required": true,
+            "schema": { "type": "string", "example": "важка праця приносить плоди" }
+          },
+          { "$ref": "#/components/parameters/category" },
+          { "$ref": "#/components/parameters/source" },
+          {
+            "name": "minScore",
+            "in": "query",
+            "description": "Minimum similarity score threshold (0–1, default 0.4).",
+            "required": false,
+            "schema": { "type": "number", "format": "float", "minimum": 0, "maximum": 1, "default": 0.4 }
+          },
+          { "$ref": "#/components/parameters/limit" },
+          { "$ref": "#/components/parameters/format" }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/MultiFormat200" },
+          "400": {
+            "description": "Missing or invalid parameter.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+          },
+          "503": {
+            "description": "Semantic search unavailable (AI/Vectorize bindings not present).",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+          }
+        }
+      }
+    },
+    "/api/v1/random": {
+      "get": {
+        "operationId": "randomProverbs",
+        "summary": "Random proverb(s)",
+        "description": "Return one or more randomly selected proverbs, optionally filtered by category or source.",
+        "tags": ["browse"],
+        "parameters": [
+          {
+            "name": "n",
+            "in": "query",
+            "description": "Number of proverbs to return (1–50, default 1).",
+            "required": false,
+            "schema": { "type": "integer", "minimum": 1, "maximum": 50, "default": 1 }
+          },
+          { "$ref": "#/components/parameters/category" },
+          { "$ref": "#/components/parameters/source" },
+          { "$ref": "#/components/parameters/format" }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/MultiFormat200" },
+          "400": {
+            "description": "Invalid format parameter.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+          }
+        }
+      }
+    },
+    "/api/v1/query": {
+      "get": {
+        "operationId": "queryProverbs",
+        "summary": "Structured filter query",
+        "description": "Filter the corpus by category, source, variant group, or presence of an explanation. Useful for bulk access without a search term.",
+        "tags": ["browse"],
+        "parameters": [
+          { "$ref": "#/components/parameters/category" },
+          { "$ref": "#/components/parameters/source" },
+          {
+            "name": "variant_group",
+            "in": "query",
+            "description": "Return only proverbs belonging to this variant group.",
+            "required": false,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "has_explanation",
+            "in": "query",
+            "description": "Filter to proverbs that have (true) or lack (false) a scholarly explanation.",
+            "required": false,
+            "schema": { "type": "boolean" }
+          },
+          { "$ref": "#/components/parameters/limit" },
+          { "$ref": "#/components/parameters/offset" },
+          { "$ref": "#/components/parameters/format" }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/MultiFormat200" },
+          "400": {
+            "description": "Invalid parameter.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+          }
+        }
+      }
+    },
+    "/api/v1/proverb/{id}": {
+      "get": {
+        "operationId": "getProverb",
+        "summary": "Get a single proverb by ID",
+        "description": "Retrieve one proverb by its unique identifier. The response includes the `explanation` field if one exists.",
+        "tags": ["browse"],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Proverb identifier (e.g. p000001).",
+            "required": true,
+            "schema": { "type": "string", "example": "p000001" }
+          },
+          { "$ref": "#/components/parameters/format" }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/SingleProverb200" },
+          "404": {
+            "description": "Proverb not found.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+          },
+          "400": {
+            "description": "Invalid format parameter.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+          }
+        }
+      }
+    },
+    "/api/v1/export": {
+      "get": {
+        "operationId": "exportProverbs",
+        "summary": "Bulk export",
+        "description": "Export the entire corpus (or a filtered subset). The response includes the `explanation` column. For large downloads prefer CSV or TSV. No pagination — all matching records are returned.",
+        "tags": ["browse"],
+        "parameters": [
+          { "$ref": "#/components/parameters/category" },
+          { "$ref": "#/components/parameters/source" },
+          { "$ref": "#/components/parameters/format" }
+        ],
+        "responses": {
+          "200": { "$ref": "#/components/responses/MultiFormat200" },
+          "400": {
+            "description": "Invalid format parameter.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } }
+          }
+        }
+      }
+    },
+    "/api/v1/categories": {
+      "get": {
+        "operationId": "listCategories",
+        "summary": "List categories with counts",
+        "description": "Return all thematic categories with their display label and the number of proverbs in each.",
+        "tags": ["meta"],
+        "responses": {
+          "200": {
+            "description": "Array of category objects.",
+            "headers": {
+              "Access-Control-Allow-Origin": { "schema": { "type": "string", "example": "*" } }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/CategoryItem" }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/meta": {
+      "get": {
+        "operationId": "getCorpusMeta",
+        "summary": "Corpus metadata",
+        "description": "Return build metadata: total count, per-source and per-category statistics, taxonomy labels, build timestamp.",
+        "tags": ["meta"],
+        "responses": {
+          "200": {
+            "description": "Metadata object.",
+            "headers": {
+              "Access-Control-Allow-Origin": { "schema": { "type": "string", "example": "*" } }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "Corpus build metadata."
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
