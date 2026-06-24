@@ -4,6 +4,13 @@ import { negotiate, serialize, type Format, type Rec } from "./shared/serialize"
 import openapiDoc from "./openapi.json";
 import { buildProverbPage, cardModel, dailyIndex } from "./shared/meta";
 import { renderCard } from "./card";
+import { parseLang, t, hreflangLinks, DEFAULT_LANG } from "./shared/i18n";
+import uk from "../public/i18n/uk.json";
+import en from "../public/i18n/en.json";
+
+// de..zh added in the controller phase; for now:
+const CATALOGS: Record<string, Record<string, string>> = { uk, en };
+function catalogFor(lang: string) { return CATALOGS[lang] ?? CATALOGS[DEFAULT_LANG]; }
 
 interface Env {
   ASSETS: { fetch: (req: Request | string) => Promise<Response> };
@@ -54,23 +61,47 @@ function respond(
   return new Response(body, { headers });
 }
 
+function translateHtml(res: Response, lang: string, rest: string, host: string): Response {
+  const cat = catalogFor(lang);
+  const inject =
+    `<script>window.__LANG__=${JSON.stringify(lang)}</script>\n` +
+    hreflangLinks(rest, host) + `\n` +
+    `<link rel="canonical" href="https://${host}${lang === DEFAULT_LANG ? "" : "/" + lang}${rest === "/" ? "/" : rest}" />`;
+  return new HTMLRewriter()
+    .on("html", { element(el) { el.setAttribute("lang", lang); } })
+    .on("[data-i18n]", { element(el) { const k = el.getAttribute("data-i18n"); if (k) el.setInnerContent(t(cat, k), { html: false }); } })
+    .on("[data-i18n-attr]", { element(el) {
+        const spec = el.getAttribute("data-i18n-attr") || "";
+        const [attr, key] = spec.split(":");
+        if (attr && key) el.setAttribute(attr, t(cat, key));
+      } })
+    .on("head", { element(el) { el.append(inject, { html: true }); } })
+    .transform(res);
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     try {
       const url = new URL(request.url);
+      const { lang, rest } = parseLang(url.pathname);
+      // /uk or /uk/... → 301 canonical (unprefixed)
+      if (/^\/uk(\/|$)/.test(url.pathname)) {
+        return Response.redirect(`https://${url.host}${rest}${url.search}`, 301);
+      }
       const raw0 = url.pathname;
-      // social-card routes (need the corpus)
-      if (raw0.startsWith("/p/") || raw0.startsWith("/card/")) {
+      // social-card routes (need the corpus) — match on rest for /p/, raw0 for /card/
+      if (rest.startsWith("/p/") || raw0.startsWith("/card/")) {
         const { proverbs, byId } = await load(env);
         const host = url.host;
         const HTML = (body: string, status = 200) =>
           new Response(body, { status, headers: { "content-type": "text/html; charset=utf-8", "access-control-allow-origin": "*" } });
 
-        const pm = raw0.match(/^\/p\/(.+)$/);
+        const pm = rest.match(/^\/p\/(.+)$/);
         if (pm) {
           const p = byId.get(decodeURIComponent(pm[1]));
-          if (!p) return HTML(`<!DOCTYPE html><html lang="uk"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Не знайдено — verba</title><link rel="stylesheet" href="/styles.css"></head><body><main class="wrap" style="padding-block:4rem;"><p class="empty">Прислів'я не знайдено. <a href="/">На головну</a></p></main></body></html>`, 404);
-          return HTML(buildProverbPage(p, host));
+          const cat = catalogFor(lang);
+          if (!p) return HTML(`<!DOCTYPE html><html lang="${lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Не знайдено — verba</title><link rel="stylesheet" href="/styles.css"></head><body><main class="wrap" style="padding-block:4rem;"><p class="empty">Прислів'я не знайдено. <a href="/">На головну</a></p></main></body></html>`, 404);
+          return HTML(buildProverbPage(p, host, cat, lang));
         }
         const cm = raw0.match(/^\/card\/(.+)\.png$/);
         if (cm) {
@@ -92,9 +123,17 @@ export default {
         }
         return new Response("not found", { status: 404, headers: { "access-control-allow-origin": "*" } });
       }
-      const raw = raw0;
-      if (!raw.startsWith("/api/")) return env.ASSETS.fetch(request);
+      // Static assets + API bypass the translation layer (rest has no lang prefix for them)
+      const htmlPage = rest === "/" || rest === "/about" || rest === "/about.html" || rest === "/api.html";
+      if (!rest.startsWith("/api/") && !htmlPage) return env.ASSETS.fetch(request);
+      if (htmlPage) {
+        const assetPath = rest === "/" ? "/" : (rest === "/about" ? "/about.html" : rest);
+        const assetRes = await env.ASSETS.fetch(new Request(`https://${url.host}${assetPath}`));
+        if (lang === DEFAULT_LANG) return assetRes;       // uk = fast path, no rewrite
+        return translateHtml(assetRes, lang, rest, url.host);
+      }
       // strip optional /v1 -> reuse canonical handlers; aliases keep working
+      const raw = rest;
       const path = raw.startsWith("/api/v1/") ? "/api/" + raw.slice("/api/v1/".length) : (raw === "/api/v1" ? "/api" : raw);
       const qp = url.searchParams;
 
