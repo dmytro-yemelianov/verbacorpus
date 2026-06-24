@@ -20,7 +20,7 @@ fi
 # 2. Stage assets
 STAGE="$(mktemp -d)"
 trap 'rm -rf "$STAGE"' EXIT
-cp corpus.csv corpus.json corpus.xml DATACARD.md croissant.json "$STAGE/"
+cp corpus.csv corpus.json corpus.xml DATACARD.md croissant.json references.bib references.csl.json "$STAGE/"
 # corpus.jsonl from the array corpus.json
 python3 -c "import json,sys; [sys.stdout.write(json.dumps(r,ensure_ascii=False)+'\n') for r in json.load(open('corpus.json'))]" > "$STAGE/corpus.jsonl"
 
@@ -30,7 +30,7 @@ sed "s/PLACEHOLDER_SHA256/${CSV_SHA}/" croissant.json > "$STAGE/croissant.json"
 
 # 4. zip bundle
 ZIP="verba-corpus-${TAG}.zip"
-( cd "$STAGE" && zip -q "$ROOT/$ZIP" corpus.csv corpus.json corpus.jsonl corpus.xml croissant.json DATACARD.md )
+( cd "$STAGE" && zip -q "$ROOT/$ZIP" corpus.csv corpus.json corpus.jsonl corpus.xml croissant.json DATACARD.md references.bib references.csl.json )
 
 # 5. release notes from CHANGELOG's top section
 NOTES="$STAGE/notes.md"
@@ -44,7 +44,7 @@ echo "--- notes ---"; cat "$NOTES"; echo "-------------"
 
 if [ "${1:-}" = "--publish" ]; then
   gh release create "$TAG" --repo "$REPO" --title "verba corpus ${TAG}" --notes-file "$NOTES" \
-    "$ZIP" corpus.csv corpus.json "$STAGE/croissant.json#croissant.json" DATACARD.md
+    "$ZIP" corpus.csv corpus.json "$STAGE/croissant.json#croissant.json" DATACARD.md references.bib references.csl.json
   echo "Published: https://github.com/$REPO/releases/tag/$TAG"
 else
   echo "(dry run — re-run with --publish to create the GitHub Release)"
