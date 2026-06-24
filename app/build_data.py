@@ -3,8 +3,13 @@ from __future__ import annotations
 import csv
 import json
 import os
+import sys
 from collections import Counter
 from xml.sax.saxutils import escape
+
+# Allow importing from repo root (core package) when run as a script from app/
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+from core.references import render_citation, to_bibtex, to_csl
 
 
 def _read_version(corpus_path):
@@ -26,8 +31,15 @@ def _load_sources(path):
         out = []
         for r in csv.DictReader(f):
             r = {k.lstrip("﻿"): v for k, v in r.items()}
-            out.append({"key": r.get("Citationkey", ""), "title": r.get("Title", ""),
-                        "year": r.get("Year", ""), "author": r.get("Author", "")})
+            out.append({
+                "key": r.get("Citationkey", ""),
+                "title": r.get("Title", ""),
+                "year": r.get("Year", ""),
+                "author": r.get("Author", ""),
+                "citation": render_citation(r),
+                "isbn": (r.get("ISBN") or ""),
+                "url": (r.get("URL") or ""),
+            })
     return out
 
 
@@ -66,6 +78,15 @@ def build(corpus_path, taxonomy_path, sources_path, out_dir, xml_path):
     with open(os.path.join(out_dir, "meta.json"), "w", encoding="utf-8") as f:
         json.dump(meta, f, ensure_ascii=False, indent=2)
 
+    # Write reference files into the public/ dir (parent of out_dir)
+    public_dir = os.path.dirname(os.path.abspath(out_dir))
+    with open(sources_path, encoding="utf-8") as _sf:
+        src_rows = [{k.lstrip("﻿"): v for k, v in r.items()} for r in csv.DictReader(_sf)]
+    with open(os.path.join(public_dir, "references.bib"), "w", encoding="utf-8") as f:
+        f.write(to_bibtex(src_rows))
+    with open(os.path.join(public_dir, "references.csl.json"), "w", encoding="utf-8") as f:
+        json.dump(to_csl(src_rows), f, ensure_ascii=False, indent=2)
+
     with open(xml_path, "w", encoding="utf-8") as f:
         f.write('<?xml version="1.0" encoding="UTF-8"?>\n<corpus>\n')
         for p in proverbs:
@@ -80,6 +101,5 @@ def build(corpus_path, taxonomy_path, sources_path, out_dir, xml_path):
 
 
 if __name__ == "__main__":
-    import sys
     # CLI: build_data.py <corpus.csv> <taxonomy.csv> <sources.csv> <out_dir> <xml_path>
     print(build(*sys.argv[1:6]))

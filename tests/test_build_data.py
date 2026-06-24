@@ -24,6 +24,41 @@ def test_build_outputs(tmp_path):
     assert root.tag == "corpus" and len(root.findall("proverb")) == 2
 
 
+def test_sources_have_citation(tmp_path):
+    out = tmp_path / "data"; xml = tmp_path / "corpus.xml"
+    build("tests/fixtures/productize_corpus.csv", TAX, SRC, str(out), str(xml))
+    meta = json.loads((out / "meta.json").read_text(encoding="utf-8"))
+    for s in meta["sources"]:
+        assert s.get("citation"), f"source {s['key']} missing citation"
+        assert "isbn" in s
+        assert "url" in s
+
+
+def test_build_writes_reference_files(tmp_path):
+    out = tmp_path / "data"; xml = tmp_path / "corpus.xml"
+    build("tests/fixtures/productize_corpus.csv", TAX, SRC, str(out), str(xml))
+    # public/ is tmp_path (parent of out_dir)
+    bib = tmp_path / "references.bib"
+    csl = tmp_path / "references.csl.json"
+    assert bib.exists(), "references.bib not written to public/"
+    assert bib.read_text(encoding="utf-8").startswith("@book{")
+    assert csl.exists(), "references.csl.json not written to public/"
+    csl_data = json.loads(csl.read_text(encoding="utf-8"))
+    src_count = sum(1 for _ in csv.DictReader(open(SRC, encoding="utf-8")))
+    assert len(csl_data) == src_count
+
+
+def test_root_references_exist():
+    # build.py writes root-level reference files
+    assert os.path.exists("references.bib"), "references.bib missing from repo root"
+    bib = open("references.bib", encoding="utf-8").read()
+    assert bib.startswith("@book{"), "references.bib should start with @book{"
+    assert os.path.exists("references.csl.json"), "references.csl.json missing from repo root"
+    csl_data = json.loads(open("references.csl.json", encoding="utf-8").read())
+    src_count = sum(1 for _ in csv.DictReader(open(SRC, encoding="utf-8")))
+    assert len(csl_data) == src_count
+
+
 def test_read_version(tmp_path):
     from app.build_data import _read_version
     (tmp_path / "VERSION").write_text("1.0.0\n", encoding="utf-8")
