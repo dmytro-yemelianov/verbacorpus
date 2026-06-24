@@ -125,7 +125,10 @@ export default {
       }
       // Static assets + API bypass the translation layer (rest has no lang prefix for them)
       const htmlPage = rest === "/" || rest === "/about" || rest === "/about.html" || rest === "/api.html";
-      if (!rest.startsWith("/api/") && !htmlPage) return env.ASSETS.fetch(request);
+      if (!rest.startsWith("/api/") && !htmlPage) {
+        const assetReq = rest === url.pathname ? request : new Request(`https://${url.host}${rest}${url.search}`, request);
+        return env.ASSETS.fetch(assetReq);
+      }
       if (htmlPage) {
         const assetPath = rest === "/" ? "/" : (rest === "/about" ? "/about.html" : rest);
         const assetRes = await env.ASSETS.fetch(new Request(`https://${url.host}${assetPath}`));
