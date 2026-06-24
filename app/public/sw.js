@@ -1,4 +1,4 @@
-const CACHE = "ukr-proverbs-v16";
+const CACHE = "ukr-proverbs-v17";
 const SHELL = ["/", "/styles.css", "/fonts/spectral.css", "/app.js", "/manifest.webmanifest", "/data/proverbs.json", "/data/meta.json"];
 
 // Network-first for the app shell that changes on deploy (HTML pages, app.js, styles, i18n

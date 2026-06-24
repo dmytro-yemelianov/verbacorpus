@@ -5,6 +5,12 @@ export const LANG_NAMES: Record<string, string> = {
   pl: "Polski", it: "Italiano", pt: "Português", ja: "日本語", zh: "中文",
 };
 
+// Representative flag per UI language (for the language switcher).
+export const LANG_FLAGS: Record<string, string> = {
+  uk: "🇺🇦", en: "🇬🇧", de: "🇩🇪", fr: "🇫🇷", es: "🇪🇸",
+  pl: "🇵🇱", it: "🇮🇹", pt: "🇵🇹", ja: "🇯🇵", zh: "🇨🇳",
+};
+
 export function parseLang(pathname: string): { lang: string; rest: string } {
   const m = pathname.match(/^\/([a-z]{2})(\/.*|$)/);
   if (m && LANGS.includes(m[1]) && m[1] !== DEFAULT_LANG) {

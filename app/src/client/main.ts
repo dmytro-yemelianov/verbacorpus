@@ -3,7 +3,7 @@ import { type Proverb } from "../shared/corpus";
 import { srcLabel } from "../shared/sources";
 import { isPresentable, deckFor, toggleSaved, nextShown } from "../shared/browse";
 import { prettify } from "../shared/text";
-import { LANGS, LANG_NAMES } from "../shared/i18n";
+import { LANGS, LANG_NAMES, LANG_FLAGS, parseLang, DEFAULT_LANG } from "../shared/i18n";
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -142,16 +142,13 @@ function renderSavedView() {
 }
 
 function langHref(l: string): string {
-  const pathname = location.pathname;
-  // strip existing /<lang>/ prefix (non-uk langs)
-  const m = pathname.match(/^\/([a-z]{2})(\/.*|$)/);
-  let rest = pathname;
-  if (m && LANGS.includes(m[1]) && m[1] !== "uk") {
-    rest = m[2] === "" ? "/" : m[2];
-  }
-  // uk is unprefixed
-  if (l === "uk") return rest || "/";
-  return `/${l}${rest === "/" ? "" : rest}`;
+  // reuse the shared parser to strip any current /<lang>/ prefix
+  const { rest } = parseLang(location.pathname);
+  if (l === DEFAULT_LANG) return rest || "/"; // uk is unprefixed
+  // MUST keep the trailing slash on the root so the URL matches the Worker's
+  // run_worker_first `/<lang>/*` routes — bare `/de` falls through to the SPA
+  // fallback and serves the untranslated Ukrainian shell.
+  return rest === "/" ? `/${l}/` : `/${l}${rest}`;
 }
 
 async function boot() {
@@ -179,8 +176,8 @@ async function boot() {
   // Language switcher in #langSwitch
   const sw = $("langSwitch");
   if (sw) {
-    sw.innerHTML = `<details class="lang-menu"><summary>${esc(LANG_NAMES[LANG] ?? LANG)}</summary><ul>` +
-      LANGS.map((l) => `<li><a href="${langHref(l)}" hreflang="${l}"${l === LANG ? ' aria-current="true"' : ""}>${LANG_NAMES[l]}</a></li>`).join("") +
+    sw.innerHTML = `<details class="lang-menu"><summary aria-label="${esc(LANG_NAMES[LANG] ?? LANG)}"><span class="lang-flag">${LANG_FLAGS[LANG] || "🌐"}</span><span class="lang-code">${esc(LANG.toUpperCase())}</span></summary><ul>` +
+      LANGS.map((l) => `<li><a href="${langHref(l)}" hreflang="${l}"${l === LANG ? ' aria-current="true"' : ""}><span class="lang-flag">${LANG_FLAGS[l] || "🌐"}</span><span class="lang-code">${esc(l.toUpperCase())}</span><span class="lang-name">${esc(LANG_NAMES[l])}</span></a></li>`).join("") +
       `</ul></details>`;
     sw.querySelectorAll<HTMLAnchorElement>("a[hreflang]").forEach((a) => {
       a.addEventListener("click", () => {
