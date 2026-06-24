@@ -14,7 +14,7 @@ describe("cardModel", () => {
   it("omits modern when equal; builds footer", () => {
     const m = cardModel(P);
     expect(m.modern).toBe("");
-    expect(m.footer).toBe("Franko1901 · Nomis1864 · №123 · verbacorpus.org");
+    expect(m.footer).toBe("Франко 1901 · Номис 1864 · №123 · verbacorpus.org");
   });
   it("keeps modern when different; truncates long text", () => {
     const m = cardModel({ ...P, modern_text: "Без труда нема плоду", text: "x".repeat(200) });

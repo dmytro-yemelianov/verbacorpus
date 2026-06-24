@@ -1,5 +1,6 @@
 import MiniSearch from "minisearch";
 import { type Proverb } from "../shared/corpus";
+import { srcLabel } from "../shared/sources";
 import { isPresentable, deckFor, toggleSaved, nextShown } from "../shared/browse";
 import { prettify } from "../shared/text";
 
@@ -19,13 +20,6 @@ let renderSeq = 0;
 let saved: string[] = loadSaved();
 let savedView = false;
 
-const SOURCE_LABELS: Record<string, string> = {
-  Franko1901: "Франко 1901",
-  Nomis1864: "Номис 1864",
-  Bobkova: "Бобкова",
-  Mlodzynskyi2009: "Млодзинський 2009",
-  Ilkevich1841: "Ількевич 1841",
-};
 const SOURCE_ORDER = ["Franko1901", "Nomis1864", "Bobkova", "Mlodzynskyi2009", "Ilkevich1841"];
 
 function esc(s: string): string {
@@ -42,7 +36,6 @@ function plural(n: number, forms: [string, string, string]): string {
   return forms[2];
 }
 function catLabel(k: string): string { return meta.taxonomy[k] ?? k; }
-function srcLabel(k: string): string { return SOURCE_LABELS[k] ?? k; }
 
 function differs(p: Proverb): boolean {
   return !!p.modern_text && p.modern_text.trim() !== p.text.trim();

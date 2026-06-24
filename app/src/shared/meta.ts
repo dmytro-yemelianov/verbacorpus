@@ -1,6 +1,7 @@
 import { type Proverb } from "./corpus";
 import { prettify } from "./text";
 import { t, hreflangLinks, DEFAULT_LANG } from "./i18n";
+import { srcLabel } from "./sources";
 
 export function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
@@ -15,7 +16,7 @@ export function cardModel(p: Proverb & { explanation?: string | null }, opts: { 
   const raw = prettify(p.text);
   const text = raw.length > max ? raw.slice(0, max) + "…" : raw;
   const modern = p.modern_text && p.modern_text.trim() !== p.text.trim() ? prettify(p.modern_text) : "";
-  const footer = [...p.sources, `№${num(p.id)}`, "verbacorpus.org"].join(" · ");
+  const footer = [...p.sources.map(srcLabel), `№${num(p.id)}`, "verbacorpus.org"].join(" · ");
   return { text, modern, footer };
 }
 
@@ -32,7 +33,7 @@ export function buildProverbPage(p: Proverb, host: string, cat: Record<string, s
   const pm = p.modern_text && p.modern_text.trim() !== p.text.trim() ? prettify(p.modern_text) : "";
   const img = `https://${e(host)}/card/${e(p.id)}.png`;
   const canon = `https://${e(host)}${lang === DEFAULT_LANG ? "" : "/" + e(lang)}/p/${e(p.id)}`;
-  const desc = [prettify(p.modern_text), p.sources.join(", "), p.category.join(", ")].filter(Boolean).join(" — ");
+  const desc = [prettify(p.modern_text), p.sources.map(srcLabel).join(", "), p.category.join(", ")].filter(Boolean).join(" — ");
   const tags = p.category.map((c) => `<span class="tag">${e(c)}</span>`).join("");
   const siteName = t(cat, "meta.home.ogTitle", "Українські прислів'я та приказки");
   const browseLabel = t(cat, "nav.browse", t(cat, "about.back", "← На головну"));
@@ -67,7 +68,7 @@ ${hreflang}
 <p class="eyebrow">${e(siteName)}</p>
 <p class="hero-text" style="margin:0;">${e(pt)}</p>
 ${pm ? `<p class="hero-modern">${e(pm)}</p>` : ""}
-<p style="margin-top:1rem;">${tags} <span class="tag-src">${e(p.sources.join(" · "))}</span></p>
+<p style="margin-top:1rem;">${tags} <span class="tag-src">${e(p.sources.map(srcLabel).join(" · "))}</span></p>
 <p><img src="/card/${e(p.id)}.png" alt="" style="max-width:100%;height:auto;border:1px solid var(--rule);border-radius:6px;margin-top:1rem;" /></p>
 <p style="margin-top:1.5rem;"><a href="${browseHref}">${e(browseLabel)}</a> · <a href="${lang === DEFAULT_LANG ? "" : "/" + e(lang)}/api.html">${e(apiLabel)}</a></p>
 </main>
