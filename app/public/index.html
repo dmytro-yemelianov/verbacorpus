@@ -4,15 +4,15 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#5E7355" />
-  <meta name="description" content="Корпус українських прислів'їв, приказок та висловів — 48 787 записів із п'яти зібрань (1841–сучасність), із пошуком за темою, джерелом і змістом." />
+  <meta name="description" data-i18n-attr="content:meta.home.desc" content="Корпус українських прислів'їв, приказок та висловів — 48 787 записів із п'яти зібрань (1841–сучасність), із пошуком за темою, джерелом і змістом." />
   <meta property="og:type" content="website" />
-  <meta property="og:title" content="Українські прислів'я та приказки" />
-  <meta property="og:description" content="Корпус 48 787 українських прислів'їв і приказок із пошуком за темою, джерелом і змістом." />
+  <meta property="og:title" data-i18n-attr="content:meta.home.ogTitle" content="Українські прислів'я та приказки" />
+  <meta property="og:description" data-i18n-attr="content:meta.home.ogDesc" content="Корпус 48 787 українських прислів'їв і приказок із пошуком за темою, джерелом і змістом." />
   <meta property="og:image" content="https://verbacorpus.org/card/daily.png" />
   <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="630" />
   <meta name="twitter:card" content="summary_large_image" />
-  <title>verba — українські прислів'я та приказки</title>
+  <title data-i18n="meta.home.title">verba — українські прислів'я та приказки</title>
   <link rel="manifest" href="/manifest.webmanifest" />
   <link rel="stylesheet" href="/fonts/spectral.css" />
   <link rel="stylesheet" href="/styles.css" />
@@ -43,29 +43,30 @@
     <div class="wrap mast-inner">
       <p class="eyebrow">Корпус народної мудрості · <span id="mastCount">40 444</span> записів</p>
       <h1 class="wordmark"><svg class="leaf" viewBox="0 0 40 64" aria-hidden="true"><path d="M20 4 C 31 22 30 46 21 60 C 12 46 11 22 20 4 Z" fill="#5e7355"/><path d="M20 11 C 23 28 22 47 21 54" stroke="#f4f1e8" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg><span class="brand">verba</span></h1>
-      <p class="standfirst">Українські прислів'я, приказки та вислови — від Ількевича (1841) до сучасних зібрань, зведені в один корпус із пошуком за темою та джерелом.</p>
+      <p class="standfirst" data-i18n="masthead.standfirst">Українські прислів'я, приказки та вислови — від Ількевича (1841) до сучасних зібрань, зведені в один корпус із пошуком за темою та джерелом.</p>
+      <div id="langSwitch" class="lang-switch"></div>
     </div>
   </header>
 
-  <section class="hero wrap" id="hero" aria-label="Прислів'я дня"></section>
+  <section class="hero wrap" id="hero" data-i18n-attr="aria-label:hero.ariaLabel" aria-label="Прислів'я дня"></section>
 
   <div class="controls wrap">
     <div class="search-wrap">
-      <label class="vh" for="q">Пошук</label>
-      <input id="q" type="search" placeholder="Шукати прислів'я або слово…" autocomplete="off" spellcheck="false" />
-      <button id="semToggle" class="sem-toggle" type="button" role="switch" aria-checked="false" title="Пошук за змістом (потрібен інтернет)">за змістом</button>
+      <label class="vh" for="q" data-i18n="search.label">Пошук</label>
+      <input id="q" type="search" data-i18n-attr="placeholder:search.placeholder" placeholder="Шукати прислів'я або слово…" autocomplete="off" spellcheck="false" />
+      <button id="semToggle" class="sem-toggle" type="button" role="switch" aria-checked="false" title="Пошук за змістом (потрібен інтернет)" data-i18n="search.semantic">за змістом</button>
       <button id="savedBtn" class="saved-btn" type="button">♥ Збережені (0)</button>
-      <button id="swipeBtn" class="swipe-btn" type="button">Гортати ⇆</button>
+      <button id="swipeBtn" class="swipe-btn" type="button" data-i18n="swipe.btn">Гортати ⇆</button>
       <span id="count" class="count" aria-live="polite"></span>
     </div>
     <div class="filters">
       <div class="filter-group">
-        <span class="filter-label">Джерело</span>
+        <span class="filter-label" data-i18n="filters.source">Джерело</span>
         <div class="chips" id="sources"></div>
       </div>
       <details class="theme-details" id="themeDetails">
         <summary class="theme-summary">
-          <span class="filter-label">Теми</span>
+          <span class="filter-label" data-i18n="filters.themes">Теми</span>
           <span class="theme-active" id="themeActive"></span>
           <span class="theme-toggle"></span>
         </summary>
@@ -81,21 +82,21 @@
       <p class="col-stat" id="colStat"></p>
       <p class="col-version" id="colVersion"></p>
       <ul class="col-sources" id="colSources"></ul>
-      <p class="col-note">Сучасні написання та теми створені автоматично і є орієнтовними; тексти подано якнайближче до джерел. <a href="/about">Про проєкт</a> · <a href="https://github.com/dmytro-yemelianov/verbacorpus" rel="noopener">Код і дані — на GitHub</a> · <a href="/api.html">API</a>.</p>
+      <p class="col-note"><span data-i18n="colophon.noteText">Сучасні написання та теми створені автоматично і є орієнтовними; тексти подано якнайближче до джерел.</span> <a href="/about" data-i18n="nav.about">Про проєкт</a> · <a href="https://github.com/dmytro-yemelianov/verbacorpus" rel="noopener" data-i18n="nav.github">Код і дані — на GitHub</a> · <a href="/api.html" data-i18n="nav.api">API</a>.</p>
     </div>
   </footer>
 
-  <div id="swipe" class="swipe" role="dialog" aria-modal="true" aria-label="Гортати прислів'я" hidden>
-    <button id="swipeClose" class="sw-close" type="button" aria-label="Закрити">✕</button>
-    <div id="swipeCard" class="sw-card" role="button" tabindex="0" aria-label="Показати пояснення"></div>
+  <div id="swipe" class="swipe" role="dialog" aria-modal="true" data-i18n-attr="aria-label:swipe.dialogLabel" aria-label="Гортати прислів'я" hidden>
+    <button id="swipeClose" class="sw-close" type="button" data-i18n-attr="aria-label:swipe.close" aria-label="Закрити">✕</button>
+    <div id="swipeCard" class="sw-card" role="button" tabindex="0" data-i18n-attr="aria-label:swipe.cardLabel" aria-label="Показати пояснення"></div>
     <div class="sw-actions">
-      <button id="swSkip" class="sw-act sw-skip" type="button" aria-label="Пропустити">✕</button>
-      <button id="swShare" class="sw-act sw-share" type="button" aria-label="Поділитися">↗</button>
-      <button id="swSave" class="sw-act sw-savebtn" type="button" aria-label="Зберегти" aria-pressed="false">♥</button>
+      <button id="swSkip" class="sw-act sw-skip" type="button" data-i18n-attr="aria-label:swipe.skip" aria-label="Пропустити">✕</button>
+      <button id="swShare" class="sw-act sw-share" type="button" data-i18n-attr="aria-label:swipe.share" aria-label="Поділитися">↗</button>
+      <button id="swSave" class="sw-act sw-savebtn" type="button" data-i18n-attr="aria-label:swipe.save" aria-label="Зберегти" aria-pressed="false">♥</button>
     </div>
-    <p class="sw-hint">Гортайте, або ← пропустити · зберегти →</p>
+    <p class="sw-hint" data-i18n="swipe.hint">Гортайте, або ← пропустити · зберегти →</p>
   </div>
-  <dialog id="detail" class="detail" aria-label="Прислів'я"></dialog>
+  <dialog id="detail" class="detail" data-i18n-attr="aria-label:detail.dialogLabel" aria-label="Прислів'я"></dialog>
   <script type="module" src="/app.js"></script>
 </body>
 </html>
