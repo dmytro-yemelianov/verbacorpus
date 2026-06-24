@@ -50,13 +50,8 @@
 
     <section>
       <h2 data-i18n="about.s2.h2">Джерела</h2>
-      <ul>
-        <li data-i18n-html="about.s2.li1">Іван Франко, <i>Галицько-руські народні приповідки</i> (1901) — <span class="src-num">30 906</span>, з науковими поясненнями.</li>
-        <li data-i18n-html="about.s2.li2">Матвій Номис, <i>Українські приказки, прислів'я і таке інше</i> (1864) — <span class="src-num">9 785</span>.</li>
-        <li data-i18n-html="about.s2.li3">В. І. Бобкова та ін. (упоряд.), <i>Українські народні прислів'я та приказки</i> — <span class="src-num">5 613</span>.</li>
-        <li data-i18n-html="about.s2.li4">Григорій Ількевич, <i>Галицкіи приповѣдки и загадки</i> (1841) — <span class="src-num">2 702</span>.</li>
-        <li data-i18n-html="about.s2.li5"><i>Практичний російсько-український словник приказок</i> (2009) — <span class="src-num">2 261</span>.</li>
-      </ul>
+      <ul id="aboutRefs" class="about-refs"></ul>
+      <p class="refs-download" id="aboutRefsDownload"></p>
     </section>
 
     <section>
@@ -115,6 +110,13 @@
       + ' · <a href="https://github.com/dmytro-yemelianov/verbacorpus" rel="noopener">' + tr("nav.github", "GitHub") + '</a>'
       + ' · <a href="https://github.com/dmytro-yemelianov/verbacorpus/blob/main/DATACARD.md" rel="noopener">' + tr("about.metaLine.datacard", "Карта даних") + '</a>'
       + ' · <a href="/api.html">' + tr("nav.api", "API") + '</a>';
+    var refs = document.getElementById("aboutRefs");
+    if (refs && m.sources) refs.innerHTML = m.sources.map(function (s) {
+      var cit = s.citation || (s.author ? s.author + ". " : "") + s.title;
+      return "<li>" + cit.replace(/(https?:\/\/\S+)/, '<a href="$1" rel="noopener">$1</a>') + "</li>";
+    }).join("");
+    var refsDownload = document.getElementById("aboutRefsDownload");
+    if (refsDownload) refsDownload.innerHTML = tr("about.refs.download", "Завантажити") + ': <a href="/references.bib">BibTeX</a> · <a href="/references.csl.json">CSL-JSON</a>';
   })();
   </script>
 </body>

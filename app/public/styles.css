@@ -190,6 +190,10 @@ a { color: var(--willow); text-underline-offset: 2px; }
 .detail-similar li:hover { color: var(--willow); }
 .sem-hint { font-family: var(--sans); font-size: .72rem; color: var(--faint); margin-top: .4rem; }
 
+/* ---- About bibliography ---- */
+.about-refs li { margin: .5rem 0; line-height: 1.5; }
+.refs-download { font-size: .85rem; margin-top: 1rem; color: var(--muted); }
+
 /* ---- Dark theme (auto via prefers-color-scheme + manual [data-theme] toggle) ---- */
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {

@@ -9,7 +9,7 @@ const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getEleme
 
 let all: Proverb[] = [];
 let byId = new Map<string, Proverb>();
-let meta: { version?: string; count: number; taxonomy: Record<string, string>; sources: Array<{ key: string; title: string; year: string; author: string }> };
+let meta: { version?: string; count: number; taxonomy: Record<string, string>; sources: Array<{ key: string; title: string; year: string; author: string; citation?: string }> };
 let mini: MiniSearch<Proverb>;
 let presentable: Proverb[] = [];
 let landingSample: Proverb[] = [];
@@ -378,7 +378,7 @@ async function openDetail(p: Proverb) {
     : [];
   const cite = p.sources.map((k) => {
     const s = meta.sources.find((m) => m.key === k);
-    return s ? `${s.author ? esc(s.author) + ", " : ""}<i>${esc(s.title)}</i>${s.year ? " (" + esc(s.year) + ")" : ""}` : esc(srcLabel(k));
+    return s ? esc(s.citation || (s.author ? s.author + ", " : "") + s.title + (s.year ? " (" + s.year + ")" : "")) : esc(srcLabel(k));
   }).join("; ");
 
   const dlg = $<HTMLDialogElement>("detail");

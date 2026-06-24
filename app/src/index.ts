@@ -100,7 +100,7 @@ export default {
       const raw0 = url.pathname;
       // social-card routes (need the corpus) — match on rest for /p/, raw0 for /card/
       if (rest.startsWith("/p/") || raw0.startsWith("/card/")) {
-        const { proverbs, byId } = await load(env);
+        const { proverbs, byId, meta } = await load(env);
         const host = url.host;
         const HTML = (body: string, status = 200) =>
           new Response(body, { status, headers: { "content-type": "text/html; charset=utf-8", "access-control-allow-origin": "*" } });
@@ -110,7 +110,11 @@ export default {
           const p = byId.get(decodeURIComponent(pm[1]));
           const cat = catalogFor(lang);
           if (!p) return HTML(`<!DOCTYPE html><html lang="${lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Не знайдено — verba</title><link rel="stylesheet" href="/styles.css"></head><body><main class="wrap" style="padding-block:4rem;"><p class="empty">Прислів'я не знайдено. <a href="/">На головну</a></p></main></body></html>`, 404);
-          return HTML(buildProverbPage(p, host, cat, lang));
+          const srcCites = (p.sources as string[]).map((k: string) => {
+            const s = (meta.sources as Array<{ key: string; citation?: string; author?: string; title?: string; year?: string }>).find((x) => x.key === k);
+            return s ? (s.citation || (s.author ? s.author + ". " : "") + (s.title || k) + (s.year ? " (" + s.year + ")" : "")) : k;
+          });
+          return HTML(buildProverbPage(p, host, cat, lang, srcCites));
         }
         const cm = raw0.match(/^\/card\/(.+)\.png$/);
         if (cm) {

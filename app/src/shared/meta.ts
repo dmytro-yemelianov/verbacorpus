@@ -27,7 +27,7 @@ export function dailyIndex(dateStr: string, poolLen: number): number {
   return Math.abs(h) % poolLen;
 }
 
-export function buildProverbPage(p: Proverb, host: string, cat: Record<string, string> = {}, lang = DEFAULT_LANG): string {
+export function buildProverbPage(p: Proverb, host: string, cat: Record<string, string> = {}, lang = DEFAULT_LANG, sourceCitations: string[] = []): string {
   const e = escapeHtml;
   const pt = prettify(p.text);
   const pm = p.modern_text && p.modern_text.trim() !== p.text.trim() ? prettify(p.modern_text) : "";
@@ -70,6 +70,7 @@ ${hreflang}
 <p class="hero-text" style="margin:0;">${e(pt)}</p>
 ${pm ? `<p class="hero-modern">${e(pm)}</p>` : ""}
 <p style="margin-top:1rem;">${tags} <span class="tag-src">${e(p.sources.map(srcLabel).join(" · "))}</span></p>
+${sourceCitations.length ? `<p style="margin-top:.8rem;font-size:.85rem;color:var(--muted);line-height:1.5;">${sourceCitations.map((c) => e(c)).join("<br>")}</p>` : ""}
 <p><img src="/card/${e(p.id)}.png" alt="" style="max-width:100%;height:auto;border:1px solid var(--rule);border-radius:6px;margin-top:1rem;" /></p>
 <p style="margin-top:1.5rem;"><a href="${browseHref}">${e(browseLabel)}</a> · <a href="${lang === DEFAULT_LANG ? "" : "/" + e(lang)}/api.html">${e(apiLabel)}</a></p>
 </main>
