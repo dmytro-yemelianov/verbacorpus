@@ -4,7 +4,7 @@
     "type": "book",
     "author": [
       {
-        "literal": "Іван Франко"
+        "literal": "Іван Франко (зібрав, упоряд. і пояснив)"
       }
     ],
     "title": "Галицько-руські народні приповідки",
@@ -14,14 +14,18 @@
           1901
         ]
       ]
-    }
+    },
+    "publisher-place": "Львів",
+    "publisher": "Накладом Наукового товариства імені Шевченка",
+    "volume": "Етнографічний збірник, тт. X, XVI, XXIII, XXVII, XXVIII (у 3 т., 6 вип., 1901–1910)",
+    "URL": "https://www.i-franko.name/uk/Folklore/1901/GalRusProverbs.html"
   },
   {
     "id": "Nomis1864",
     "type": "book",
     "author": [
       {
-        "literal": "Матвій Номис"
+        "literal": "Матвій Номис (упоряд.)"
       }
     ],
     "title": "Українські приказки, прислів'я і таке інше",
@@ -31,38 +35,59 @@
           1864
         ]
       ]
-    }
+    },
+    "publisher-place": "Санкт-Петербург",
+    "publisher": "Друкарня Тиблена і Ко (К. Куліша)",
+    "URL": "https://archive.org/details/nomis1864"
   },
   {
     "id": "Bobkova",
     "type": "book",
     "author": [
       {
-        "literal": "Бобкова В.І. (упоряд.)"
+        "literal": "Бобкова В., Лавров Ф., Ліздвой М., Сухобрус Г., Ткаченко Ф. (упоряд.)"
       }
     ],
-    "title": "Українські народні прислів'я та приказки"
+    "title": "Українські народні прислів'я та приказки",
+    "issued": {
+      "date-parts": [
+        [
+          1961
+        ]
+      ]
+    },
+    "publisher-place": "Київ",
+    "publisher": "Видавництво АН УРСР",
+    "volume": "Вид. 2-ге, випр. і доп."
   },
   {
     "id": "Ilkevich1841",
     "type": "book",
     "author": [
       {
-        "literal": "Григорій Ількевич"
+        "literal": "Григорій Ількевич (зібрав)"
       }
     ],
-    "title": "Галицкіи приповѣдки и загадки",
+    "title": "Галицькі приповідки і загадки",
     "issued": {
       "date-parts": [
         [
           1841
         ]
       ]
-    }
+    },
+    "publisher-place": "Відень",
+    "publisher": "Друкарня оо. Мехитаристів",
+    "URL": "http://irbis-nbuv.gov.ua/dlib/item/0000436"
   },
   {
     "id": "Mlodzynskyi2009",
     "type": "book",
+    "author": [
+      {
+        "literal": "Млодзинський Г. (упоряд.)"
+      }
+    ],
     "title": "Практичний російсько-український словник приказок",
     "issued": {
       "date-parts": [
@@ -70,6 +95,11 @@
           2009
         ]
       ]
-    }
+    },
+    "publisher-place": "Київ",
+    "publisher": "Інститут енциклопедичних досліджень НАН України",
+    "volume": "Репринт вид. 1929 р.",
+    "ISBN": "978-966-02-5147-2",
+    "URL": "https://repository.encyclopedia.kyiv.ua/items/show/48"
   }
 ]
