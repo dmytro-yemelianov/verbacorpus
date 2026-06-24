@@ -1,6 +1,7 @@
 import MiniSearch from "minisearch";
 import { type Proverb } from "../shared/corpus";
 import { isPresentable, deckFor, toggleSaved, nextShown } from "../shared/browse";
+import { prettify } from "../shared/text";
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -122,8 +123,8 @@ function renderSwipeCard() {
   const inner = $("swipeCard");
   inner.innerHTML =
     `<div class="sw-cat">№&nbsp;${esc(p.id.replace(/^p0*/, ""))}</div>
-     <p class="sw-text">${esc(p.text)}</p>
-     ${differs(p) ? `<p class="sw-modern">${esc(p.modern_text)}</p>` : ""}
+     <p class="sw-text">${esc(prettify(p.text))}</p>
+     ${differs(p) ? `<p class="sw-modern">${esc(prettify(p.modern_text))}</p>` : ""}
      <div class="sw-tags">${p.category.map((c) => `<span class="tag">${esc(catLabel(c))}</span>`).join("")}<span class="tag-src">${esc(p.sources.map(srcLabel).join(" · "))}</span></div>`;
   inner.onclick = () => openDetail(p);
   inner.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openDetail(p); } };
@@ -226,8 +227,8 @@ function renderHero() {
     `<article class="hero-card">
       <div>
         <div class="hero-cat">№&nbsp;${esc(p.id.replace(/^p0*/, ""))} / ${fmt(meta.count)}</div>
-        <p class="hero-text">${esc(p.text)}</p>
-        ${differs(p) ? `<p class="hero-modern">${esc(p.modern_text)}</p>` : ""}
+        <p class="hero-text">${esc(prettify(p.text))}</p>
+        ${differs(p) ? `<p class="hero-modern">${esc(prettify(p.modern_text))}</p>` : ""}
         <div class="hero-meta">${meta_}</div>
       </div>
       <button class="hero-shuffle" id="shuffle" type="button">Інше&nbsp;прислів'я</button>
@@ -321,8 +322,8 @@ function renderPage() {
       `<article class="entry" data-id="${esc(p.id)}">
         <div class="entry-cat">№&nbsp;${esc(p.id.replace(/^p0*/, ""))}${pageShowScore && p.score !== undefined ? `<br><span class="entry-score">${p.score.toFixed(2)}</span>` : ""}</div>
         <div>
-          <div class="entry-text">${esc(p.text)}</div>
-          ${differs(p) ? `<div class="entry-modern">${esc(p.modern_text)}</div>` : ""}
+          <div class="entry-text">${esc(prettify(p.text))}</div>
+          ${differs(p) ? `<div class="entry-modern">${esc(prettify(p.modern_text))}</div>` : ""}
           <div class="entry-tags">
             ${p.category.map((c) => `<span class="tag">${esc(catLabel(c))}</span>`).join("")}
             <span class="tag-src">${esc(p.sources.map(srcLabel).join(" · "))}</span>
@@ -358,10 +359,10 @@ async function openDetail(p: Proverb) {
   dlg.innerHTML =
     `<form method="dialog" class="detail-inner">
       <div class="detail-cat">№&nbsp;${esc(p.id.replace(/^p0*/, ""))}</div>
-      <p class="detail-text">${esc(p.text)}</p>
-      ${differs(p) ? `<p class="detail-modern">${esc(p.modern_text)}</p>` : ""}
+      <p class="detail-text">${esc(prettify(p.text))}</p>
+      ${differs(p) ? `<p class="detail-modern">${esc(prettify(p.modern_text))}</p>` : ""}
       ${expl ? `<div class="detail-expl">${esc(expl)}</div>` : ""}
-      ${variants.length ? `<div class="detail-variants"><h4>Варіанти</h4><ul>${variants.map((v) => `<li>${esc(v.text)}</li>`).join("")}</ul></div>` : ""}
+      ${variants.length ? `<div class="detail-variants"><h4>Варіанти</h4><ul>${variants.map((v) => `<li>${esc(prettify(v.text))}</li>`).join("")}</ul></div>` : ""}
       <div class="detail-meta">${p.category.map((c) => `<span class="tag">${esc(catLabel(c))}</span>`).join("")}<span>${cite}</span></div>
       <div class="detail-share"><button class="detail-sharebtn" type="button">Поділитися</button><a class="detail-cardbtn" href="/card/${esc(p.id)}.png" target="_blank" rel="noopener">Картка</a></div>
       <button class="detail-close" type="submit" value="close">Закрити</button>
@@ -374,7 +375,7 @@ async function openDetail(p: Proverb) {
       if (!form) return;
       const sec = document.createElement("div");
       sec.className = "detail-similar";
-      sec.innerHTML = `<h4>Схожі прислів'я</h4><ul>${data.results.map((s: Proverb) => `<li data-id="${esc(s.id)}">${esc(s.text)}</li>`).join("")}</ul>`;
+      sec.innerHTML = `<h4>Схожі прислів'я</h4><ul>${data.results.map((s: Proverb) => `<li data-id="${esc(s.id)}">${esc(prettify(s.text))}</li>`).join("")}</ul>`;
       form.insertBefore(sec, form.querySelector(".detail-close"));
       for (const li of Array.from(sec.querySelectorAll<HTMLElement>("li"))) {
         li.addEventListener("click", () => { const sp = byId.get(li.dataset.id!); if (sp) { dlg.close(); openDetail(sp); } });
