@@ -112,7 +112,8 @@
       + ' · <a href="/api.html">' + tr("nav.api", "API") + '</a>';
     var refs = document.getElementById("aboutRefs");
     if (refs && m.sources) refs.innerHTML = m.sources.map(function (s) {
-      var cit = s.citation || (s.author ? s.author + ". " : "") + s.title;
+      var cit = s.citation || ((s.author ? s.author + ". " : "") + (s.title || ""));
+      cit = cit.replace(/[&<>"']/g, function (c) { return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]; });
       return "<li>" + cit.replace(/(https?:\/\/\S+)/, '<a href="$1" rel="noopener">$1</a>') + "</li>";
     }).join("");
     var refsDownload = document.getElementById("aboutRefsDownload");
