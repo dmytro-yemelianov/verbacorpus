@@ -9,3 +9,4 @@ expand/work/
 # Nomis 1864 scan — 29MB, re-fetchable; not vendored (provenance in expand/REPORT.md)
 data/sources/nomis.pdf
 verba-corpus-*.zip
+node_modules/
