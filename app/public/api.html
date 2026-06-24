@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="theme-color" content="#7A2E3A" />
+  <meta name="theme-color" content="#5E7355" />
   <meta name="description" content="REST API корпусу українських прислів'їв — документація, параметри та приклади curl." />
   <title>API — українські прислів'я</title>
   <link rel="stylesheet" href="/fonts/spectral.css" />
@@ -16,7 +16,7 @@
     .endpoint { border-top: 1px solid var(--rule); padding: 1.4rem 0 1rem; }
     .endpoint:last-child { border-bottom: 1px solid var(--rule); }
     .ep-line { display: flex; align-items: baseline; gap: .85rem; flex-wrap: wrap; margin-bottom: .5rem; }
-    .ep-method { font-family: var(--mono); font-size: .72rem; letter-spacing: .08em; font-weight: 700; color: #fff; background: var(--wine); border-radius: 3px; padding: .18rem .45rem; }
+    .ep-method { font-family: var(--mono); font-size: .72rem; letter-spacing: .08em; font-weight: 700; color: #fff; background: var(--willow); border-radius: 3px; padding: .18rem .45rem; }
     .ep-path { font-family: var(--mono); font-size: 1rem; color: var(--ink); }
     .ep-summary { font-size: .9rem; color: var(--muted); }
     .ep-desc { font-size: .88rem; color: var(--muted); max-width: var(--measure); margin: .35rem 0 .9rem; line-height: 1.55; }
@@ -116,7 +116,7 @@
         <table class="params">
           <thead><tr><th>Параметр</th><th>Тип</th><th>Опис</th></tr></thead>
           <tbody>
-            <tr><td class="param-name">q <span style="color:var(--wine);font-size:.75em">*</span></td><td class="param-type">string</td><td>Природномовний запит.</td></tr>
+            <tr><td class="param-name">q <span style="color:var(--willow);font-size:.75em">*</span></td><td class="param-type">string</td><td>Природномовний запит.</td></tr>
             <tr><td class="param-name">category</td><td class="param-type">string</td><td>Фільтр за темою.</td></tr>
             <tr><td class="param-name">source</td><td class="param-type">string</td><td>Фільтр за джерелом.</td></tr>
             <tr><td class="param-name">minScore</td><td class="param-type">float</td><td>Мінімальний поріг схожості (0–1, за замовч. 0.4).</td></tr>
@@ -196,7 +196,7 @@
         <table class="params">
           <thead><tr><th>Параметр</th><th>Тип</th><th>Опис</th></tr></thead>
           <tbody>
-            <tr><td class="param-name">id <span style="color:var(--wine);font-size:.75em">*</span></td><td class="param-type">path</td><td>Ідентифікатор запису, напр. <code style="font-family:var(--mono)">p000001</code>.</td></tr>
+            <tr><td class="param-name">id <span style="color:var(--willow);font-size:.75em">*</span></td><td class="param-type">path</td><td>Ідентифікатор запису, напр. <code style="font-family:var(--mono)">p000001</code>.</td></tr>
             <tr><td class="param-name">format</td><td class="param-type">enum</td><td>json · jsonl · xml · csv · tsv</td></tr>
           </tbody>
         </table>
