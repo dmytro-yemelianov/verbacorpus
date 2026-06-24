@@ -29,6 +29,7 @@
   "colophon.noteText": "Les orthographes modernes et les thèmes sont générés automatiquement et sont approximatifs ; les textes sont présentés aussi fidèlement que possible aux sources.",
   "nav.browse": "Parcourir tout le corpus",
   "nav.about": "À propos",
+  "nav.blog": "Blog",
   "nav.github": "Code et données sur GitHub",
   "nav.api": "API",
   "detail.dialogLabel": "Proverbe",

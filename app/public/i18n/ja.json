@@ -29,6 +29,7 @@
   "colophon.noteText": "現代の綴りとテーマは自動生成のため概算です。テキストはできる限り原典に忠実に提示されています。",
   "nav.browse": "コーパス全体を閲覧",
   "nav.about": "プロジェクトについて",
+  "nav.blog": "ブログ",
   "nav.github": "コードとデータ — GitHub",
   "nav.api": "API",
   "detail.dialogLabel": "ことわざ",

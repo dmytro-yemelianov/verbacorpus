@@ -29,6 +29,7 @@
   "colophon.noteText": "Modern spellings and themes are generated automatically and are approximate; texts are presented as close to the sources as possible.",
   "nav.browse": "Browse the whole corpus",
   "nav.about": "About",
+  "nav.blog": "Blog",
   "nav.github": "Code and data on GitHub",
   "nav.api": "API",
   "detail.dialogLabel": "Proverb",
