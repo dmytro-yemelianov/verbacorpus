@@ -3,3 +3,4 @@ rapidfuzz
 pytest
 requests
 Pillow
+markdown
