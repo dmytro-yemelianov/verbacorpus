@@ -33,13 +33,6 @@ function esc(s: string): string {
 function fmt(n: number): string {
   return n.toLocaleString("uk-UA").replace(/[ ,\s]/g, " ");
 }
-// Ukrainian plural: forms = [one, few (2–4), many (0,5–20)]
-function plural(n: number, forms: [string, string, string]): string {
-  const m10 = n % 10, m100 = n % 100;
-  if (m10 === 1 && m100 !== 11) return forms[0];
-  if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return forms[1];
-  return forms[2];
-}
 function catLabel(k: string): string { return tr("cat." + k, meta.taxonomy[k]); }
 
 function differs(p: Proverb): boolean {
@@ -144,7 +137,7 @@ function updateSavedCount() {
 }
 function renderSavedView() {
   const items = saved.map((id) => byId.get(id)).filter(Boolean) as Proverb[];
-  $("count").textContent = tr("saved.label", "♥ Збережені ({n})").replace("{n}", String(items.length));
+  $("count").textContent = tr("saved.count", "Збережено {n}").replace("{n}", String(items.length));
   showResults(items, tr("results.head", "Результати"), false);
 }
 
@@ -186,7 +179,7 @@ async function boot() {
   // Language switcher in #langSwitch
   const sw = $("langSwitch");
   if (sw) {
-    sw.innerHTML = `<details class="lang-menu"><summary>${LANG_NAMES[LANG] ?? LANG}</summary><ul>` +
+    sw.innerHTML = `<details class="lang-menu"><summary>${esc(LANG_NAMES[LANG] ?? LANG)}</summary><ul>` +
       LANGS.map((l) => `<li><a href="${langHref(l)}" hreflang="${l}"${l === LANG ? ' aria-current="true"' : ""}>${LANG_NAMES[l]}</a></li>`).join("") +
       `</ul></details>`;
     sw.querySelectorAll<HTMLAnchorElement>("a[hreflang]").forEach((a) => {
@@ -303,7 +296,7 @@ async function renderResults() {
       const data = await fetch(url).then((r) => r.json());
       if (seq !== renderSeq) return;
       $("count").textContent = tr("results.semantic", "За змістом: {n}").replace("{n}", fmt(data.total));
-      showResults(data.results, tr("results.semantic", "За змістом: {n}").replace("{n}", "").trim().replace(/:\s*$/, ""), true);
+      showResults(data.results, tr("results.semanticHead", "За змістом"), true);
     } catch {
       $("count").textContent = "";
       $("results").innerHTML = `<p class="empty">${esc(tr("results.semanticError", "Семантичний пошук недоступний. Спробуйте звичайний пошук."))}</p>`;
@@ -422,13 +415,13 @@ async function openDetail(p: Proverb) {
 }
 
 function renderColophon() {
-  $("colStat").textContent =
-    `${fmt(meta.count)} ${plural(meta.count, ["запис", "записи", "записів"])} · ` +
-    `${meta.sources.length} ${plural(meta.sources.length, ["джерело", "джерела", "джерел"])} · ` +
-    `${Object.keys(meta.taxonomy).length} ${plural(Object.keys(meta.taxonomy).length, ["тема", "теми", "тем"])}`;
+  $("colStat").textContent = tr("colophon.stats", "{count} записів · {sources} джерел · {themes} тем")
+    .replace("{count}", fmt(meta.count))
+    .replace("{sources}", String(meta.sources.length))
+    .replace("{themes}", String(Object.keys(meta.taxonomy).length));
   if (meta.version) {
     $("colVersion").innerHTML =
-      `Версія даних <a href="https://github.com/dmytro-yemelianov/verbacorpus/releases/tag/v${esc(meta.version)}" rel="noopener">v${esc(meta.version)}</a>`;
+      `${esc(tr("colophon.version", "Версія даних"))} <a href="https://github.com/dmytro-yemelianov/verbacorpus/releases/tag/v${esc(meta.version)}" rel="noopener">v${esc(meta.version)}</a>`;
   }
   $("colSources").innerHTML = meta.sources.map((s) =>
     `<li><b>${esc(s.author || s.key)}</b> — <i>${esc(s.title)}</i>${s.year ? ", " + esc(s.year) : ""}</li>`).join("");
