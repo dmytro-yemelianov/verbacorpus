@@ -7,9 +7,16 @@ import { renderCard } from "./card";
 import { parseLang, t, hreflangLinks, DEFAULT_LANG } from "./shared/i18n";
 import uk from "../public/i18n/uk.json";
 import en from "../public/i18n/en.json";
+import de from "../public/i18n/de.json";
+import fr from "../public/i18n/fr.json";
+import es from "../public/i18n/es.json";
+import pl from "../public/i18n/pl.json";
+import it from "../public/i18n/it.json";
+import pt from "../public/i18n/pt.json";
+import ja from "../public/i18n/ja.json";
+import zh from "../public/i18n/zh.json";
 
-// de..zh added in the controller phase; for now:
-const CATALOGS: Record<string, Record<string, string>> = { uk, en };
+const CATALOGS: Record<string, Record<string, string>> = { uk, en, de, fr, es, pl, it, pt, ja, zh };
 function catalogFor(lang: string) { return CATALOGS[lang] ?? CATALOGS[DEFAULT_LANG]; }
 
 interface Env {

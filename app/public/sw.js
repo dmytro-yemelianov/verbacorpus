@@ -1,4 +1,4 @@
-const CACHE = "ukr-proverbs-v13";
+const CACHE = "ukr-proverbs-v14";
 const SHELL = ["/", "/styles.css", "/fonts/spectral.css", "/app.js", "/manifest.webmanifest", "/data/proverbs.json", "/data/meta.json"];
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));
