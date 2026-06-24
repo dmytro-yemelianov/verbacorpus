@@ -2,22 +2,26 @@ import { type Proverb } from "./corpus";
 import { prettify } from "./text";
 import { t, hreflangLinks, DEFAULT_LANG } from "./i18n";
 import { srcLabel } from "./sources";
+import { shortUrl } from "./shortlink";
+import { qrDataUri } from "./qr";
 
 export function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
 }
 
-export type CardModel = { text: string; modern: string; footer: string };
+export type CardModel = { text: string; modern: string; footer: string; qr: string; shortUrl: string };
 
 const num = (id: string) => id.replace(/^p0*/, "");
 
-export function cardModel(p: Proverb & { explanation?: string | null }, opts: { maxLen?: number } = {}): CardModel {
+export function cardModel(p: Proverb & { explanation?: string | null }, opts: { host: string; maxLen?: number }): CardModel {
   const max = opts.maxLen ?? 160;
   const raw = prettify(p.text);
   const text = raw.length > max ? raw.slice(0, max) + "…" : raw;
   const modern = p.modern_text && p.modern_text.trim() !== p.text.trim() ? prettify(p.modern_text) : "";
-  const footer = [...p.sources.map(srcLabel), `№${num(p.id)}`, "verbacorpus.org"].join(" · ");
-  return { text, modern, footer };
+  const su = shortUrl(p.id, opts.host);
+  const footer = [...p.sources.map(srcLabel), `№${num(p.id)}`, su.replace(/^https:\/\//, "")].join(" · ");
+  const qr = qrDataUri(su, { module: 4, margin: 2 });
+  return { text, modern, footer, qr, shortUrl: su };
 }
 
 export function dailyIndex(dateStr: string, poolLen: number): number {

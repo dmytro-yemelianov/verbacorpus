@@ -11,13 +11,15 @@ describe("escapeHtml", () => {
   it("escapes the five", () => expect(escapeHtml(`a<b>&"'`)).toBe("a&lt;b&gt;&amp;&quot;&#39;"));
 });
 describe("cardModel", () => {
-  it("omits modern when equal; builds footer", () => {
-    const m = cardModel(P);
+  it("omits modern when equal; builds footer with short link; returns qr + shortUrl", () => {
+    const m = cardModel(P, { host: "verbacorpus.org" });
     expect(m.modern).toBe("");
-    expect(m.footer).toBe("Франко 1901 · Номис 1864 · №123 · verbacorpus.org");
+    expect(m.footer.endsWith("verbacorpus.org/s/123")).toBe(true);
+    expect(m.shortUrl).toBe("https://verbacorpus.org/s/123");
+    expect(m.qr.startsWith("data:image/svg+xml;base64,")).toBe(true);
   });
   it("keeps modern when different; truncates long text", () => {
-    const m = cardModel({ ...P, modern_text: "Без труда нема плоду", text: "x".repeat(200) });
+    const m = cardModel({ ...P, modern_text: "Без труда нема плоду", text: "x".repeat(200) }, { host: "verbacorpus.org" });
     expect(m.modern).toBe("Без труда нема плоду");
     expect(m.text.length).toBeLessThanOrEqual(161);
     expect(m.text.endsWith("…")).toBe(true);

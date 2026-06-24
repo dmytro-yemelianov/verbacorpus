@@ -19,7 +19,10 @@ export function renderCard(m: CardModel): Response {
     <div style="font-size:62px;color:#232520;line-height:1.18;display:flex;">${e(m.text)}</div>
     ${modern}
   </div>
-  <div style="display:flex;font-size:26px;color:#6f6a5c;">${e(m.footer)}</div>
+  <div style="display:flex;align-items:flex-end;justify-content:space-between;">
+    <div style="display:flex;font-size:26px;color:#6f6a5c;max-width:880px;">${e(m.footer)}</div>
+    <img src="${m.qr}" width="132" height="132" style="display:flex;" />
+  </div>
 </div>`;
   return new ImageResponse(html, {
     width: 1200,

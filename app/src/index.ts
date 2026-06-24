@@ -128,11 +128,11 @@ export default {
           if (key === "daily") {
             const pool = proverbs.filter((p) => { const t = p.text.trim(); return /^[А-ЯІЇЄҐ]/.test(t) && t.length >= 18 && t.length <= 90 && t.split(/\s+/).length >= 4; });
             const pick = pool[dailyIndex(new Date().toISOString().slice(0, 10), pool.length)] ?? proverbs[0];
-            return cacheable(renderCard(cardModel(pick)), 86400);
+            return cacheable(renderCard(cardModel(pick, { host: url.host })), 86400);
           }
           const p = byId.get(key);
           if (!p) return new Response("not found", { status: 404, headers: { "access-control-allow-origin": "*" } });
-          return cacheable(renderCard(cardModel(p)), 31536000);
+          return cacheable(renderCard(cardModel(p, { host: url.host })), 31536000);
         }
         return new Response("not found", { status: 404, headers: { "access-control-allow-origin": "*" } });
       }
