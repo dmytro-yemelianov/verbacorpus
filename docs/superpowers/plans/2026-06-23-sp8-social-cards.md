@@ -14,7 +14,7 @@
 
 - New routes: `/p/:id` (HTML landing), `/card/:id.png` (1200×630 PNG), `/card/daily.png` (date-deterministic). Add `"/p/*"` and `"/card/*"` to `wrangler.jsonc` `run_worker_first`.
 - Per-proverb OG/Twitter meta in the **initial HTML**: `og:title`=text, `og:description`=modern + sources + themes, `og:image`=`https://<host>/card/:id.png` (1200×630), `og:url`=canonical, `twitter:card=summary_large_image`, `lang=uk`. All fields HTML-escaped.
-- Card design (editorial): bone `#f7f5f0` bg, wine `#7a2e3a` accent rule, proverb in serif (the bundled Cyrillic TTF), modern reading (only if it differs), footer = `sources · №<num> · ukr-proverbs-corpus`. 1200×630. `Content-Type: image/png`.
+- Card design (editorial): linen `#f4f1e8` bg, willow `#5e7355` accent rule, proverb in serif (the bundled Cyrillic TTF), modern reading (only if it differs), footer = `sources · №<num> · verbacorpus.org`. 1200×630. `Content-Type: image/png`.
 - Card caching: `/card/:id.png` → `Cache-Control: public, max-age=31536000, immutable`; `/card/daily.png` → `max-age=86400`. Use the Worker Cache API.
 - Daily card: pick from the **presentable** pool (starts with uppercase Cyrillic, 18–90 chars, ≥4 words) by a seed derived from the UTC `YYYY-MM-DD`.
 - Card rendering needs an embedded **Cyrillic TTF** — bundle **PT Serif** (`PTSerif-Regular.ttf`, OFL, full Ukrainian Cyrillic) via an esbuild `.ttf` binary loader. (Brand uses Spectral on the site; PT Serif on the card is acceptable and guarantees Ukrainian glyphs.)
@@ -32,7 +32,7 @@
 - Produces:
   - `escapeHtml(s: string) -> string` (`& < > " '`).
   - `type CardModel = { text: string; modern: string; footer: string }`.
-  - `cardModel(p: Proverb & { explanation?: string|null }, opts?: {maxLen?: number}) -> CardModel` — `text` = proverb (truncated to ~160 chars + "…" if longer); `modern` = `modern_text` if it differs from text, else ""; `footer` = `sources.join(" · ") + " · №" + id-without-leading-zeros + " · ukr-proverbs-corpus"`. (Raw text — escaping happens at render.)
+  - `cardModel(p: Proverb & { explanation?: string|null }, opts?: {maxLen?: number}) -> CardModel` — `text` = proverb (truncated to ~160 chars + "…" if longer); `modern` = `modern_text` if it differs from text, else ""; `footer` = `sources.join(" · ") + " · №" + id-without-leading-zeros + " · verbacorpus.org"`. (Raw text — escaping happens at render.)
   - `buildProverbPage(p: Proverb, host: string) -> string` — full HTML doc: head with escaped OG/Twitter meta (`og:title`=text, `og:description`=`modern_text` + " — " + sources + " · " + category-labels, `og:image`=`https://${host}/card/${id}.png`, `og:image:width/height`, `og:url`=`https://${host}/p/${id}`, `og:type=article`, `twitter:card=summary_large_image`, `og:site_name`), links `/fonts/spectral.css` + `/styles.css`, and an editorial body (proverb, modern, source/theme tags, catalog №, an `<img src="/card/:id.png">`, links to `/` and `/api.html`). All interpolations escaped.
   - `dailyIndex(dateStr: string, poolLen: number) -> number` — deterministic hash of `dateStr` mod `poolLen` (0 if poolLen 0).
 
@@ -54,7 +54,7 @@ describe("cardModel", () => {
   it("omits modern when equal; builds footer", () => {
     const m = cardModel(P);
     expect(m.modern).toBe("");
-    expect(m.footer).toBe("Franko1901 · Nomis1864 · №123 · ukr-proverbs-corpus");
+    expect(m.footer).toBe("Franko1901 · Nomis1864 · №123 · verbacorpus.org");
   });
   it("keeps modern when different; truncates long text", () => {
     const m = cardModel({ ...P, modern_text: "Без труда нема плоду", text: "x".repeat(200) });
@@ -101,7 +101,7 @@ export function cardModel(p: Proverb & { explanation?: string | null }, opts: { 
   const max = opts.maxLen ?? 160;
   const text = p.text.length > max ? p.text.slice(0, max) + "…" : p.text;
   const modern = p.modern_text && p.modern_text.trim() !== p.text.trim() ? p.modern_text : "";
-  const footer = [...p.sources, `№${num(p.id)}`, "ukr-proverbs-corpus"].join(" · ");
+  const footer = [...p.sources, `№${num(p.id)}`, "verbacorpus.org"].join(" · ");
   return { text, modern, footer };
 }
 
@@ -196,15 +196,16 @@ const FONT = (ptSerif as unknown as Uint8Array).buffer as ArrayBuffer;
 export function renderCard(m: CardModel): Response {
   const e = escapeHtml;
   const modern = m.modern
-    ? `<div style="font-size:34px;font-style:italic;color:#6e685f;margin-top:20px;display:flex;">${e(m.modern)}</div>`
+    ? `<div style="font-size:34px;font-style:italic;color:#6f6a5c;margin-top:20px;display:flex;">${e(m.modern)}</div>`
     : "";
-  const html = `<div style="display:flex;flex-direction:column;width:1200px;height:630px;background:#f7f5f0;padding:72px;font-family:'PT Serif';">
-  <div style="display:flex;width:96px;height:8px;background:#7a2e3a;"></div>
+  // verba willow palette: linen bg #f4f1e8, willow rule #5e7355, ink #232520, muted #6f6a5c
+  const html = `<div style="display:flex;flex-direction:column;width:1200px;height:630px;background:#f4f1e8;padding:72px;font-family:'PT Serif';">
+  <div style="display:flex;width:96px;height:8px;background:#5e7355;"></div>
   <div style="display:flex;flex-direction:column;flex:1;justify-content:center;">
-    <div style="font-size:62px;color:#1a1916;line-height:1.18;display:flex;">${e(m.text)}</div>
+    <div style="font-size:62px;color:#232520;line-height:1.18;display:flex;">${e(m.text)}</div>
     ${modern}
   </div>
-  <div style="display:flex;font-size:26px;color:#6e685f;">${e(m.footer)}</div>
+  <div style="display:flex;font-size:26px;color:#6f6a5c;">${e(m.footer)}</div>
 </div>`;
   return new ImageResponse(html, {
     width: 1200,
@@ -329,45 +330,40 @@ git commit -m "feat(cards): /p/:id pages + /card/:id.png + /card/daily.png + hom
 
 ---
 
-### Task 4 [IMPL]: PWA share button
+### Task 4 [IMPL]: Upgrade the share button to /p/:id + add a card link
+
+**Context:** SP9 already added a `share(p)` helper (`main.ts` ~line 62, using `const url = location.origin;`), a «Поділитися» button in `openDetail` (`<div class="detail-share"><button class="detail-sharebtn">…`), a swipe-card share (`#swShare` → `share(p)`), and `.detail-share`/`.detail-sharebtn` styles. This task UPGRADES them to deep-link to the new `/p/:id` page (which unfurls with the card) and adds a «Картка» link — it does NOT add a share button from scratch or re-declare existing styles.
 
 **Files:** Modify `app/src/client/main.ts`, `app/public/styles.css`.
 
-- [ ] **Step 1: Styles** — append to `app/public/styles.css`:
+- [ ] **Step 1: Point share at the proverb page** — in `share(p)`, change `const url = location.origin;` to:
+```typescript
+  const url = `${location.origin}/p/${p.id}`;
+```
+  (Both the detail «Поділитися» and the swipe «↗» call `share(p)`, so both now deep-link to `/p/:id` and the clipboard fallback `${p.text} — ${url}` carries the proverb link.)
+
+- [ ] **Step 2: Add a «Картка» link in the detail share row** — find the existing line in `openDetail`:
+```typescript
+      <div class="detail-share"><button class="detail-sharebtn" type="button">Поділитися</button></div>
+```
+  and change it to add the card link (the existing `.detail-sharebtn` wiring is unchanged):
+```typescript
+      <div class="detail-share"><button class="detail-sharebtn" type="button">Поділитися</button><a class="detail-cardbtn" href="/card/${esc(p.id)}.png" target="_blank" rel="noopener">Картка</a></div>
+```
+
+- [ ] **Step 3: Styles** — in `app/public/styles.css`, REPLACE the existing `.detail-share { margin-top: 1.2rem; }` rule with a flex row, and append the `.detail-cardbtn` style (mirroring `.detail-sharebtn`):
 ```css
-.detail-share { margin-top: 1rem; display: flex; gap: .6rem; flex-wrap: wrap; }
-.detail-share button, .detail-share a { font-family: var(--sans); font-size: .82rem; cursor: pointer;
-  background: none; border: 1px solid var(--ink); color: var(--ink); border-radius: 999px; padding: .45rem 1rem; text-decoration: none; }
-.detail-share button:hover, .detail-share a:hover { background: var(--ink); color: var(--paper); }
-.detail-share .copied { color: var(--wine); border-color: var(--wine); }
+.detail-share { margin-top: 1.2rem; display: flex; gap: .6rem; flex-wrap: wrap; }
+.detail-cardbtn { font-family: var(--sans); font-size: .82rem; cursor: pointer; background: none; border: 1px solid var(--willow); color: var(--willow); border-radius: 999px; padding: .45rem 1.1rem; text-decoration: none; }
+.detail-cardbtn:hover { background: var(--willow); color: #fff; }
 ```
 
-- [ ] **Step 2: Wire the share button** — in `app/src/client/main.ts` `openDetail(p)`, before `dlg.showModal();`, inject a share row into the dialog form (after the close button is created, or append to `.detail-inner`). Add this block where the dialog HTML is assembled (adapt to the existing `dlg.innerHTML` template — add the share row just before the close button):
-```typescript
-      <div class="detail-share">
-        <button type="button" class="share-link" data-id="${p.id}">Поділитися</button>
-        <a class="share-card" href="/card/${p.id}.png" target="_blank" rel="noopener">Картка</a>
-      </div>
-```
-  Then after `dlg.showModal();` (or in the same handler that wires the close), add the share handler:
-```typescript
-  const shareBtn = dlg.querySelector<HTMLButtonElement>(".share-link");
-  if (shareBtn) shareBtn.addEventListener("click", async () => {
-    const url = `${location.origin}/p/${p.id}`;
-    const data = { title: "Українське прислів'я", text: p.text, url };
-    if (navigator.share) { try { await navigator.share(data); } catch {} return; }
-    try { await navigator.clipboard.writeText(url); shareBtn.textContent = "Скопійовано ✓"; shareBtn.classList.add("copied"); }
-    catch { window.open(url, "_blank"); }
-  });
-```
-  (Match the existing `openDetail` structure — it builds `dlg.innerHTML` then wires buttons. Place the share-row HTML inside the existing template and the listener alongside the existing close wiring.)
+- [ ] **Step 4: Build + verify** — from `app/`: `node build.mjs` → "Built public/app.js" (no errors); `npx vitest run` → green.
 
-- [ ] **Step 3: Build, verify compiles** — from `app/`: `node build.mjs` → `Built public/app.js`, no errors.
-
-- [ ] **Step 4: Commit**
+- [ ] **Step 5: Commit**
 ```bash
 git add app/src/client/main.ts app/public/styles.css
-git commit -m "feat(cards): «Поділитися» share button in the detail view"
+git commit -m "feat(cards): deep-link share to /p/:id + «Картка» link to the card image"
 ```
 
 ---
@@ -378,7 +374,7 @@ Controller-run. The card-render verification (the font risk) happens here, BEFOR
 
 - [ ] **Step 1: Bump SW cache** — `app/public/sw.js` `CACHE` → next version.
 - [ ] **Step 2: Preview** — `cd app && node build.mjs && npx wrangler versions upload`.
-- [ ] **Step 3: Render-spike (the gate)** — on the preview URL, fetch `/card/p000123.png` and `/card/daily.png` and **eyeball them**: confirm the Ukrainian text renders (not tofu/boxes), layout is correct, wine rule + footer present. If text is missing/garbled → the font isn't loading: check the esbuild `.ttf` binary import (`ptSerif.buffer`), confirm PT Serif has the glyphs, or swap the font; rebuild + re-upload. Do not proceed to production until a card renders Ukrainian correctly.
+- [ ] **Step 3: Render-spike (the gate)** — on the preview URL, fetch `/card/p000123.png` and `/card/daily.png` and **eyeball them**: confirm the Ukrainian text renders (not tofu/boxes), layout is correct, willow rule + footer present. If text is missing/garbled → the font isn't loading: check the esbuild `.ttf` binary import (`ptSerif.buffer`), confirm PT Serif has the glyphs, or swap the font; rebuild + re-upload. Do not proceed to production until a card renders Ukrainian correctly.
 - [ ] **Step 4: Validate `/p/:id`** — fetch a `/p/p000123` and confirm the OG tags + `og:image` are in the HTML (paste into an OG validator or grep); check the page renders in a browser; check the homepage `og:image` = `/card/daily.png` resolves.
 - [ ] **Step 5: Deploy** (confirm with user) — `npx wrangler deploy`; smoke production (`/card/p000001.png`, `/p/p000001`, `/card/daily.png`, homepage). Test the share button on the live site.
 - [ ] **Step 6: Finish** — README (a "Sharing" note: `/p/:id` + `/card/:id.png` + daily card); controller merges `feat/social-cards` → main, pushes both remotes; update memory.
