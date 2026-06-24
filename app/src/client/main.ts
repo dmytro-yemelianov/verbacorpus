@@ -3,6 +3,7 @@ import { type Proverb } from "../shared/corpus";
 import { srcLabel } from "../shared/sources";
 import { isPresentable, deckFor, toggleSaved, nextShown } from "../shared/browse";
 import { prettify } from "../shared/text";
+import { shortUrl } from "../shared/shortlink";
 import "./chrome"; // renders the language switcher (shared with the static pages)
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -52,7 +53,7 @@ function debounce(fn: () => void, ms: number) {
 }
 
 async function share(p: Proverb) {
-  const url = `${location.origin}/p/${p.id}`;
+  const url = shortUrl(p.id, location.host);
   if (navigator.share) { try { await navigator.share({ title: tr("detail.dialogLabel", "Українське прислів'я"), text: p.text, url }); } catch {} return; }
   try { await navigator.clipboard.writeText(`${p.text} — ${url}`); flash(tr("flash.copied", "Скопійовано ✓")); }
   catch { window.open(url, "_blank"); }

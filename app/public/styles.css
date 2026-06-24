@@ -312,3 +312,11 @@ body.swipe-open { overflow: hidden; }
 .lang-menu li a:hover .lang-name { color: rgba(255,255,255,.85); }
 .lang-menu li a[aria-current="true"] { background: var(--paper); }
 .lang-menu li a[aria-current="true"] .lang-code { color: var(--willow); }
+
+/* ---- Proverb detail page (/p/:id) ---- */
+.p-card { display: block; width: 100%; max-width: 640px; height: auto; border: 1px solid var(--rule); border-radius: 8px; margin: 0 0 1.4rem; }
+.p-share { display: flex; gap: 1rem; align-items: center; margin: 1.4rem 0; font-family: var(--sans); font-size: .85rem; }
+.p-share button { font-family: var(--sans); font-size: .85rem; cursor: pointer; background: none; border: 1px solid var(--willow); color: var(--willow); border-radius: 999px; padding: .4rem 1rem; transition: background .15s, color .15s; }
+.p-share button:hover { background: var(--willow); color: #fff; }
+.p-share a { color: var(--willow); text-decoration: none; border: 1px solid var(--rule); border-radius: 999px; padding: .4rem 1rem; transition: background .15s, color .15s; }
+.p-share a:hover { background: var(--willow); color: #fff; border-color: var(--willow); }

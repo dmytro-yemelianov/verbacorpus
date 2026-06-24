@@ -29,6 +29,21 @@ export function renderLangSwitch(): void {
   });
 }
 
+function wireCopyLink(): void {
+  const copyBtn = document.getElementById("copyLink") as HTMLButtonElement | null;
+  if (copyBtn) copyBtn.addEventListener("click", () => {
+    const link = copyBtn.dataset.link || location.href;
+    navigator.clipboard?.writeText(link);
+    const prev = copyBtn.textContent; copyBtn.textContent = "✓";
+    setTimeout(() => { copyBtn.textContent = prev; }, 1200);
+  });
+}
+
+function initChrome(): void {
+  renderLangSwitch();
+  wireCopyLink();
+}
+
 // Auto-render when present in the DOM (covers both the SPA and the static pages).
-if (document.readyState !== "loading") renderLangSwitch();
-else document.addEventListener("DOMContentLoaded", renderLangSwitch);
+if (document.readyState !== "loading") initChrome();
+else document.addEventListener("DOMContentLoaded", initChrome);

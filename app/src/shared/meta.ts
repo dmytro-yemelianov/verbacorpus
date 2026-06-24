@@ -40,15 +40,16 @@ export function buildProverbPage(p: Proverb, host: string, cat: Record<string, s
   const desc = [prettify(p.modern_text), p.sources.map(srcLabel).join(", "), p.category.join(", ")].filter(Boolean).join(" — ");
   const tags = p.category.map((c) => `<span class="tag">${e(c)}</span>`).join("");
   const siteName = t(cat, "meta.home.ogTitle", "Українські прислів'я та приказки");
-  const browseLabel = t(cat, "nav.browse", t(cat, "about.back", "← На головну"));
-  const browseHref = lang === DEFAULT_LANG ? "/" : `/${e(lang)}/`;
-  const apiLabel = t(cat, "nav.api", "API");
+  const copyLinkLabel = t(cat, "detail.copyLink", "Скопіювати посилання");
+  const cardLabel = t(cat, "detail.card", "Картка");
   const hreflang = hreflangLinks(`/p/${p.id}`, host);
+  const su = shortUrl(p.id, host);
   return `<!DOCTYPE html>
 <html lang="${e(lang)}">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="theme-color" content="#5E7355" />
 <title>${e(pt)} — ${e(siteName)}</title>
 <meta name="description" content="${e(desc)}" />
 <meta property="og:locale" content="${e(lang)}" />
@@ -67,17 +68,54 @@ export function buildProverbPage(p: Proverb, host: string, cat: Record<string, s
 ${hreflang}
 <link rel="stylesheet" href="/fonts/spectral.css" />
 <link rel="stylesheet" href="/styles.css" />
+<script>
+(function () {
+  var d = document.documentElement;
+  try { var t = localStorage.getItem("theme"); if (t === "dark" || t === "light") d.setAttribute("data-theme", t); } catch (e) {}
+  function cur() { return d.getAttribute("data-theme") || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"); }
+  function meta() { var m = document.querySelector('meta[name="theme-color"]'); if (m) m.content = cur() === "dark" ? "#191c16" : "#5E7355"; }
+  addEventListener("DOMContentLoaded", function () {
+    meta();
+    var b = document.getElementById("themeToggle"); if (!b) return;
+    function sync() { b.textContent = cur() === "dark" ? "☀" : "☾"; }
+    sync();
+    b.addEventListener("click", function () {
+      var next = cur() === "dark" ? "light" : "dark";
+      d.setAttribute("data-theme", next);
+      try { localStorage.setItem("theme", next); } catch (e) {}
+      sync(); meta();
+    });
+  });
+})();
+</script>
 </head>
 <body>
-<main class="wrap" style="max-width:760px;padding-block:clamp(2rem,8vw,5rem);">
-<p class="eyebrow">${e(siteName)}</p>
+<nav class="topbar">
+  <div class="wrap topbar-inner">
+    <a class="topbar-brand" href="/" aria-label="verba">
+      <svg class="leaf" viewBox="0 0 40 64" aria-hidden="true"><path d="M20 4 C 31 22 30 46 21 60 C 12 46 11 22 20 4 Z" fill="#5e7355"/><path d="M20 11 C 23 28 22 47 21 54" stroke="#f4f1e8" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg><span>verba</span>
+    </a>
+    <div class="topbar-nav">
+      <a class="topbar-link" href="/about" data-i18n="nav.about">${e(t(cat, "nav.about", "Про проєкт"))}</a>
+      <a class="topbar-link" href="/api.html" data-i18n="nav.api">${e(t(cat, "nav.api", "API"))}</a>
+      <a class="topbar-link topbar-link-ext" href="https://github.com/dmytro-yemelianov/verbacorpus" rel="noopener">GitHub</a>
+      <div id="langSwitch" class="lang-switch"></div>
+      <button id="themeToggle" class="theme-toggle-btn" type="button" aria-label="Перемкнути тему" data-i18n-attr="aria-label:ui.themeToggle">☾</button>
+    </div>
+  </div>
+</nav>
+<main class="wrap p-detail" style="max-width:760px;padding-block:clamp(2rem,8vw,5rem);">
+<img class="p-card" src="/card/${e(p.id)}.png" alt="${e(pt)}" width="1200" height="630" />
 <p class="hero-text" style="margin:0;">${e(pt)}</p>
 ${pm ? `<p class="hero-modern">${e(pm)}</p>` : ""}
 <p style="margin-top:1rem;">${tags} <span class="tag-src">${e(p.sources.map(srcLabel).join(" · "))}</span></p>
 ${sourceCitations.length ? `<p style="margin-top:.8rem;font-size:.85rem;color:var(--muted);line-height:1.5;">${sourceCitations.map((c) => e(c)).join("<br>")}</p>` : ""}
-<p><img src="/card/${e(p.id)}.png" alt="" style="max-width:100%;height:auto;border:1px solid var(--rule);border-radius:6px;margin-top:1rem;" /></p>
-<p style="margin-top:1.5rem;"><a href="${browseHref}">${e(browseLabel)}</a> · <a href="${lang === DEFAULT_LANG ? "" : "/" + e(lang)}/api.html">${e(apiLabel)}</a></p>
+<div class="p-share">
+  <button id="copyLink" type="button" data-link="${e(su)}" data-i18n="detail.copyLink">${e(copyLinkLabel)}</button>
+  <a href="/card/${e(p.id)}.png" target="_blank" rel="noopener" data-i18n="detail.card">${e(cardLabel)}</a>
+</div>
 </main>
+<script type="module" src="/chrome.js"></script>
 </body>
 </html>`;
 }
