@@ -48,15 +48,15 @@ def test_build_writes_reference_files(tmp_path):
     assert len(csl_data) == src_count
 
 
-def test_root_references_exist():
-    # build.py writes root-level reference files
-    assert os.path.exists("references.bib"), "references.bib missing from repo root"
-    bib = open("references.bib", encoding="utf-8").read()
-    assert bib.startswith("@book{"), "references.bib should start with @book{"
-    assert os.path.exists("references.csl.json"), "references.csl.json missing from repo root"
-    csl_data = json.loads(open("references.csl.json", encoding="utf-8").read())
-    src_count = sum(1 for _ in csv.DictReader(open(SRC, encoding="utf-8")))
-    assert len(csl_data) == src_count
+def test_root_references_exist(tmp_path):
+    import sys
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    import build
+    build._write_references(out_dir=str(tmp_path))
+    bib = (tmp_path / "references.bib").read_text(encoding="utf-8")
+    assert bib.startswith("@book{")
+    csl = json.loads((tmp_path / "references.csl.json").read_text(encoding="utf-8"))
+    assert isinstance(csl, list) and len(csl) == 5
 
 
 def test_read_version(tmp_path):

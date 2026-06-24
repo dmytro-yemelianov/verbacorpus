@@ -49,11 +49,13 @@ def _stats(records: list[CanonicalRecord]) -> dict:
 
 
 def _write_references(sources_csv: str = "sources.csv", out_dir: str = ".") -> None:
-    rows = list(csv.DictReader(open(sources_csv, encoding="utf-8")))
+    with open(sources_csv, encoding="utf-8") as f:
+        rows = list(csv.DictReader(f))
     with open(os.path.join(out_dir, "references.bib"), "w", encoding="utf-8") as f:
         f.write(to_bibtex(rows))
     with open(os.path.join(out_dir, "references.csl.json"), "w", encoding="utf-8") as f:
         _json.dump(to_csl(rows), f, ensure_ascii=False, indent=2)
+        f.write("\n")
 
 
 def build(sources_dir: str = "data/sources", out_dir: str = ".") -> dict:

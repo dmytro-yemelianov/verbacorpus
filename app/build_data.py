@@ -78,14 +78,19 @@ def build(corpus_path, taxonomy_path, sources_path, out_dir, xml_path):
     with open(os.path.join(out_dir, "meta.json"), "w", encoding="utf-8") as f:
         json.dump(meta, f, ensure_ascii=False, indent=2)
 
-    # Write reference files into the public/ dir (parent of out_dir)
+    # Write reference files into the public/ dir (parent of out_dir) AND the repo root
     public_dir = os.path.dirname(os.path.abspath(out_dir))
+    root = os.path.dirname(os.path.abspath(sources_path))
     with open(sources_path, encoding="utf-8") as _sf:
         src_rows = [{k.lstrip("﻿"): v for k, v in r.items()} for r in csv.DictReader(_sf)]
-    with open(os.path.join(public_dir, "references.bib"), "w", encoding="utf-8") as f:
-        f.write(to_bibtex(src_rows))
-    with open(os.path.join(public_dir, "references.csl.json"), "w", encoding="utf-8") as f:
-        json.dump(to_csl(src_rows), f, ensure_ascii=False, indent=2)
+    bib_text = to_bibtex(src_rows)
+    csl_data = to_csl(src_rows)
+    for dest_dir in (public_dir, root):
+        with open(os.path.join(dest_dir, "references.bib"), "w", encoding="utf-8") as f:
+            f.write(bib_text)
+        with open(os.path.join(dest_dir, "references.csl.json"), "w", encoding="utf-8") as f:
+            json.dump(csl_data, f, ensure_ascii=False, indent=2)
+            f.write("\n")
 
     with open(xml_path, "w", encoding="utf-8") as f:
         f.write('<?xml version="1.0" encoding="UTF-8"?>\n<corpus>\n')
