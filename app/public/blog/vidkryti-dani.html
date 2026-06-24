@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="theme-color" content="#5E7355" />
+<meta name="description" content="Для дослідників та розробників — доступні формати завантаження, робота з REST API, специфікація Croissant та цитування корпусу verba." />
+<title>Відкриті дані: як користуватися корпусом — verba</title>
+<meta property="og:type" content="article" />
+<meta property="og:title" content="Відкриті дані: як користуватися корпусом" />
+<meta property="og:description" content="Для дослідників та розробників — доступні формати завантаження, робота з REST API, специфікація Croissant та цитування корпусу verba." />
+<meta property="og:image" content="https://verbacorpus.org/card/daily.png" />
+<meta name="twitter:card" content="summary_large_image" />
+<link rel="canonical" href="https://verbacorpus.org/blog/vidkryti-dani" />
+<link rel="stylesheet" href="/fonts/spectral.css" />
+<link rel="stylesheet" href="/styles.css" />
+<script>(function(){var d=document.documentElement;try{var t=localStorage.getItem("theme");if(t==="dark"||t==="light")d.setAttribute("data-theme",t);}catch(e){}function cur(){return d.getAttribute("data-theme")||(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");}function meta(){var m=document.querySelector('meta[name="theme-color"]');if(m)m.content=cur()==="dark"?"#191c16":"#5E7355";}addEventListener("DOMContentLoaded",function(){meta();var b=document.getElementById("themeToggle");if(!b)return;function sync(){b.textContent=cur()==="dark"?"☀":"☾";}sync();b.addEventListener("click",function(){var n=cur()==="dark"?"light":"dark";d.setAttribute("data-theme",n);try{localStorage.setItem("theme",n);}catch(e){}sync();meta();});});})();</script>
+</head>
+<body>
+  <nav class="topbar">
+    <div class="wrap topbar-inner">
+      <a class="topbar-brand" href="/" aria-label="verba"><svg class="leaf" viewBox="0 0 40 64" aria-hidden="true"><path d="M20 4 C 31 22 30 46 21 60 C 12 46 11 22 20 4 Z" fill="#5e7355"/><path d="M20 11 C 23 28 22 47 21 54" stroke="#f4f1e8" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg><span>verba</span></a>
+      <div class="topbar-nav">
+        <a class="topbar-link" href="/about" data-i18n="nav.about">Про проєкт</a>
+        <a class="topbar-link" href="/blog" data-i18n="nav.blog">Блог</a>
+        <a class="topbar-link" href="/api.html" data-i18n="nav.api">API</a>
+        <a class="topbar-link" href="https://github.com/dmytro-yemelianov/verbacorpus" rel="noopener">GitHub</a>
+        <div id="langSwitch" class="lang-switch"></div>
+        <button id="themeToggle" class="theme-toggle-btn" type="button" aria-label="Перемкнути тему" data-i18n-attr="aria-label:ui.themeToggle">☾</button>
+      </div>
+    </div>
+  </nav>
+  <main class="wrap article">
+    <p class="article-back"><a href="/blog">← Блог</a></p>
+    <h1 class="article-title">Відкриті дані: як користуватися корпусом</h1>
+    <p class="article-date">2026-06-24</p>
+    <p>Проєкт <strong>verba</strong> створювався з думкою про відкриту науку (Open Science) та практичне використання в сучасних ІТ-проєктах. Ми прагнемо зробити українську народну мудрість легкодоступною для лінгвістичних досліджень, машинного навчання, розробки розважальних чи освітніх додатків.</p>
+<p>У цій статті ми розповімо про технічні можливості роботи з корпусом: формати завантаження, роботу з API, специфікацію Croissant та правила цитування.</p>
+<hr />
+<h2>1. REST API без ключів та обмежень</h2>
+<p>Для інтеграції корпусу у власні вебсайти чи додатки ми створили публічний REST API. Всі запити виконуються до базового шляху:
+<code>https://verbacorpus.org/api/v1</code></p>
+<p><strong>Ключові особливості нашого API:</strong>
+* <strong>Повна публічність:</strong> немає потреби реєструватися, отримувати API-ключі чи налаштовувати авторизацію.
+* <strong>CORS відкритий:</strong> ви можете надсилати запити безпосередньо з фронтенду вашого сайту (встановлено заголовок <code>Access-Control-Allow-Origin: *</code>).
+* <strong>Багатоформатність:</strong> API підтримує узгодження вмісту (Content Negotiation). Ви можете обрати формат відповіді за допомогою HTTP-заголовка <code>Accept</code> або параметра <code>?format=</code>.</p>
+<h3>Доступні формати даних:</h3>
+<ul>
+<li><strong>JSON</strong> (<code>application/json</code>) — стандартний формат обміну даними.</li>
+<li><strong>JSONL</strong> (<code>application/x-ndjson</code> або <code>application/jsonl</code>) — кожний рядок є окремим JSON-об'єктом, що ідеально підходить для потокової обробки великих файлів.</li>
+<li><strong>XML</strong> (<code>application/xml</code>) — структурований формат для традиційних XML-процесорів.</li>
+<li><strong>CSV</strong> (<code>text/csv</code>) та <strong>TSV</strong> (<code>text/tab-separated-values</code>) — плоскі табличні формати для відкриття в Excel, Google Sheets, R чи Python (Pandas).</li>
+</ul>
+<p>Ознайомитися з повною специфікацією та прикладами запитів ви можете в нашій <a href="/api.html">документації API</a>.</p>
+<hr />
+<h2>2. Масове завантаження та метадані Croissant</h2>
+<p>Якщо вам потрібен увесь корпус цілком для локального аналізу або навчання моделей штучного інтелекту, ви можете завантажити повні дампи даних.</p>
+<ul>
+<li><strong>Дампи релізів:</strong> у кожному релізі проєкту на GitHub публікуються оновлені файли <code>corpus.json</code>, <code>corpus.csv</code> та <code>corpus.xml</code>.</li>
+<li><strong>Специфікація Croissant:</strong> для ML-розробників та платформ на кшталт Hugging Face або Google Dataset Search ми інтегрували файл <code>croissant.json</code>. Це сучасний стандарт опису наборів даних для машинного навчання, який дозволяє автоматично імпортувати корпус verba в інструменти ML-пайплайнів.</li>
+</ul>
+<hr />
+<h2>3. Подвійна модель ліцензування</h2>
+<p>Матеріали корпусу мають різний правовий статус, тому ми застосовуємо комбіновану модель:
+1. <strong>Історичні тексти (1841–1909 рр.):</strong> тексти збірок Ількевича, Номиса та Франка перебувають у суспільному надбанні (Public Domain) через закінчення терміну дії авторських прав. Ви можете вільно копіювати, змінювати та поширювати їх із будь-якою метою.
+2. <strong>Сучасні збірки (1961 та 2009 рр.):</strong> оригінальні тексти збірок Бобкової та Млодзинського охороняються авторським правом їхніх видавців/упорядників. Вони включені в корпус суто для некомерційних наукових та освітніх досліджень з обов'язковою атрибуцією джерела в полі <code>sources</code>.
+3. <strong>Упорядкування та збагачення корпусу:</strong> структура бази даних, створене ШІ сучасне написання, тематичне маркування та зв'язки між варіантами поширюються на умовах вільної міжнародної ліцензії <strong>Creative Commons Attribution 4.0 (CC BY 4.0)</strong>. При повторному використанні цих даних обов'язково зазначайте авторство проєкту verba.</p>
+<hr />
+<h2>4. Як цитувати корпус</h2>
+<p>Якщо ви використовуєте корпус verba в академічній статті, дисертації чи науковій доповіді, будь ласка, посилайтеся на нас.</p>
+<p>Ми підготували файли бібліографічних посилань у форматах <strong>BibTeX</strong> та <strong>CSL-JSON</strong>:
+* Завантажити <a href="/references.bib">BibTeX</a>
+* Завантажити <a href="/references.csl.json">CSL-JSON</a></p>
+<p><em>(Зверніть увагу: ми плануємо зареєструвати унікальний ідентифікатор DOI для корпусу в майбутніх релізах).</em></p>
+<h3>Приклад текстового цитування:</h3>
+<blockquote>
+<p><em>Yemelianov, Dmytro (2026). verba — Ukrainian Proverbs Corpus (v1.0.2). URL: https://verbacorpus.org.</em></p>
+</blockquote>
+<hr />
+<h2>Ідеї для повторного використання</h2>
+<p>Що можна побудувати на базі даних verba?
+* <strong>Бот у месенджерах:</strong> щоденна розсилка «прислів'я дня» за обраною темою.
+* <strong>Віджети для сайтів:</strong> динамічний блок із народною мудрістю.
+* <strong>Мовознавчі дослідження:</strong> аналіз частоти вживання історичних слів, порівняння діалектних варіацій у Галичині та Наддніпрянщині.
+* <strong>Fine-tuning мовних моделей:</strong> навчання моделей краще розуміти український фольклор, метафори та історичні фразеологізми.</p>
+  </main>
+  <footer class="colophon"><div class="wrap"><p class="col-note"><a href="/">← verba</a> · <a href="/about" data-i18n="nav.about">Про проєкт</a> · <a href="/api.html" data-i18n="nav.api">API</a></p></div></footer>
+  <script type="module" src="/chrome.js"></script>
+</body>
+</html>

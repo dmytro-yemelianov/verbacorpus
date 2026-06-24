@@ -1,4 +1,4 @@
-const CACHE = "ukr-proverbs-v22";
+const CACHE = "ukr-proverbs-v23";
 const SHELL = ["/", "/styles.css", "/fonts/spectral.css", "/fonts/spectral-400-normal-cyrillic.woff2", "/fonts/spectral-500-normal-cyrillic.woff2", "/app.js", "/chrome.js", "/manifest.webmanifest", "/data/landing.json", "/data/meta.json", "/data/proverbs.json"];
 
 // Network-first for the app shell that changes on deploy (HTML pages, app.js, styles, i18n
@@ -6,8 +6,10 @@ const SHELL = ["/", "/styles.css", "/fonts/spectral.css", "/fonts/spectral-400-n
 // (data JSON, fonts, cards, icons), with a cache fallback everywhere when offline.
 function isShell(p) {
   return p === "/" || p.endsWith(".html") || /^\/[a-z]{2}(\/|$)/.test(p) ||
-    p === "/app.js" || p === "/chrome.js" || p === "/styles.css" || p.startsWith("/i18n/");
+    p.startsWith("/blog") || p === "/app.js" || p === "/chrome.js" ||
+    p === "/styles.css" || p.startsWith("/i18n/");
 }
+
 
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));

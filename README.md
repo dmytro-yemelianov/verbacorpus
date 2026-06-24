@@ -47,9 +47,11 @@ Run locally:
 cd app
 npm install
 .venv/bin/python build_data.py ../corpus.csv ../enrich/taxonomy.csv ../sources.csv public/data ../corpus.xml
+.venv/bin/python build_blog.py content/blog public/blog
 node build.mjs
 npx wrangler dev        # http://127.0.0.1:8787
 npx vitest run          # API + search tests
+
 ```
 
 ## Releases & citation

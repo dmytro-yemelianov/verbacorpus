@@ -73,11 +73,12 @@ A canonical, enriched, openly-licensed corpus of **48,787 Ukrainian proverbs** d
 
 | Ready | To build / do |
 |---|---|
-| Site, 10-lang UI, REST API, llms.txt | **sitemap.xml** (SEO) |
+| Site, 10-lang UI, REST API, llms.txt, sitemap.xml | |
 | Versioned CC BY 4.0 releases + data card | **Zenodo DOI** deposit |
-| BibTeX + CSL-JSON references, Croissant | **/blog** + the 3 articles (in progress) |
+| BibTeX + CSL-JSON references, Croissant, /blog + 3 articles | |
 | Short links + QR social cards, daily card | **Telegram «прислів'я дня» bot** |
 | Semantic + keyword search | HuggingFace + Kaggle + Wikidata listings |
+
 
 ## 9. Guardrails
 
