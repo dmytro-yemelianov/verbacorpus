@@ -145,6 +145,13 @@ function renderSavedView() {
 async function boot() {
   const LANG: string = (window as any).__LANG__ || document.documentElement.lang || "uk";
 
+  // Load state from URL query parameters
+  const qp = new URLSearchParams(location.search);
+  const initialQ = qp.get("q") || "";
+  activeCat = qp.get("cat") || "";
+  activeSource = qp.get("src") || "";
+  semanticMode = qp.get("sem") === "1" || qp.get("sem") === "true";
+
   // Fast first paint: load only the tiny landing sample + meta + i18n. The full
   // 48k-proverb corpus (and its MiniSearch index) loads in the background below.
   // credentials:"omit" so these match the anonymous <link rel=preload> (no double fetch)
@@ -167,6 +174,8 @@ async function boot() {
     eyebrowEl.textContent = tr("masthead.eyebrow", "Корпус народної мудрості · {count} записів").replace("{count}", fmt(meta.count));
   }
 
+  // Populate search input
+  $<HTMLInputElement>("q").value = initialQ;
 
   renderColophon();
   renderFilters();
@@ -180,6 +189,7 @@ async function boot() {
   syncOnline();
   window.addEventListener("online", syncOnline);
   window.addEventListener("offline", syncOnline);
+  semBtn.setAttribute("aria-checked", String(semanticMode));
   semBtn.addEventListener("click", () => {
     if (semBtn.disabled) return;
     semanticMode = !semanticMode;
@@ -218,6 +228,31 @@ async function boot() {
     if (dx > threshold) { saveCurrent(); advance(1); }
     else if (dx < -threshold) advance(-1);
     else { if (!reduceMotion) card.style.transition = "transform .2s ease"; card.style.transform = ""; }
+  });
+
+  window.addEventListener("popstate", () => {
+    const qp = new URLSearchParams(location.search);
+    $<HTMLInputElement>("q").value = qp.get("q") || "";
+    activeCat = qp.get("cat") || "";
+    activeSource = qp.get("src") || "";
+    semanticMode = qp.get("sem") === "1" || qp.get("sem") === "true";
+    
+    // Sync UI states
+    const semBtn = $("semToggle") as HTMLButtonElement;
+    if (semBtn) semBtn.setAttribute("aria-checked", String(semanticMode));
+    
+    // Update chip active classes
+    for (const c of Array.from(document.querySelectorAll<HTMLElement>(".chip"))) {
+      c.classList.toggle("active", (c.dataset.cat !== undefined && c.dataset.cat === activeCat) || (c.dataset.src !== undefined && c.dataset.src === activeSource));
+    }
+    $("themeActive").textContent = activeCat ? "· " + catLabel(activeCat) : "";
+    if (activeCat) {
+      $<HTMLDetailsElement>("themeDetails").open = true;
+    }
+    
+    savedView = false;
+    $("savedBtn").classList.remove("active");
+    renderResults();
   });
 
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js");
@@ -270,9 +305,15 @@ function renderHero() {
 
 function renderFilters() {
   $("sources").innerHTML = SOURCE_ORDER
-    .map((s) => `<button class="chip" type="button" data-src="${s}">${esc(srcLabel(s))}</button>`).join("");
+    .map((s) => `<button class="chip${s === activeSource ? " active" : ""}" type="button" data-src="${s}">${esc(srcLabel(s))}</button>`).join("");
   $("themes").innerHTML = Object.keys(meta.taxonomy)
-    .map((k) => `<button class="chip" type="button" data-cat="${k}">${esc(catLabel(k))}</button>`).join("");
+    .map((k) => `<button class="chip${k === activeCat ? " active" : ""}" type="button" data-cat="${k}">${esc(catLabel(k))}</button>`).join("");
+  
+  if (activeCat) {
+    $("themeActive").textContent = "· " + catLabel(activeCat);
+    $<HTMLDetailsElement>("themeDetails").open = true;
+  }
+
   for (const chip of Array.from(document.querySelectorAll<HTMLElement>(".chip"))) {
     chip.addEventListener("click", () => {
       const cat = chip.dataset.cat, src = chip.dataset.src;
@@ -291,6 +332,18 @@ function renderFilters() {
 async function renderResults() {
   const seq = ++renderSeq;
   const q = ($("q") as HTMLInputElement).value.trim();
+
+  // Update URL parameters dynamically for sharing
+  const params = new URLSearchParams();
+  if (q) params.set("q", q);
+  if (activeCat) params.set("cat", activeCat);
+  if (activeSource) params.set("src", activeSource);
+  if (semanticMode) params.set("sem", "1");
+  const newSearch = params.toString();
+  const newUrl = location.pathname + (newSearch ? "?" + newSearch : "");
+  if (location.search !== (newSearch ? "?" + newSearch : "")) {
+    history.replaceState(null, "", newUrl);
+  }
 
   if (semanticMode && q) {
     $("count").textContent = tr("results.semanticSearching", "Пошук за змістом…");

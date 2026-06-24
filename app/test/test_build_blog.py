@@ -36,8 +36,9 @@ def test_render_index():
     assert "class=\"topbar\"" in html
 
 def test_render_sitemap():
-    xml = render_sitemap(["a", "b"], "verbacorpus.org")
+    xml = render_sitemap({"uk": [{"slug": "a"}], "en": [{"slug": "b"}]}, "verbacorpus.org")
     assert xml.startswith("<?xml")
-    assert "https://verbacorpus.org/blog/a" in xml and "https://verbacorpus.org/blog/b" in xml
+    assert "https://verbacorpus.org/blog/a" in xml and "https://verbacorpus.org/en/blog/b" in xml
     assert "https://verbacorpus.org/" in xml and "https://verbacorpus.org/about" in xml
     assert "/p/" not in xml  # must NOT enumerate proverbs
+

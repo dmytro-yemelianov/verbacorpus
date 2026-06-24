@@ -52,61 +52,92 @@ def _head(title: str, desc: str, canonical: str) -> str:
 
 _FOOTER = '''<footer class="colophon"><div class="wrap"><p class="col-note"><a href="/">← verba</a> · <a href="/about" data-i18n="nav.about">Про проєкт</a> · <a href="/api.html" data-i18n="nav.api">API</a></p></div></footer>'''
 
-def render_page(meta: dict, body_html: str) -> str:
+def render_page(meta: dict, body_html: str, lang: str = "uk") -> str:
     e = html.escape
     slug = meta["slug"]
-    canonical = f"https://{HOST}/blog/{slug}"
-    return (f'<!DOCTYPE html>\n<html lang="uk">\n' + _head(meta.get("title", ""), meta.get("lede", ""), canonical) +
+    canonical = f"https://{HOST}/blog/{slug}" if lang == "uk" else f"https://{HOST}/{lang}/blog/{slug}"
+    back_url = "/blog" if lang == "uk" else f"/{lang}/blog"
+    back_text = "← Блог" if lang == "uk" else "← Blog"
+    return (f'<!DOCTYPE html>\n<html lang="{lang}">\n' + _head(meta.get("title", ""), meta.get("lede", ""), canonical) +
             f'\n<body>\n  {_TOPBAR}\n  <main class="wrap article">\n'
-            f'    <p class="article-back"><a href="/blog">← Блог</a></p>\n'
+            f'    <p class="article-back"><a href="{back_url}">{back_text}</a></p>\n'
             f'    <h1 class="article-title">{e(meta.get("title", ""))}</h1>\n'
             f'    <p class="article-date">{e(meta.get("date", ""))}</p>\n'
             f'    {body_html}\n  </main>\n  {_FOOTER}\n'
             f'  <script type="module" src="/chrome.js"></script>\n</body>\n</html>\n')
 
-def render_index(articles: list[dict]) -> str:
+def render_index(articles: list[dict], lang: str = "uk") -> str:
     e = html.escape
+    prefix = "/blog" if lang == "uk" else f"/{lang}/blog"
     items = "".join(
-        f'<li class="blog-card"><a href="/blog/{e(a["slug"])}"><span class="blog-card-date">{e(a.get("date",""))}</span>'
+        f'<li class="blog-card"><a href="{prefix}/{e(a["slug"])}"><span class="blog-card-date">{e(a.get("date",""))}</span>'
         f'<span class="blog-card-title">{e(a.get("title",""))}</span>'
         f'<span class="blog-card-lede">{e(a.get("lede",""))}</span></a></li>'
         for a in articles)
-    canonical = f"https://{HOST}/blog"
-    return (f'<!DOCTYPE html>\n<html lang="uk">\n' + _head("Блог", "Статті про корпус українських прислів'їв verba.", canonical) +
-            f'\n<body>\n  {_TOPBAR}\n  <main class="wrap blog-index">\n    <h1 data-i18n="nav.blog">Блог</h1>\n'
+    canonical = f"https://{HOST}/blog" if lang == "uk" else f"https://{HOST}/{lang}/blog"
+    title_text = "Блог" if lang == "uk" else "Blog"
+    desc_text = "Статті про корпус українських прислів'їв verba." if lang == "uk" else "Articles about the verba Ukrainian proverbs corpus."
+    return (f'<!DOCTYPE html>\n<html lang="{lang}">\n' + _head(title_text, desc_text, canonical) +
+            f'\n<body>\n  {_TOPBAR}\n  <main class="wrap blog-index">\n    <h1 data-i18n="nav.blog">{title_text}</h1>\n'
             f'    <ul class="blog-list">{items}</ul>\n  </main>\n  {_FOOTER}\n'
             f'  <script type="module" src="/chrome.js"></script>\n</body>\n</html>\n')
 
-def render_sitemap(slugs: list[str], host: str) -> str:
+def render_sitemap(articles_by_lang: dict[str, list[dict]], host: str) -> str:
     langs = ["", "/en", "/de", "/fr", "/es", "/pl", "/it", "/pt", "/ja", "/zh"]
     urls = [f"https://{host}/"]
     urls += [f"https://{host}{l}/" for l in langs if l]      # language roots
     urls += [f"https://{host}/about", f"https://{host}/api.html", f"https://{host}/blog"]
-    urls += [f"https://{host}/blog/{s}" for s in slugs]
+    for lang in articles_by_lang:
+        if lang != "uk":
+            urls.append(f"https://{host}/{lang}/blog")
+    for lang, arts in articles_by_lang.items():
+        for a in arts:
+            slug = a["slug"]
+            if lang == "uk":
+                urls.append(f"https://{host}/blog/{slug}")
+            else:
+                urls.append(f"https://{host}/{lang}/blog/{slug}")
     body = "".join(f"<url><loc>{u}</loc></url>" for u in urls)
     return f'<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">{body}</urlset>\n'
 
-def build(content_dir: str, out_dir: str) -> list[dict]:
-    os.makedirs(out_dir, exist_ok=True)
-    arts: list[dict] = []
-    for f in sorted(glob.glob(os.path.join(content_dir, "*.md"))):
-        if os.path.basename(f).startswith("_"):
-            continue  # skip _fixtures/_drafts
-        meta, body = parse_frontmatter(open(f, encoding="utf-8").read())
-        body_html = markdown.markdown(body, extensions=["extra"])
-        with open(os.path.join(out_dir, meta["slug"] + ".html"), "w", encoding="utf-8") as fh:
-            fh.write(render_page(meta, body_html))
-        arts.append(meta)
-    arts.sort(key=lambda m: m.get("date", ""), reverse=True)
-    with open(os.path.join(out_dir, "index.html"), "w", encoding="utf-8") as fh:
-        fh.write(render_index(arts))
+def build(content_dir: str, out_dir: str) -> dict[str, list[dict]]:
+    langs_to_build = {"uk": content_dir}
+    for sub in glob.glob(os.path.join(content_dir, "??")):
+        if os.path.isdir(sub):
+            lang = os.path.basename(sub)
+            langs_to_build[lang] = sub
+
+    articles_by_lang: dict[str, list[dict]] = {}
+
+    for lang, path in langs_to_build.items():
+        lang_out = out_dir if lang == "uk" else os.path.join(os.path.dirname(out_dir), lang, "blog")
+        os.makedirs(lang_out, exist_ok=True)
+        
+        arts: list[dict] = []
+        for f in sorted(glob.glob(os.path.join(path, "*.md"))):
+            if os.path.basename(f).startswith("_"):
+                continue  # skip _fixtures/_drafts
+            meta, body = parse_frontmatter(open(f, encoding="utf-8").read())
+            body_html = markdown.markdown(body, extensions=["extra"])
+            with open(os.path.join(lang_out, meta["slug"] + ".html"), "w", encoding="utf-8") as fh:
+                fh.write(render_page(meta, body_html, lang))
+            arts.append(meta)
+        arts.sort(key=lambda m: m.get("date", ""), reverse=True)
+        with open(os.path.join(lang_out, "index.html"), "w", encoding="utf-8") as fh:
+            fh.write(render_index(arts, lang))
+        
+        articles_by_lang[lang] = arts
+
     public_dir = os.path.dirname(os.path.abspath(out_dir))  # public/blog -> public
     with open(os.path.join(public_dir, "sitemap.xml"), "w", encoding="utf-8") as fh:
-        fh.write(render_sitemap([a["slug"] for a in arts], HOST))
-    return arts
+        fh.write(render_sitemap(articles_by_lang, HOST))
+        
+    return articles_by_lang
 
 if __name__ == "__main__":
     content_dir = sys.argv[1] if len(sys.argv) > 1 else "content/blog"
     out_dir = sys.argv[2] if len(sys.argv) > 2 else "public/blog"
     n = build(content_dir, out_dir)
-    print(f"Built {len(n)} blog page(s) + index + sitemap.xml")
+    total_pages = sum(len(v) for v in n.values())
+    print(f"Built {total_pages} blog page(s) across {len(n)} language(s) + indexes + sitemap.xml")
+

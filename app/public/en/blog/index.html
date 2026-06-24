@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="theme-color" content="#5E7355" />
+<meta name="description" content="Articles about the verba Ukrainian proverbs corpus." />
+<title>Blog — verba</title>
+<meta property="og:type" content="article" />
+<meta property="og:title" content="Blog" />
+<meta property="og:description" content="Articles about the verba Ukrainian proverbs corpus." />
+<meta property="og:image" content="https://verbacorpus.org/card/daily.png" />
+<meta name="twitter:card" content="summary_large_image" />
+<link rel="canonical" href="https://verbacorpus.org/en/blog" />
+<link rel="stylesheet" href="/fonts/spectral.css" />
+<link rel="stylesheet" href="/styles.css" />
+<script>(function(){var d=document.documentElement;try{var t=localStorage.getItem("theme");if(t==="dark"||t==="light")d.setAttribute("data-theme",t);}catch(e){}function cur(){return d.getAttribute("data-theme")||(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");}function meta(){var m=document.querySelector('meta[name="theme-color"]');if(m)m.content=cur()==="dark"?"#191c16":"#5E7355";}addEventListener("DOMContentLoaded",function(){meta();var b=document.getElementById("themeToggle");if(!b)return;function sync(){b.textContent=cur()==="dark"?"☀":"☾";}sync();b.addEventListener("click",function(){var n=cur()==="dark"?"light":"dark";d.setAttribute("data-theme",n);try{localStorage.setItem("theme",n);}catch(e){}sync();meta();});});})();</script>
+</head>
+<body>
+  <nav class="topbar">
+    <div class="wrap topbar-inner">
+      <a class="topbar-brand" href="/" aria-label="verba"><svg class="leaf" viewBox="0 0 40 64" aria-hidden="true"><path d="M20 4 C 31 22 30 46 21 60 C 12 46 11 22 20 4 Z" fill="#5e7355"/><path d="M20 11 C 23 28 22 47 21 54" stroke="#f4f1e8" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg><span>verba</span></a>
+      <div class="topbar-nav">
+        <a class="topbar-link" href="/about" data-i18n="nav.about">Про проєкт</a>
+        <a class="topbar-link" href="/blog" data-i18n="nav.blog">Блог</a>
+        <a class="topbar-link" href="/api.html" data-i18n="nav.api">API</a>
+        <a class="topbar-link" href="https://github.com/dmytro-yemelianov/verbacorpus" rel="noopener">GitHub</a>
+        <div id="langSwitch" class="lang-switch"></div>
+        <button id="themeToggle" class="theme-toggle-btn" type="button" aria-label="Перемкнути тему" data-i18n-attr="aria-label:ui.themeToggle">☾</button>
+      </div>
+    </div>
+  </nav>
+  <main class="wrap blog-index">
+    <h1 data-i18n="nav.blog">Blog</h1>
+    <ul class="blog-list"><li class="blog-card"><a href="/en/blog/open-data"><span class="blog-card-date">2026-06-24</span><span class="blog-card-title">&quot;Open Data: How to Reuse the Corpus&quot;</span><span class="blog-card-lede">For researchers and developers — explore download formats, REST API specifications, Croissant dataset metadata, and citation guidelines for the verba corpus.</span></a></li><li class="blog-card"><a href="/en/blog/sources"><span class="blog-card-date">2026-06-24</span><span class="blog-card-title">&quot;Five Collections: Where the Proverbs Come From&quot;</span><span class="blog-card-lede">The history of the five classic sources that comprise the verba corpus, from Ilkevych to Mlodzynskyi, along with notes on digital OCR processing.</span></a></li><li class="blog-card"><a href="/en/blog/what-is-verba"><span class="blog-card-date">2026-06-24</span><span class="blog-card-title">What is verba</span><span class="blog-card-lede">What is verba — an open corpus of Ukrainian proverbs and sayings. Learn about its scope, sources, search capabilities, and license.</span></a></li></ul>
+  </main>
+  <footer class="colophon"><div class="wrap"><p class="col-note"><a href="/">← verba</a> · <a href="/about" data-i18n="nav.about">Про проєкт</a> · <a href="/api.html" data-i18n="nav.api">API</a></p></div></footer>
+  <script type="module" src="/chrome.js"></script>
+</body>
+</html>

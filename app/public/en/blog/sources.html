@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="theme-color" content="#5E7355" />
+<meta name="description" content="The history of the five classic sources that comprise the verba corpus, from Ilkevych to Mlodzynskyi, along with notes on digital OCR processing." />
+<title>&quot;Five Collections: Where the Proverbs Come From&quot; — verba</title>
+<meta property="og:type" content="article" />
+<meta property="og:title" content="&quot;Five Collections: Where the Proverbs Come From&quot;" />
+<meta property="og:description" content="The history of the five classic sources that comprise the verba corpus, from Ilkevych to Mlodzynskyi, along with notes on digital OCR processing." />
+<meta property="og:image" content="https://verbacorpus.org/card/daily.png" />
+<meta name="twitter:card" content="summary_large_image" />
+<link rel="canonical" href="https://verbacorpus.org/en/blog/sources" />
+<link rel="stylesheet" href="/fonts/spectral.css" />
+<link rel="stylesheet" href="/styles.css" />
+<script>(function(){var d=document.documentElement;try{var t=localStorage.getItem("theme");if(t==="dark"||t==="light")d.setAttribute("data-theme",t);}catch(e){}function cur(){return d.getAttribute("data-theme")||(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");}function meta(){var m=document.querySelector('meta[name="theme-color"]');if(m)m.content=cur()==="dark"?"#191c16":"#5E7355";}addEventListener("DOMContentLoaded",function(){meta();var b=document.getElementById("themeToggle");if(!b)return;function sync(){b.textContent=cur()==="dark"?"☀":"☾";}sync();b.addEventListener("click",function(){var n=cur()==="dark"?"light":"dark";d.setAttribute("data-theme",n);try{localStorage.setItem("theme",n);}catch(e){}sync();meta();});});})();</script>
+</head>
+<body>
+  <nav class="topbar">
+    <div class="wrap topbar-inner">
+      <a class="topbar-brand" href="/" aria-label="verba"><svg class="leaf" viewBox="0 0 40 64" aria-hidden="true"><path d="M20 4 C 31 22 30 46 21 60 C 12 46 11 22 20 4 Z" fill="#5e7355"/><path d="M20 11 C 23 28 22 47 21 54" stroke="#f4f1e8" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg><span>verba</span></a>
+      <div class="topbar-nav">
+        <a class="topbar-link" href="/about" data-i18n="nav.about">Про проєкт</a>
+        <a class="topbar-link" href="/blog" data-i18n="nav.blog">Блог</a>
+        <a class="topbar-link" href="/api.html" data-i18n="nav.api">API</a>
+        <a class="topbar-link" href="https://github.com/dmytro-yemelianov/verbacorpus" rel="noopener">GitHub</a>
+        <div id="langSwitch" class="lang-switch"></div>
+        <button id="themeToggle" class="theme-toggle-btn" type="button" aria-label="Перемкнути тему" data-i18n-attr="aria-label:ui.themeToggle">☾</button>
+      </div>
+    </div>
+  </nav>
+  <main class="wrap article">
+    <p class="article-back"><a href="/en/blog">← Blog</a></p>
+    <h1 class="article-title">&quot;Five Collections: Where the Proverbs Come From&quot;</h1>
+    <p class="article-date">2026-06-24</p>
+    <p>The <strong>verba</strong> corpus is a digital curation project. Rather than collecting proverbs from scratch, it acts as a unified paremiological registry that aggregates and standardizes the work of generations of folklorists.</p>
+<p>Our database incorporates five major compilations published over the past 180 years. Each represents its historical era, regional dialects, and the typographic standards of its time.</p>
+<p>Let's look at each source collection in detail:</p>
+<hr />
+<h2>1. Hryhoriy Ilkevych — "Galician Proverbs and Riddles" (1841)</h2>
+<ul>
+<li><strong>Published:</strong> 1841, Vienna</li>
+<li><strong>Press:</strong> Mechitarist Congregation Press</li>
+<li><strong>Overview:</strong> Prepared with the assistance of Yakiv Holovatskyi (a key figure of the Galician "Ruthenian Triad"). It is one of the earliest systematic compilations of Ukrainian folklore from Galicia. The text preserves archaic grammar and historical Cyrillic spellings (such as <code>ѣ</code> or combining accents like <code>о̂</code>).</li>
+</ul>
+<p>An example from this collection:
+<a href="/p/p048787">Proverb №48787</a> — <em>«Ѣхала Хима з Єрусалима, во̂зок скрегоче, Хима ся регоче.»</em> (translated: <em>«Chyma traveled from Jerusalem, the cart squeaks, Chyma laughs.»</em>).</p>
+<p><img alt="Proverb Card" src="/card/p048787.png" /></p>
+<hr />
+<h2>2. Matviy Nomys — "Ukrainian Sayings, Proverbs, and the Like" (1864)</h2>
+<ul>
+<li><strong>Published:</strong> 1864, St. Petersburg</li>
+<li><strong>Press:</strong> Tiblen &amp; Co. Printing House (K. Kulish)</li>
+<li><strong>Overview:</strong> The monumental collection compiled by Matviy Symonov (pseudonym M. Nomys) with help from Opanas Markovych, Panteleimon Kulish, and a network of contributors. Containing over 14,000 entries, it remains the standard reference for classical Ukrainian paremiology.</li>
+</ul>
+<p>An example from this collection:
+<a href="/p/p000001">Proverb №1</a> — <em>«По парі пізнати, чим серце кипить.»</em> (translated: <em>«By matching pair, one knows what boils in the heart.»</em>).</p>
+<p><img alt="Proverb Card" src="/card/p000001.png" /></p>
+<hr />
+<h2>3. Ivan Franko — "Galician-Ruthenian Folk Proverbs" (1901–1910)</h2>
+<ul>
+<li><strong>Published:</strong> 1901, Lviv</li>
+<li><strong>Press:</strong> Shevchenko Scientific Society</li>
+<li><strong>Overview:</strong> A three-volume scholarly edition in 6 parts published under the society's "Ethnographic Collection". Ivan Franko did not just compile the proverbs; he added extensive ethnographic and linguistic explanations, tracing local dialects and historical anecdotes.</li>
+</ul>
+<p>An example with Franko's notes:
+<a href="/p/p000126">Proverb №126</a> — <em>«"А ви з віхті?" - "А здуло би ті!"»</em> (Franko notes this as a wordplay mocking the dialectal "z vikhti" meaning "from where", met with a playful curse).
+Another example: <a href="/p/p005000">Proverb №5000</a> — <em>«Верхове галузя вітри ломлят.»</em> (modern standard spelling: <em>«Верхове гілля вітри ломлять.»</em>, meaning <em>«Winds break the topmost branches first.»</em>).</p>
+<p><img alt="Proverb Card" src="/card/p005000.png" /></p>
+<hr />
+<h2>4. V. Bobkova (ed. M. Rylsky) — "Ukrainian Folk Proverbs and Sayings" (1961)</h2>
+<ul>
+<li><strong>Published:</strong> 1961, Kyiv</li>
+<li><strong>Press:</strong> Publishing House of the Academy of Sciences of the Ukrainian SSR</li>
+<li><strong>Overview:</strong> A major mid-20th-century academic compilation edited by the prominent Ukrainian poet and academician Maksym Rylsky, reflecting Soviet lexicographical standards.</li>
+</ul>
+<hr />
+<h2>5. Valeriy Mlodzynskyi — "Practical Russian-Ukrainian Dictionary of Proverbs" (2009)</h2>
+<ul>
+<li><strong>Published:</strong> 2009, Kyiv</li>
+<li><strong>Press:</strong> Institute of Encyclopedic Research of the NAS of Ukraine (ISBN 978-966-02-5147-2)</li>
+<li><strong>Overview:</strong> A reprint of the 1929 comparative dictionary edited by the avant-garde writer Maik Yohansen during the Ukrainian cultural renaissance of the late 1920s.</li>
+</ul>
+<hr />
+<h2>OCR and AI Alignment Limitations</h2>
+<p>Digitizing historical literature is a complex technical process. When researching the verba corpus, please keep these data limitations in mind:
+1. <strong>OCR Accuracy:</strong> Scans of 19th-century publications were processed using OCR (Tesseract). For the oldest texts (such as Nomys 1864), the character recognition accuracy is estimated at 75–80%. Occasional typos or scanning artifacts may appear in the original text column.
+2. <strong>AI Modernization &amp; Tags:</strong> To facilitate search, modern spellings and category classifications were generated using Large Language Models (LLMs). This automated tagging has an estimated accuracy of 95% for modern spelling conversions and 85% for thematic tagging. The first (primary) theme in the list is always the most accurate.</p>
+  </main>
+  <footer class="colophon"><div class="wrap"><p class="col-note"><a href="/">← verba</a> · <a href="/about" data-i18n="nav.about">Про проєкт</a> · <a href="/api.html" data-i18n="nav.api">API</a></p></div></footer>
+  <script type="module" src="/chrome.js"></script>
+</body>
+</html>

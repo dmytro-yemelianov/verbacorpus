@@ -146,15 +146,43 @@ export default {
         return new Response("not found", { status: 404, headers: { "access-control-allow-origin": "*" } });
       }
       // Static assets + API bypass the translation layer (rest has no lang prefix for them)
-      const htmlPage = rest === "/" || rest === "/about" || rest === "/about.html" || rest === "/api.html";
+      const htmlPage = rest === "/" || rest === "/about" || rest === "/about.html" || rest === "/api.html" || rest === "/blog" || rest.startsWith("/blog/");
       if (!rest.startsWith("/api/") && !htmlPage) {
         const assetReq = rest === url.pathname ? request : new Request(`https://${url.host}${rest}${url.search}`, request);
         return env.ASSETS.fetch(assetReq);
       }
       if (htmlPage) {
-        const assetPath = rest === "/" ? "/" : (rest === "/about" ? "/about.html" : rest);
-        const assetRes = await env.ASSETS.fetch(new Request(`https://${url.host}${assetPath}`));
-        if (lang === DEFAULT_LANG) return assetRes;       // uk = fast path, no rewrite
+        let assetPath = rest;
+        if (rest === "/") {
+          assetPath = "/index.html";
+        } else if (rest === "/about") {
+          assetPath = "/about.html";
+        } else if (rest === "/blog") {
+          assetPath = "/blog/index.html";
+        } else if (rest.startsWith("/blog/") && !rest.endsWith(".html")) {
+          assetPath = `${rest}.html`;
+        }
+
+        let assetRes: Response;
+        if (lang !== DEFAULT_LANG) {
+          // Attempt to load the language-specific static asset
+          assetRes = await env.ASSETS.fetch(new Request(`https://${url.host}/${lang}${assetPath}`));
+          if (!assetRes.ok) {
+            // Fall back to English static asset if available
+            if (lang !== "en") {
+              assetRes = await env.ASSETS.fetch(new Request(`https://${url.host}/en${assetPath}`));
+            }
+            // Fall back to default (Ukrainian) static asset
+            if (!assetRes.ok) {
+              assetRes = await env.ASSETS.fetch(new Request(`https://${url.host}${assetPath}`));
+            }
+          }
+        } else {
+          // Default (Ukrainian) static asset
+          assetRes = await env.ASSETS.fetch(new Request(`https://${url.host}${assetPath}`));
+        }
+
+        if (lang === DEFAULT_LANG && assetRes.ok) return assetRes;
         return translateHtml(assetRes, lang, rest, url.host);
       }
       // strip optional /v1 -> reuse canonical handlers; aliases keep working
