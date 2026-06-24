@@ -31,17 +31,33 @@ export function renderLangSwitch(): void {
 
 function wireCopyLink(): void {
   const copyBtn = document.getElementById("copyLink") as HTMLButtonElement | null;
-  if (copyBtn) copyBtn.addEventListener("click", () => {
-    const link = copyBtn.dataset.link || location.href;
-    navigator.clipboard?.writeText(link);
-    const prev = copyBtn.textContent; copyBtn.textContent = "✓";
-    setTimeout(() => { copyBtn.textContent = prev; }, 1200);
+  if (!copyBtn) return;
+  const orig = copyBtn.textContent;
+  let t: number | undefined;
+  copyBtn.addEventListener("click", () => {
+    navigator.clipboard?.writeText(copyBtn.dataset.link || location.href);
+    copyBtn.textContent = "✓";
+    clearTimeout(t);
+    t = setTimeout(() => { copyBtn.textContent = orig; }, 1200) as unknown as number;
+  });
+}
+
+function localizeNav(): void {
+  const LANG: string = (window as any).__LANG__ || document.documentElement.lang || "uk";
+  if (LANG === DEFAULT_LANG) return; // uk is unprefixed; links already correct
+  document.querySelectorAll<HTMLAnchorElement>(".topbar-link").forEach((a) => {
+    const href = a.getAttribute("href") || "";
+    // only internal absolute paths (skip external https GitHub links + already-prefixed)
+    if (href.startsWith("/") && !href.startsWith("/" + LANG + "/") && href !== "/" + LANG) {
+      a.setAttribute("href", "/" + LANG + href);
+    }
   });
 }
 
 function initChrome(): void {
   renderLangSwitch();
   wireCopyLink();
+  localizeNav();
 }
 
 // Auto-render when present in the DOM (covers both the SPA and the static pages).
