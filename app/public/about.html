@@ -35,7 +35,7 @@
     <h1 data-i18n="about.h1">Про проєкт</h1>
     <p class="lede" data-i18n="about.lede1"><b>verba</b> — відкритий, уніфікований корпус українських прислів'їв, приказок і висловів,
     зведений із п'яти оцифрованих зібрань від 1841 року до сучасності.</p>
-    <p class="lede"><span id="aboutCount">48 787</span> записів; кожен — із сучасним написанням і тематичними мітками,
+    <p class="lede" id="aboutLede2">48 787 записів; кожен — із сучасним написанням і тематичними мітками,
     із пошуком за словом, темою, джерелом і за змістом.</p>
 
     <section>
@@ -91,19 +91,31 @@
       · ORCID <a href="https://orcid.org/0009-0002-9244-7426" rel="noopener">0009-0002-9244-7426</a></p>
     </section>
 
-    <p class="meta-line">
-      Автор: Дмитро Ємельянов · Версія <span id="aboutVersion">1.0.1</span> ·
+    <p class="meta-line" id="aboutMeta">
+      Автор: Дмитро Ємельянов · Версія 1.0.1 ·
       <a href="https://github.com/dmytro-yemelianov/verbacorpus" rel="noopener">GitHub</a> ·
       <a href="https://github.com/dmytro-yemelianov/verbacorpus/blob/main/DATACARD.md" rel="noopener">Карта даних</a> ·
       <a href="/api.html">API</a>
     </p>
   </main>
   <script>
-    // keep count + version current from the live corpus metadata
-    fetch("/api/v1/meta").then(r => r.json()).then(m => {
-      if (m.count) document.getElementById("aboutCount").textContent = m.count.toLocaleString("uk-UA").replace(/[ ,]/g, " ");
-      if (m.version) document.getElementById("aboutVersion").textContent = m.version;
-    }).catch(() => {});
+  (async function () {
+    var lang = (window.__LANG__) || document.documentElement.lang || "uk";
+    var t = {};
+    try { t = await fetch("/i18n/" + lang + ".json").then(function (r) { return r.json(); }); } catch (e) {}
+    var tr = function (k, fb) { return (t && t[k]) || fb || k; };
+    var m = {};
+    try { m = await fetch("/api/v1/meta").then(function (r) { return r.json(); }); } catch (e) {}
+    var count = m.count ? m.count.toLocaleString(lang === "uk" ? "uk-UA" : lang).replace(/[ , ]/g, " ") : "48 787";
+    var ver = m.version || "1.0.1";
+    var lede = document.getElementById("aboutLede2");
+    if (lede) lede.textContent = tr("about.lede2", lede.textContent).replace("{count}", count);
+    var meta = document.getElementById("aboutMeta");
+    if (meta) meta.innerHTML = tr("about.metaLine", "").replace("{version}", ver)
+      + ' · <a href="https://github.com/dmytro-yemelianov/verbacorpus" rel="noopener">' + tr("nav.github", "GitHub") + '</a>'
+      + ' · <a href="https://github.com/dmytro-yemelianov/verbacorpus/blob/main/DATACARD.md" rel="noopener">' + tr("about.metaLine.datacard", "Карта даних") + '</a>'
+      + ' · <a href="/api.html">' + tr("nav.api", "API") + '</a>';
+  })();
   </script>
 </body>
 </html>
