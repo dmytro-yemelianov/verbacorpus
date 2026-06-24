@@ -3,7 +3,7 @@ import { type Proverb } from "../shared/corpus";
 import { srcLabel } from "../shared/sources";
 import { isPresentable, deckFor, toggleSaved, nextShown } from "../shared/browse";
 import { prettify } from "../shared/text";
-import { LANGS, LANG_NAMES, LANG_FLAGS, parseLang, DEFAULT_LANG } from "../shared/i18n";
+import "./chrome"; // renders the language switcher (shared with the static pages)
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -141,16 +141,6 @@ function renderSavedView() {
   showResults(items, tr("results.head", "Результати"), false);
 }
 
-function langHref(l: string): string {
-  // reuse the shared parser to strip any current /<lang>/ prefix
-  const { rest } = parseLang(location.pathname);
-  if (l === DEFAULT_LANG) return rest || "/"; // uk is unprefixed
-  // MUST keep the trailing slash on the root so the URL matches the Worker's
-  // run_worker_first `/<lang>/*` routes — bare `/de` falls through to the SPA
-  // fallback and serves the untranslated Ukrainian shell.
-  return rest === "/" ? `/${l}/` : `/${l}${rest}`;
-}
-
 async function boot() {
   const LANG: string = (window as any).__LANG__ || document.documentElement.lang || "uk";
 
@@ -176,18 +166,6 @@ async function boot() {
     eyebrowEl.textContent = tr("masthead.eyebrow", "Корпус народної мудрості · {count} записів").replace("{count}", fmt(meta.count));
   }
 
-  // Language switcher in #langSwitch
-  const sw = $("langSwitch");
-  if (sw) {
-    sw.innerHTML = `<details class="lang-menu"><summary aria-label="${esc(LANG_NAMES[LANG] ?? LANG)}"><span class="lang-flag">${LANG_FLAGS[LANG] || "🌐"}</span><span class="lang-code">${esc(LANG.toUpperCase())}</span></summary><ul>` +
-      LANGS.map((l) => `<li><a href="${langHref(l)}" hreflang="${l}"${l === LANG ? ' aria-current="true"' : ""}><span class="lang-flag">${LANG_FLAGS[l] || "🌐"}</span><span class="lang-code">${esc(l.toUpperCase())}</span><span class="lang-name">${esc(LANG_NAMES[l])}</span></a></li>`).join("") +
-      `</ul></details>`;
-    sw.querySelectorAll<HTMLAnchorElement>("a[hreflang]").forEach((a) => {
-      a.addEventListener("click", () => {
-        try { localStorage.setItem("verba:lang", a.getAttribute("hreflang") || "uk"); } catch {}
-      });
-    });
-  }
 
   renderColophon();
   renderFilters();

@@ -9,4 +9,11 @@ await build({
   outfile: "public/app.js",
   loader: { ".ttf": "binary" },
 });
-console.log("Built public/app.js");
+// Standalone chrome (language switcher) for the static pages (about/api).
+await build({
+  entryPoints: ["src/client/chrome.ts"],
+  bundle: true, minify: true, sourcemap: true,
+  format: "esm", target: ["es2022"],
+  outfile: "public/chrome.js",
+});
+console.log("Built public/app.js + public/chrome.js");
