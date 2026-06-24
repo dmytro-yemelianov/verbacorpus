@@ -47,6 +47,7 @@ export function buildProverbPage(p: Proverb, host: string, cat: Record<string, s
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>${e(pt)} — ${e(siteName)}</title>
 <meta name="description" content="${e(desc)}" />
+<meta property="og:locale" content="${e(lang)}" />
 <meta property="og:type" content="article" />
 <meta property="og:site_name" content="${e(siteName)}" />
 <meta property="og:title" content="${e(pt)}" />

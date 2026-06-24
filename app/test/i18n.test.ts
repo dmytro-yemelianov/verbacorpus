@@ -21,4 +21,10 @@ describe("hreflangLinks", () => {
     expect(h).toContain('href="https://verbacorpus.org/de/p/p1"');
     expect(h).toContain('href="https://verbacorpus.org/p/p1"'); // uk = unprefixed (x-default + uk)
   });
+  it("root case: uk has trailing slash, non-uk has trailing slash", () => {
+    const r = hreflangLinks("/", "verbacorpus.org");
+    expect(r).toContain('href="https://verbacorpus.org/"');   // uk root
+    expect(r).toContain('href="https://verbacorpus.org/en/"'); // en root
+    expect(r).toContain('href="https://verbacorpus.org/de/"'); // de root
+  });
 });

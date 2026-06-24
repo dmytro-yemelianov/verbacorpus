@@ -66,10 +66,12 @@ function translateHtml(res: Response, lang: string, rest: string, host: string):
   const inject =
     `<script>window.__LANG__=${JSON.stringify(lang)}</script>\n` +
     hreflangLinks(rest, host) + `\n` +
-    `<link rel="canonical" href="https://${host}${lang === DEFAULT_LANG ? "" : "/" + lang}${rest === "/" ? "/" : rest}" />`;
+    `<link rel="canonical" href="https://${host}${lang === DEFAULT_LANG ? "" : "/" + lang}${rest === "/" ? "/" : rest}" />\n` +
+    `<meta property="og:locale" content="${lang}" />`;
   return new HTMLRewriter()
     .on("html", { element(el) { el.setAttribute("lang", lang); } })
     .on("[data-i18n]", { element(el) { const k = el.getAttribute("data-i18n"); if (k) el.setInnerContent(t(cat, k), { html: false }); } })
+    .on("[data-i18n-html]", { element(el) { const k = el.getAttribute("data-i18n-html"); if (k) el.setInnerContent(t(cat, k), { html: true }); } })
     .on("[data-i18n-attr]", { element(el) {
         const spec = el.getAttribute("data-i18n-attr") || "";
         const [attr, key] = spec.split(":");

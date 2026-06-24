@@ -52,12 +52,12 @@
 
   <main class="wrap" style="padding-block: 1.4rem 4rem;">
 
-    <p class="api-intro" data-i18n="api.intro">
+    <p class="api-intro" data-i18n-html="api.intro">
       Базовий шлях: <code style="font-family:var(--mono);font-size:.9em;background:var(--paper-2);border:1px solid var(--rule);border-radius:2px;padding:.05rem .3rem;">https://verbacorpus.org/api/v1</code>.
       Усі ендпоінти публічні, CORS відкрито (<code style="font-family:var(--mono);font-size:.9em;background:var(--paper-2);border:1px solid var(--rule);border-radius:2px;padding:.05rem .3rem;">*</code>), без ключа.
     </p>
 
-    <p class="negotiate-note" data-i18n="api.negotiateNote">
+    <p class="negotiate-note" data-i18n-html="api.negotiateNote">
       <strong>Формат відповіді</strong> обирається через параметр <code>?format=json|jsonl|xml|csv|tsv</code>
       або заголовок <code>Accept</code> (наприклад <code>Accept: application/x-ndjson</code>).
       За замовчуванням — <code>json</code>.
@@ -85,13 +85,13 @@
           <span class="ep-path">/api/v1/search</span>
           <span class="ep-summary" data-i18n="api.ep.search.summary">Повнотекстовий пошук</span>
         </div>
-        <p class="ep-desc" data-i18n="api.ep.search.desc">Шукає прислів'я за ключовим словом (MiniSearch). Без <code style="font-family:var(--mono)">q</code> повертає весь корпус із пагінацією.</p>
+        <p class="ep-desc" data-i18n-html="api.ep.search.desc">Шукає прислів'я за ключовим словом (MiniSearch). Без <code style="font-family:var(--mono)">q</code> повертає весь корпус із пагінацією.</p>
         <table class="params">
           <thead><tr><th data-i18n="api.param.name">Параметр</th><th data-i18n="api.param.type">Тип</th><th data-i18n="api.param.desc">Опис</th></tr></thead>
           <tbody>
             <tr><td class="param-name">q</td><td class="param-type">string</td><td data-i18n="api.param.q.desc">Пошуковий запит.</td></tr>
-            <tr><td class="param-name">category</td><td class="param-type">string</td><td data-i18n="api.param.category.desc">Ключ теми (напр. <code style="font-family:var(--mono)">work_labor</code>).</td></tr>
-            <tr><td class="param-name">source</td><td class="param-type">string</td><td data-i18n="api.param.source.desc">Ідентифікатор джерела (напр. <code style="font-family:var(--mono)">Franko1901</code>).</td></tr>
+            <tr><td class="param-name">category</td><td class="param-type">string</td><td data-i18n-html="api.param.category.desc">Ключ теми (напр. <code style="font-family:var(--mono)">work_labor</code>).</td></tr>
+            <tr><td class="param-name">source</td><td class="param-type">string</td><td data-i18n-html="api.param.source.desc">Ідентифікатор джерела (напр. <code style="font-family:var(--mono)">Franko1901</code>).</td></tr>
             <tr><td class="param-name">limit</td><td class="param-type">integer</td><td data-i18n="api.param.limit.desc">Кількість (1–200, за замовч. 50).</td></tr>
             <tr><td class="param-name">offset</td><td class="param-type">integer</td><td data-i18n="api.param.offset.desc">Зміщення для пагінації.</td></tr>
             <tr><td class="param-name">format</td><td class="param-type">enum</td><td data-i18n="api.param.format.desc">json · jsonl · xml · csv · tsv</td></tr>
@@ -112,7 +112,7 @@
           <span class="ep-path">/api/v1/semantic</span>
           <span class="ep-summary" data-i18n="api.ep.semantic.summary">Семантичний пошук</span>
         </div>
-        <p class="ep-desc" data-i18n="api.ep.semantic.desc">Вбудовує запит через BGE-M3 і знаходить найближчі прислів'я через Vectorize. Результати містять поле <code style="font-family:var(--mono)">score</code> (0–1).</p>
+        <p class="ep-desc" data-i18n-html="api.ep.semantic.desc">Вбудовує запит через BGE-M3 і знаходить найближчі прислів'я через Vectorize. Результати містять поле <code style="font-family:var(--mono)">score</code> (0–1).</p>
         <table class="params">
           <thead><tr><th data-i18n="api.param.name">Параметр</th><th data-i18n="api.param.type">Тип</th><th data-i18n="api.param.desc">Опис</th></tr></thead>
           <tbody>
@@ -173,7 +173,7 @@
             <tr><td class="param-name">category</td><td class="param-type">string</td><td data-i18n="api.param.category.filter.desc">Фільтр за темою.</td></tr>
             <tr><td class="param-name">source</td><td class="param-type">string</td><td data-i18n="api.param.source.filter.desc">Фільтр за джерелом.</td></tr>
             <tr><td class="param-name">variant_group</td><td class="param-type">string</td><td data-i18n="api.param.variant_group.desc">Група варіантів.</td></tr>
-            <tr><td class="param-name">has_explanation</td><td class="param-type">boolean</td><td data-i18n="api.param.has_explanation.desc"><code style="font-family:var(--mono)">true</code> — тільки з поясненнями.</td></tr>
+            <tr><td class="param-name">has_explanation</td><td class="param-type">boolean</td><td data-i18n-html="api.param.has_explanation.desc"><code style="font-family:var(--mono)">true</code> — тільки з поясненнями.</td></tr>
             <tr><td class="param-name">limit</td><td class="param-type">integer</td><td data-i18n="api.param.limit.desc">Кількість (1–200, за замовч. 50).</td></tr>
             <tr><td class="param-name">offset</td><td class="param-type">integer</td><td data-i18n="api.param.offset.desc">Зміщення.</td></tr>
             <tr><td class="param-name">format</td><td class="param-type">enum</td><td data-i18n="api.param.format.desc">json · jsonl · xml · csv · tsv</td></tr>
@@ -196,7 +196,7 @@
         <table class="params">
           <thead><tr><th data-i18n="api.param.name">Параметр</th><th data-i18n="api.param.type">Тип</th><th data-i18n="api.param.desc">Опис</th></tr></thead>
           <tbody>
-            <tr><td class="param-name">id <span style="color:var(--willow);font-size:.75em">*</span></td><td class="param-type">path</td><td data-i18n="api.param.id.desc">Ідентифікатор запису, напр. <code style="font-family:var(--mono)">p000001</code>.</td></tr>
+            <tr><td class="param-name">id <span style="color:var(--willow);font-size:.75em">*</span></td><td class="param-type">path</td><td data-i18n-html="api.param.id.desc">Ідентифікатор запису, напр. <code style="font-family:var(--mono)">p000001</code>.</td></tr>
             <tr><td class="param-name">format</td><td class="param-type">enum</td><td data-i18n="api.param.format.desc">json · jsonl · xml · csv · tsv</td></tr>
           </tbody>
         </table>
@@ -213,7 +213,7 @@
           <span class="ep-path">/api/v1/export</span>
           <span class="ep-summary" data-i18n="api.ep.export.summary">Масове вивантаження</span>
         </div>
-        <p class="ep-desc" data-i18n="api.ep.export.desc">Повертає весь корпус (або відфільтровану підмножину) одним запитом. Включає поле <code style="font-family:var(--mono)">explanation</code>. Для великих завантажень рекомендується CSV або TSV.</p>
+        <p class="ep-desc" data-i18n-html="api.ep.export.desc">Повертає весь корпус (або відфільтровану підмножину) одним запитом. Включає поле <code style="font-family:var(--mono)">explanation</code>. Для великих завантажень рекомендується CSV або TSV.</p>
         <table class="params">
           <thead><tr><th data-i18n="api.param.name">Параметр</th><th data-i18n="api.param.type">Тип</th><th data-i18n="api.param.desc">Опис</th></tr></thead>
           <tbody>
@@ -243,7 +243,7 @@
           <span class="ep-path">/api/v1/categories</span>
           <span class="ep-summary" data-i18n="api.ep.categories.summary">Список тем із лічильниками</span>
         </div>
-        <p class="ep-desc" data-i18n="api.ep.categories.desc">Повертає масив об'єктів <code style="font-family:var(--mono)">{key, label, count}</code> для всіх тематичних категорій.</p>
+        <p class="ep-desc" data-i18n-html="api.ep.categories.desc">Повертає масив об'єктів <code style="font-family:var(--mono)">{key, label, count}</code> для всіх тематичних категорій.</p>
         <div class="curl-block">
           <p class="curl-label" data-i18n="api.curl.example">Приклад</p>
           <pre class="curl-example">curl 'https://verbacorpus.org/api/v1/categories'</pre>
@@ -267,11 +267,11 @@
     <!-- ── SCHEMA ─────────────────────────────────────────────────── -->
     <section class="api-section">
       <h2 data-i18n="api.s.schema.h2">Схема запису</h2>
-      <p class="section-desc" data-i18n="api.s.schema.desc">Структура об'єкта <code style="font-family:var(--mono)">Proverb</code> у відповідях JSON/JSONL/XML.</p>
+      <p class="section-desc" data-i18n-html="api.s.schema.desc">Структура об'єкта <code style="font-family:var(--mono)">Proverb</code> у відповідях JSON/JSONL/XML.</p>
       <table class="params">
         <thead><tr><th data-i18n="api.param.field">Поле</th><th data-i18n="api.param.type">Тип</th><th data-i18n="api.param.desc">Опис</th></tr></thead>
         <tbody>
-          <tr><td class="param-name">id</td><td class="param-type">string</td><td data-i18n="api.field.id.desc">Унікальний ідентифікатор запису (<code style="font-family:var(--mono)">p000001</code>).</td></tr>
+          <tr><td class="param-name">id</td><td class="param-type">string</td><td data-i18n-html="api.field.id.desc">Унікальний ідентифікатор запису (<code style="font-family:var(--mono)">p000001</code>).</td></tr>
           <tr><td class="param-name">text</td><td class="param-type">string</td><td data-i18n="api.field.text.desc">Оригінальний текст.</td></tr>
           <tr><td class="param-name">modern_text</td><td class="param-type">string</td><td data-i18n="api.field.modern_text.desc">Сучасне написання.</td></tr>
           <tr><td class="param-name">category</td><td class="param-type">string[]</td><td data-i18n="api.field.category.desc">Масив ключів тем.</td></tr>
@@ -280,7 +280,7 @@
           <tr><td class="param-name">explanation</td><td class="param-type">string | null</td><td data-i18n="api.field.explanation.desc">Наукове пояснення (де є).</td></tr>
         </tbody>
       </table>
-      <p style="font-size:.82rem;color:var(--muted);margin-top:.6rem;" data-i18n="api.schema.csvNote">
+      <p style="font-size:.82rem;color:var(--muted);margin-top:.6rem;" data-i18n-html="api.schema.csvNote">
         CSV та TSV включають ті ж поля як рядки; масиви подаються через кому. <code style="font-family:var(--mono)">explanation</code> з'являється тільки в /export та /proverb/{id}.
       </p>
     </section>

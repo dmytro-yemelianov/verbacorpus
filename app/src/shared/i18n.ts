@@ -21,7 +21,7 @@ export function t(catalog: Record<string, string>, key: string, fallback?: strin
 
 export function hreflangLinks(restPath: string, host: string): string {
   const p = restPath === "/" ? "" : restPath;
-  const href = (lang: string) => `https://${host}${lang === DEFAULT_LANG ? "" : "/" + lang}${p || (lang === DEFAULT_LANG ? "/" : "")}`;
+  const href = (lang: string) => `https://${host}${lang === DEFAULT_LANG ? "" : "/" + lang}${p || "/"}`;
   const links = LANGS.map((l) => `<link rel="alternate" hreflang="${l}" href="${href(l)}" />`);
   links.push(`<link rel="alternate" hreflang="x-default" href="${href(DEFAULT_LANG)}" />`);
   return links.join("\n");
