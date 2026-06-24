@@ -1,6 +1,6 @@
 # Data Card — verba: Ukrainian Proverbs Corpus
 
-**Version:** 1.0.0 · **Released:** 2026-06-24 · **Author:** Dmytro Yemelianov ([ORCID](https://orcid.org/0009-0002-9244-7426))
+**Version:** 1.0.1 · **Released:** 2026-06-24 · **Author:** Dmytro Yemelianov ([ORCID](https://orcid.org/0009-0002-9244-7426))
 **Home:** https://verbacorpus.org · **Repo:** https://github.com/MurzikVasilyevich/verbacorpus
 
 ---
