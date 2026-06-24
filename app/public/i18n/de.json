@@ -163,5 +163,6 @@
   "cat.emotion_mood": "Gefühl und Stimmung",
   "cat.nature_weather": "Natur und Wetter",
   "cat.appearance_reputation": "Äußeres und Ruf",
-  "cat.idiom_expressive": "Redewendungen und Ausrufe"
+  "cat.idiom_expressive": "Redewendungen und Ausrufe",
+  "results.loading": "Vollständiges Korpus wird geladen…"
 }

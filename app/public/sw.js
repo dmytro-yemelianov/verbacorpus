@@ -1,5 +1,5 @@
-const CACHE = "ukr-proverbs-v17";
-const SHELL = ["/", "/styles.css", "/fonts/spectral.css", "/app.js", "/manifest.webmanifest", "/data/proverbs.json", "/data/meta.json"];
+const CACHE = "ukr-proverbs-v18";
+const SHELL = ["/", "/styles.css", "/fonts/spectral.css", "/app.js", "/manifest.webmanifest", "/data/landing.json", "/data/meta.json", "/data/proverbs.json"];
 
 // Network-first for the app shell that changes on deploy (HTML pages, app.js, styles, i18n
 // catalogs) so a new deploy shows immediately when online; cache-first for big/stable assets

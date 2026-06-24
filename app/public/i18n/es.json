@@ -163,5 +163,6 @@
   "cat.emotion_mood": "Emoción y estado de ánimo",
   "cat.nature_weather": "Naturaleza y clima",
   "cat.appearance_reputation": "Apariencia y reputación",
-  "cat.idiom_expressive": "Fraseología y exclamaciones"
+  "cat.idiom_expressive": "Fraseología y exclamaciones",
+  "results.loading": "Cargando el corpus completo…"
 }

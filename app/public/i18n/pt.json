@@ -163,5 +163,6 @@
   "cat.emotion_mood": "Emoção e humor",
   "cat.nature_weather": "Natureza e clima",
   "cat.appearance_reputation": "Aparência e reputação",
-  "cat.idiom_expressive": "Expressões idiomáticas e exclamações"
+  "cat.idiom_expressive": "Expressões idiomáticas e exclamações",
+  "results.loading": "Carregando o corpus completo…"
 }

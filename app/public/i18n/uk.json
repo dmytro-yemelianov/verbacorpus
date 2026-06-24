@@ -163,5 +163,6 @@
   "cat.emotion_mood": "Почуття і настрій",
   "cat.nature_weather": "Природа і погода",
   "cat.appearance_reputation": "Зовнішність і слава",
-  "cat.idiom_expressive": "Фразеологія та вигуки"
+  "cat.idiom_expressive": "Фразеологія та вигуки",
+  "results.loading": "Завантаження повного корпусу…"
 }

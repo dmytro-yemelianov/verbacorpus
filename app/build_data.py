@@ -3,6 +3,7 @@ from __future__ import annotations
 import csv
 import json
 import os
+import re
 import sys
 from collections import Counter
 from xml.sax.saxutils import escape
@@ -66,6 +67,21 @@ def build(corpus_path, taxonomy_path, sources_path, out_dir, xml_path):
         json.dump(proverbs, f, ensure_ascii=False, separators=(",", ":"))
     with open(os.path.join(out_dir, "explanations.json"), "w", encoding="utf-8") as f:
         json.dump(explanations, f, ensure_ascii=False, separators=(",", ":"))
+
+    # landing.json: a small, presentable, evenly-spread sample for instant first paint
+    # (the hero + the "navmання" list). The full corpus is loaded lazily in the background.
+    # Mirrors the client isPresentable(): uppercase-Cyrillic start, 18-90 chars, >=4 words.
+    _PRES = re.compile(r"^[А-ЯІЇЄҐ]")
+    def _presentable(t):
+        t = t.strip()
+        return 18 <= len(t) <= 90 and len(t.split()) >= 4 and bool(_PRES.match(t))
+    cand = [p for p in proverbs if p["category"] and _presentable(p["text"])]
+    n = 150
+    step = max(1, len(cand) // n)
+    landing = [{"id": p["id"], "text": p["text"], "modern_text": p["modern_text"],
+                "category": p["category"], "sources": p["sources"]} for p in cand[::step][:n]]
+    with open(os.path.join(out_dir, "landing.json"), "w", encoding="utf-8") as f:
+        json.dump(landing, f, ensure_ascii=False, separators=(",", ":"))
 
     meta = {
         "version": _read_version(corpus_path),

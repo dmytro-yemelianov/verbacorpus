@@ -163,5 +163,6 @@
   "cat.emotion_mood": "情感与心情",
   "cat.nature_weather": "自然与天气",
   "cat.appearance_reputation": "外貌与声誉",
-  "cat.idiom_expressive": "惯用语与感叹"
+  "cat.idiom_expressive": "惯用语与感叹",
+  "results.loading": "正在加载完整语料库…"
 }

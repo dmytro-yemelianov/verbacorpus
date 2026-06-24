@@ -163,5 +163,6 @@
   "cat.emotion_mood": "Uczucia i nastrój",
   "cat.nature_weather": "Przyroda i pogoda",
   "cat.appearance_reputation": "Wygląd i sława",
-  "cat.idiom_expressive": "Frazeologia i okrzyki"
+  "cat.idiom_expressive": "Frazeologia i okrzyki",
+  "results.loading": "Ładowanie pełnego korpusu…"
 }

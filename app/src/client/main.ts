@@ -153,19 +153,21 @@ function langHref(l: string): string {
 
 async function boot() {
   const LANG: string = (window as any).__LANG__ || document.documentElement.lang || "uk";
-  try { i18n = await fetch(`/i18n/${LANG}.json`).then((r) => r.json()); } catch {}
 
-  const [proverbs, metaData] = await Promise.all([
-    fetch("/data/proverbs.json").then((r) => r.json()),
+  // Fast first paint: load only the tiny landing sample + meta + i18n. The full
+  // 48k-proverb corpus (and its MiniSearch index) loads in the background below.
+  const [i18nData, metaData, landing] = await Promise.all([
+    fetch(`/i18n/${LANG}.json`).then((r) => r.json()).catch(() => ({})),
     fetch("/data/meta.json").then((r) => r.json()),
+    fetch("/data/landing.json").then((r) => r.json()),
   ]);
-  all = proverbs;
-  byId = new Map(all.map((p) => [p.id, p]));
+  i18n = i18nData;
   meta = metaData;
+  all = landing as Proverb[];
+  byId = new Map(all.map((p) => [p.id, p]));
   presentable = all.filter((p) => isPresentable(p.text));
-  landingSample = sample(presentable.length ? presentable : all, 40);
-  mini = new MiniSearch<Proverb>({ fields: ["text", "modern_text"], storeFields: ["id"], idField: "id" });
-  mini.addAll(all);
+  if (!presentable.length) presentable = all;
+  landingSample = sample(presentable, 40);
 
   // Masthead eyebrow with i18n
   const eyebrowEl = document.querySelector<HTMLElement>(".eyebrow");
@@ -239,6 +241,31 @@ async function boot() {
   });
 
   if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js");
+
+  // Load the full corpus + build the search index off the first-paint path.
+  loadFullCorpus();
+}
+
+let ready = false; // full corpus + MiniSearch index available
+
+async function loadFullCorpus() {
+  let full: Proverb[];
+  try {
+    full = await fetch("/data/proverbs.json").then((r) => r.json());
+  } catch {
+    return; // landing sample stays usable; search will report unavailable
+  }
+  // yield a frame so first paint isn't blocked by the (heavy) indexing below
+  await new Promise((r) => setTimeout(r, 0));
+  all = full;
+  byId = new Map(all.map((p) => [p.id, p]));
+  presentable = all.filter((p) => isPresentable(p.text));
+  mini = new MiniSearch<Proverb>({ fields: ["text", "modern_text"], storeFields: ["id"], idField: "id" });
+  mini.addAll(all);
+  ready = true;
+  // if the user already searched/filtered while we were loading, re-render with full data
+  const q = ($("q") as HTMLInputElement).value.trim();
+  if (q || activeCat || activeSource) renderResults();
 }
 
 function renderHero() {
@@ -305,6 +332,11 @@ async function renderResults() {
   if (!filtering) {
     $("count").textContent = tr("count.total", "{n} всього").replace("{n}", fmt(meta.count));
     showResults(landingSample, tr("results.random", "Навмання з корпусу"), false);
+    return;
+  }
+  if (!ready) {
+    $("count").textContent = "";
+    $("results").innerHTML = `<p class="empty">${esc(tr("results.loading", "Завантаження повного корпусу…"))}</p>`;
     return;
   }
   let pool = all;

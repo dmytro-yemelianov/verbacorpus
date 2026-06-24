@@ -163,5 +163,6 @@
   "cat.emotion_mood": "感情と気分",
   "cat.nature_weather": "自然と天気",
   "cat.appearance_reputation": "外見と評判",
-  "cat.idiom_expressive": "慣用句と感嘆"
+  "cat.idiom_expressive": "慣用句と感嘆",
+  "results.loading": "全コーパスを読み込み中…"
 }
