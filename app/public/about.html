@@ -82,12 +82,12 @@
       (Бобкова; Млодзинський, 2009) лишаються під правами видавців; включено для досліджень та освіти, з атрибуцією за
       полем <code>sources</code>.</p>
       <p data-i18n="about.s5.citeLabel">Як цитувати:</p>
-      <p class="cite">Yemelianov, Dmytro (2026). <i>verba — Ukrainian Proverbs Corpus</i> (v1.0.1). https://verbacorpus.org
+      <p class="cite">Yemelianov, Dmytro (2026). <i>verba — Ukrainian Proverbs Corpus</i> (v1.0.2). https://verbacorpus.org
       · ORCID <a href="https://orcid.org/0009-0002-9244-7426" rel="noopener">0009-0002-9244-7426</a></p>
     </section>
 
     <p class="meta-line" id="aboutMeta">
-      Автор: Дмитро Ємельянов · Версія 1.0.1 ·
+      Автор: Дмитро Ємельянов · Версія 1.0.2 ·
       <a href="https://github.com/dmytro-yemelianov/verbacorpus" rel="noopener">GitHub</a> ·
       <a href="https://github.com/dmytro-yemelianov/verbacorpus/blob/main/DATACARD.md" rel="noopener">Карта даних</a> ·
       <a href="/api.html">API</a>
@@ -102,7 +102,7 @@
     var m = {};
     try { m = await fetch("/api/v1/meta").then(function (r) { return r.json(); }); } catch (e) {}
     var count = m.count ? m.count.toLocaleString(lang === "uk" ? "uk-UA" : lang).replace(/[ , ]/g, " ") : "48 787";
-    var ver = m.version || "1.0.1";
+    var ver = m.version || "1.0.2";
     var lede = document.getElementById("aboutLede2");
     if (lede) lede.textContent = tr("about.lede2", lede.textContent).replace("{count}", count);
     var meta = document.getElementById("aboutMeta");

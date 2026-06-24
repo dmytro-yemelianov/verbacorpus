@@ -16,11 +16,11 @@
   "conformsTo": "http://mlcommons.org/croissant/1.0",
   "name": "verba-ukrainian-proverbs-corpus",
   "description": "A canonical, deduplicated, source-attributed corpus of 48,787 Ukrainian proverbs and adages unified from five digitized collections (1841–present). Each entry carries a modern-spelling rendering and 1–3 thematic categories; ~30,500 include scholarly explanations.",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "datePublished": "2026-06-24",
   "license": "https://creativecommons.org/licenses/by/4.0/",
   "url": "https://verbacorpus.org",
-  "citation": "Yemelianov, Dmytro (2026). verba — Ukrainian Proverbs Corpus (v1.0.0). https://verbacorpus.org",
+  "citation": "Yemelianov, Dmytro (2026). verba — Ukrainian Proverbs Corpus (v1.0.2). https://verbacorpus.org",
   "isBasedOn": [
     {
       "@type": "Book",

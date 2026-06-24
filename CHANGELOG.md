@@ -4,6 +4,13 @@ All notable changes to the verba Ukrainian proverbs corpus are documented here.
 This project adheres to semantic versioning for datasets (MAJOR = schema/breaking,
 MINOR = new source or significant additions, PATCH = corrections).
 
+## [1.0.2] - 2026-06-24
+
+- Proper bibliographic references for all 5 sources: generated `references.bib` BibTeX + `references.csl.json` CSL-JSON + rendered citations.
+- About «Джерела» is now a bibliography with BibTeX/CSL-JSON downloads.
+- Full source citations on the `/p/:id` detail page, DATACARD, croissant `isBasedOn`, and CITATION.cff `references:`.
+- Verified ISBN 978-966-02-5147-2 for the Mlodzynskyi 2009 reprint.
+
 ## [1.0.1] — 2026-06-24
 
 Text-quality cleanup (no schema or count change; 48,787 entries).
