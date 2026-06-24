@@ -22,4 +22,22 @@ describe("/p/:id", () => {
   it("404 for unknown id", async () => {
     expect((await call("/p/zzz")).status).toBe(404);
   });
+  it("is card-first with the top nav", async () => {
+    const html = await (await call("/p/p1")).text();
+    expect(html).toContain('class="p-card" src="/card/p1.png"');
+    expect(html).toContain('class="topbar"');
+    expect(html).toContain('id="copyLink"');
+  });
+});
+
+describe("/s/:n short links", () => {
+  it("301s to the canonical proverb page", async () => {
+    const res = await call("/s/1");
+    expect(res.status).toBe(301);
+    expect(res.headers.get("location")).toMatch(/\/p\/p000001$/);
+  });
+  it("404s on junk / out-of-range", async () => {
+    expect((await call("/s/0")).status).toBe(404);
+    expect((await call("/s/abc")).status).toBe(404);
+  });
 });
