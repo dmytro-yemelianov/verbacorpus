@@ -5,6 +5,7 @@ import openapiDoc from "./openapi.json";
 import { buildProverbPage, cardModel, dailyIndex } from "./shared/meta";
 import { renderCard } from "./card";
 import { parseLang, t, hreflangLinks, DEFAULT_LANG } from "./shared/i18n";
+import { fromShort } from "./shared/shortlink";
 import uk from "../public/i18n/uk.json";
 import en from "../public/i18n/en.json";
 import de from "../public/i18n/de.json";
@@ -98,6 +99,14 @@ export default {
         return Response.redirect(`https://${url.host}${rest}${url.search}`, 301);
       }
       const raw0 = url.pathname;
+      // short-link route: /s/<n> → 301 /p/p000NNN
+      const sMatch = rest.match(/^\/s\/(.+)$/);
+      if (sMatch) {
+        const { meta } = await load(env);
+        const id = fromShort(sMatch[1], meta.count);
+        if (!id) return new Response("Not found", { status: 404 });
+        return Response.redirect(`https://${url.host}/p/${id}`, 301);
+      }
       // social-card routes (need the corpus) — match on rest for /p/, raw0 for /card/
       if (rest.startsWith("/p/") || raw0.startsWith("/card/")) {
         const { proverbs, byId, meta } = await load(env);
