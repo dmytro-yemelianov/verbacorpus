@@ -4,6 +4,15 @@ All notable changes to the verba Ukrainian proverbs corpus are documented here.
 This project adheres to semantic versioning for datasets (MAJOR = schema/breaking,
 MINOR = new source or significant additions, PATCH = corrections).
 
+## [1.0.1] — 2026-06-24
+
+Text-quality cleanup (no schema or count change; 48,787 entries).
+
+- Fixed ~150 entries that began with OCR junk (stray punctuation, list-numbers, leading dashes) — stripped and recapitalized (e.g. `' По парі…` → `По парі…`).
+- Repaired 70 mixed-script (homoglyph) entries where Latin/Greek letters were OCR'd for Cyrillic (e.g. `He варт` → `Не варт`, `Τοто` → `Тото`); archaic word forms preserved.
+- Rescued 6 severely garbled entries (conservative, non-fabricating).
+- **Canonicalized all text to plain ASCII punctuation** (straight quotes, ASCII apostrophe, hyphen, `...`) for code-friendly exports; the website/cards render Ukrainian typography (« » «—» ’ …) via a display layer.
+
 ## [1.0.0] — 2026-06-24
 
 Initial public release.
