@@ -156,10 +156,11 @@ async function boot() {
 
   // Fast first paint: load only the tiny landing sample + meta + i18n. The full
   // 48k-proverb corpus (and its MiniSearch index) loads in the background below.
+  // credentials:"omit" so these match the anonymous <link rel=preload> (no double fetch)
   const [i18nData, metaData, landing] = await Promise.all([
     fetch(`/i18n/${LANG}.json`).then((r) => r.json()).catch(() => ({})),
-    fetch("/data/meta.json").then((r) => r.json()),
-    fetch("/data/landing.json").then((r) => r.json()),
+    fetch("/data/meta.json", { credentials: "omit" }).then((r) => r.json()),
+    fetch("/data/landing.json", { credentials: "omit" }).then((r) => r.json()),
   ]);
   i18n = i18nData;
   meta = metaData;

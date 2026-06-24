@@ -4,6 +4,10 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#5E7355" />
+  <!-- Parallelize the first-paint critical path: fetch the script + landing data immediately. -->
+  <link rel="modulepreload" href="/app.js" />
+  <link rel="preload" href="/data/landing.json" as="fetch" crossorigin="anonymous" />
+  <link rel="preload" href="/data/meta.json" as="fetch" crossorigin="anonymous" />
   <meta name="description" data-i18n-attr="content:meta.home.desc" content="Корпус українських прислів'їв, приказок та висловів — 48 787 записів із п'яти зібрань (1841–сучасність), із пошуком за темою, джерелом і змістом." />
   <meta property="og:type" content="website" />
   <meta property="og:title" data-i18n-attr="content:meta.home.ogTitle" content="Українські прислів'я та приказки" />
