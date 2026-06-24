@@ -3,6 +3,7 @@ import { type Proverb } from "../shared/corpus";
 import { srcLabel } from "../shared/sources";
 import { isPresentable, deckFor, toggleSaved, nextShown } from "../shared/browse";
 import { prettify } from "../shared/text";
+import { LANGS, LANG_NAMES } from "../shared/i18n";
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -22,6 +23,10 @@ let savedView = false;
 
 const SOURCE_ORDER = ["Franko1901", "Nomis1864", "Bobkova", "Mlodzynskyi2009", "Ilkevich1841"];
 
+// i18n runtime — populated in boot() before first render
+let i18n: Record<string, string> = {};
+function tr(key: string, fallback?: string): string { return i18n[key] ?? fallback ?? key; }
+
 function esc(s: string): string {
   return s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]!));
 }
@@ -35,7 +40,7 @@ function plural(n: number, forms: [string, string, string]): string {
   if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return forms[1];
   return forms[2];
 }
-function catLabel(k: string): string { return meta.taxonomy[k] ?? k; }
+function catLabel(k: string): string { return tr("cat." + k, meta.taxonomy[k]); }
 
 function differs(p: Proverb): boolean {
   return !!p.modern_text && p.modern_text.trim() !== p.text.trim();
@@ -55,8 +60,8 @@ function debounce(fn: () => void, ms: number) {
 
 async function share(p: Proverb) {
   const url = `${location.origin}/p/${p.id}`;
-  if (navigator.share) { try { await navigator.share({ title: "Українське прислів'я", text: p.text, url }); } catch {} return; }
-  try { await navigator.clipboard.writeText(`${p.text} — ${url}`); flash("Скопійовано ✓"); }
+  if (navigator.share) { try { await navigator.share({ title: tr("detail.dialogLabel", "Українське прислів'я"), text: p.text, url }); } catch {} return; }
+  try { await navigator.clipboard.writeText(`${p.text} — ${url}`); flash(tr("flash.copied", "Скопійовано ✓")); }
   catch { window.open(url, "_blank"); }
 }
 let flashT: number;
@@ -135,15 +140,31 @@ function setSaved(id: string) {
   if (savedView) renderSavedView();
 }
 function updateSavedCount() {
-  const b = $("savedBtn"); if (b) b.textContent = `♥ Збережені (${saved.length})`;
+  const b = $("savedBtn"); if (b) b.textContent = tr("saved.label", "♥ Збережені ({n})").replace("{n}", String(saved.length));
 }
 function renderSavedView() {
   const items = saved.map((id) => byId.get(id)).filter(Boolean) as Proverb[];
-  $("count").textContent = `Збережено ${fmt(items.length)}`;
-  showResults(items, "Збережені", false);
+  $("count").textContent = tr("saved.label", "♥ Збережені ({n})").replace("{n}", String(items.length));
+  showResults(items, tr("results.head", "Результати"), false);
+}
+
+function langHref(l: string): string {
+  const pathname = location.pathname;
+  // strip existing /<lang>/ prefix (non-uk langs)
+  const m = pathname.match(/^\/([a-z]{2})(\/.*|$)/);
+  let rest = pathname;
+  if (m && LANGS.includes(m[1]) && m[1] !== "uk") {
+    rest = m[2] === "" ? "/" : m[2];
+  }
+  // uk is unprefixed
+  if (l === "uk") return rest || "/";
+  return `/${l}${rest === "/" ? "" : rest}`;
 }
 
 async function boot() {
+  const LANG: string = (window as any).__LANG__ || document.documentElement.lang || "uk";
+  try { i18n = await fetch(`/i18n/${LANG}.json`).then((r) => r.json()); } catch {}
+
   const [proverbs, metaData] = await Promise.all([
     fetch("/data/proverbs.json").then((r) => r.json()),
     fetch("/data/meta.json").then((r) => r.json()),
@@ -156,7 +177,25 @@ async function boot() {
   mini = new MiniSearch<Proverb>({ fields: ["text", "modern_text"], storeFields: ["id"], idField: "id" });
   mini.addAll(all);
 
-  $("mastCount").textContent = fmt(meta.count);
+  // Masthead eyebrow with i18n
+  const eyebrowEl = document.querySelector<HTMLElement>(".eyebrow");
+  if (eyebrowEl) {
+    eyebrowEl.textContent = tr("masthead.eyebrow", "Корпус народної мудрості · {count} записів").replace("{count}", fmt(meta.count));
+  }
+
+  // Language switcher in #langSwitch
+  const sw = $("langSwitch");
+  if (sw) {
+    sw.innerHTML = `<details class="lang-menu"><summary>${LANG_NAMES[LANG] ?? LANG}</summary><ul>` +
+      LANGS.map((l) => `<li><a href="${langHref(l)}" hreflang="${l}"${l === LANG ? ' aria-current="true"' : ""}>${LANG_NAMES[l]}</a></li>`).join("") +
+      `</ul></details>`;
+    sw.querySelectorAll<HTMLAnchorElement>("a[hreflang]").forEach((a) => {
+      a.addEventListener("click", () => {
+        try { localStorage.setItem("verba:lang", a.getAttribute("hreflang") || "uk"); } catch {}
+      });
+    });
+  }
+
   renderColophon();
   renderFilters();
   renderHero();
@@ -224,7 +263,7 @@ function renderHero() {
         ${differs(p) ? `<p class="hero-modern">${esc(prettify(p.modern_text))}</p>` : ""}
         <div class="hero-meta">${meta_}</div>
       </div>
-      <button class="hero-shuffle" id="shuffle" type="button">Інше&nbsp;прислів'я</button>
+      <button class="hero-shuffle" id="shuffle" type="button">${esc(tr("hero.shuffle", "Інше прислів'я"))}</button>
     </article>`;
   $("shuffle").addEventListener("click", renderHero);
   $("hero").querySelector<HTMLElement>(".hero-card")!.addEventListener("click", (e) => {
@@ -257,25 +296,25 @@ async function renderResults() {
   const q = ($("q") as HTMLInputElement).value.trim();
 
   if (semanticMode && q) {
-    $("count").textContent = "Пошук за змістом…";
+    $("count").textContent = tr("results.semanticSearching", "Пошук за змістом…");
     try {
       const url = `/api/semantic?q=${encodeURIComponent(q)}` +
         (activeCat ? `&category=${activeCat}` : "") + (activeSource ? `&source=${activeSource}` : "") + "&limit=100";
       const data = await fetch(url).then((r) => r.json());
       if (seq !== renderSeq) return;
-      $("count").textContent = `За змістом: ${fmt(data.total)}`;
-      showResults(data.results, "За змістом", true);
+      $("count").textContent = tr("results.semantic", "За змістом: {n}").replace("{n}", fmt(data.total));
+      showResults(data.results, tr("results.semantic", "За змістом: {n}").replace("{n}", "").trim().replace(/:\s*$/, ""), true);
     } catch {
       $("count").textContent = "";
-      $("results").innerHTML = `<p class="empty">Семантичний пошук недоступний. Спробуйте звичайний пошук.</p>`;
+      $("results").innerHTML = `<p class="empty">${esc(tr("results.semanticError", "Семантичний пошук недоступний. Спробуйте звичайний пошук."))}</p>`;
     }
     return;
   }
 
   const filtering = !!(q || activeCat || activeSource);
   if (!filtering) {
-    $("count").textContent = `${fmt(meta.count)} всього`;
-    showResults(landingSample, "Навмання з корпусу", false);
+    $("count").textContent = tr("count.total", "{n} всього").replace("{n}", fmt(meta.count));
+    showResults(landingSample, tr("results.random", "Навмання з корпусу"), false);
     return;
   }
   let pool = all;
@@ -286,8 +325,8 @@ async function renderResults() {
   let resultsAll = pool;
   if (activeCat) resultsAll = resultsAll.filter((p) => p.category.includes(activeCat));
   if (activeSource) resultsAll = resultsAll.filter((p) => p.sources.includes(activeSource));
-  $("count").textContent = `Знайдено ${fmt(resultsAll.length)}`;
-  showResults(resultsAll, "Результати", false);
+  $("count").textContent = tr("results.found", "Знайдено {n}").replace("{n}", fmt(resultsAll.length));
+  showResults(resultsAll, tr("results.head", "Результати"), false);
 }
 
 let pageResults: Array<Proverb & { score?: number }> = [];
@@ -303,12 +342,13 @@ function showResults(results: Array<Proverb & { score?: number }>, head: string,
 
 function renderPage() {
   if (!pageResults.length) {
-    $("results").innerHTML = `<p class="empty">Нічого не знайдено. Спробуйте інше слово або зніміть фільтри.</p>`;
+    $("results").innerHTML = `<p class="empty">${esc(tr("empty.search", "Нічого не знайдено. Спробуйте інше слово або зніміть фільтри."))}</p>`;
     return;
   }
   const page = pageResults.slice(0, shown);
   const more = shown < pageResults.length;
-  const suffix = pageHead === "Навмання з корпусу" ? "" : ` · показано ${fmt(page.length)} з ${fmt(pageResults.length)}`;
+  const randomHead = tr("results.random", "Навмання з корпусу");
+  const suffix = pageHead === randomHead ? "" : ` · ${tr("results.shownOf", "{n} з {m}").replace("{n}", fmt(page.length)).replace("{m}", fmt(pageResults.length))}`;
   $("results").innerHTML =
     `<p class="results-head">${esc(pageHead)}${suffix}</p>` +
     page.map((p) =>
@@ -320,11 +360,11 @@ function renderPage() {
           <div class="entry-tags">
             ${p.category.map((c) => `<span class="tag">${esc(catLabel(c))}</span>`).join("")}
             <span class="tag-src">${esc(p.sources.map(srcLabel).join(" · "))}</span>
-            <button class="entry-save${isSavedId(p.id) ? " on" : ""}" type="button" data-save="${esc(p.id)}" aria-label="Зберегти" aria-pressed="${isSavedId(p.id)}">♥</button>
+            <button class="entry-save${isSavedId(p.id) ? " on" : ""}" type="button" data-save="${esc(p.id)}" aria-label="${esc(tr("swipe.save", "Зберегти"))}" aria-pressed="${isSavedId(p.id)}">♥</button>
           </div>
         </div>
       </article>`).join("") +
-    (more ? `<button id="moreBtn" class="more-btn" type="button">Показати ще</button>` : "");
+    (more ? `<button id="moreBtn" class="more-btn" type="button">${esc(tr("more.btn", "Показати ще"))}</button>` : "");
   for (const el of Array.from(document.querySelectorAll<HTMLElement>(".entry"))) {
     el.addEventListener("click", () => { const p = byId.get(el.dataset.id!); if (p) openDetail(p); });
   }
@@ -355,10 +395,10 @@ async function openDetail(p: Proverb) {
       <p class="detail-text">${esc(prettify(p.text))}</p>
       ${differs(p) ? `<p class="detail-modern">${esc(prettify(p.modern_text))}</p>` : ""}
       ${expl ? `<div class="detail-expl">${esc(expl)}</div>` : ""}
-      ${variants.length ? `<div class="detail-variants"><h4>Варіанти</h4><ul>${variants.map((v) => `<li>${esc(prettify(v.text))}</li>`).join("")}</ul></div>` : ""}
+      ${variants.length ? `<div class="detail-variants"><h4>${esc(tr("detail.variants", "Варіанти"))}</h4><ul>${variants.map((v) => `<li>${esc(prettify(v.text))}</li>`).join("")}</ul></div>` : ""}
       <div class="detail-meta">${p.category.map((c) => `<span class="tag">${esc(catLabel(c))}</span>`).join("")}<span>${cite}</span></div>
-      <div class="detail-share"><button class="detail-sharebtn" type="button">Поділитися</button><a class="detail-cardbtn" href="/card/${esc(p.id)}.png" target="_blank" rel="noopener">Картка</a></div>
-      <button class="detail-close" type="submit" value="close">Закрити</button>
+      <div class="detail-share"><button class="detail-sharebtn" type="button">${esc(tr("detail.share", "Поділитися"))}</button><a class="detail-cardbtn" href="/card/${esc(p.id)}.png" target="_blank" rel="noopener">${esc(tr("detail.card", "Картка"))}</a></div>
+      <button class="detail-close" type="submit" value="close">${esc(tr("detail.close", "Закрити"))}</button>
     </form>`;
 
   if (navigator.onLine) {
@@ -368,7 +408,7 @@ async function openDetail(p: Proverb) {
       if (!form) return;
       const sec = document.createElement("div");
       sec.className = "detail-similar";
-      sec.innerHTML = `<h4>Схожі прислів'я</h4><ul>${data.results.map((s: Proverb) => `<li data-id="${esc(s.id)}">${esc(prettify(s.text))}</li>`).join("")}</ul>`;
+      sec.innerHTML = `<h4>${esc(tr("detail.similar", "Схожі прислів'я"))}</h4><ul>${data.results.map((s: Proverb) => `<li data-id="${esc(s.id)}">${esc(prettify(s.text))}</li>`).join("")}</ul>`;
       form.insertBefore(sec, form.querySelector(".detail-close"));
       for (const li of Array.from(sec.querySelectorAll<HTMLElement>("li"))) {
         li.addEventListener("click", () => { const sp = byId.get(li.dataset.id!); if (sp) { dlg.close(); openDetail(sp); } });
