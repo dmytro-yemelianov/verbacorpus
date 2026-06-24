@@ -7,11 +7,37 @@ function esc(s: string): string {
   return s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]!));
 }
 
+const SLUG_MAP: Record<string, Record<string, string>> = {
+  "shcho-take-verba": { en: "what-is-verba", uk: "shcho-take-verba" },
+  "what-is-verba": { en: "what-is-verba", uk: "shcho-take-verba" },
+  "dzherela": { en: "sources", uk: "dzherela" },
+  "sources": { en: "sources", uk: "dzherela" },
+  "vidkryti-dani": { en: "open-data", uk: "vidkryti-dani" },
+  "open-data": { en: "open-data", uk: "vidkryti-dani" },
+};
+
 export function langHref(l: string): string {
   const { rest } = parseLang(location.pathname);
-  if (l === DEFAULT_LANG) return rest || "/"; // uk is unprefixed
+  let targetRest = rest || "/";
+
+  // Translate slugs if switching between uk and en for blog articles
+  const parts = targetRest.split("/");
+  if (parts.length > 2 && parts[1] === "blog") {
+    const slug = parts[2].replace(".html", "");
+    const map = SLUG_MAP[slug];
+    if (map) {
+      const targetLangKey = l === "uk" ? "uk" : "en";
+      const targetSlug = targetLangKey === "uk" ? map.uk : map.en;
+      if (targetSlug) {
+        parts[2] = parts[2].endsWith(".html") ? `${targetSlug}.html` : targetSlug;
+        targetRest = parts.join("/");
+      }
+    }
+  }
+
+  if (l === DEFAULT_LANG) return targetRest;
   // keep the trailing slash on the root so the URL matches the Worker's /<lang>/* routes
-  return rest === "/" ? `/${l}/` : `/${l}${rest}`;
+  return targetRest === "/" ? `/${l}/` : `/${l}${targetRest}`;
 }
 
 export function renderLangSwitch(): void {
@@ -45,11 +71,23 @@ function wireCopyLink(): void {
 function localizeNav(): void {
   const LANG: string = (window as any).__LANG__ || document.documentElement.lang || "uk";
   if (LANG === DEFAULT_LANG) return; // uk is unprefixed; links already correct
-  document.querySelectorAll<HTMLAnchorElement>(".topbar-link").forEach((a) => {
+  document.querySelectorAll<HTMLAnchorElement>("a").forEach((a) => {
     const href = a.getAttribute("href") || "";
-    // only internal absolute paths (skip external https GitHub links + already-prefixed)
-    if (href.startsWith("/") && !href.startsWith("/" + LANG + "/") && href !== "/" + LANG) {
-      a.setAttribute("href", "/" + LANG + href);
+    // Only internal paths starting with / (excluding assets like fonts, css, files, or api)
+    if (href.startsWith("/") && 
+        !href.startsWith("/" + LANG + "/") && 
+        href !== "/" + LANG && 
+        !href.startsWith("/api/") && 
+        !href.endsWith(".css") && 
+        !href.endsWith(".js") &&
+        !href.endsWith(".png") &&
+        !href.endsWith(".bib") &&
+        !href.endsWith(".json")) {
+      if (href === "/") {
+        a.setAttribute("href", "/" + LANG + "/");
+      } else {
+        a.setAttribute("href", "/" + LANG + href);
+      }
     }
   });
 }
