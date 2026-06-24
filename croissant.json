@@ -21,6 +21,43 @@
   "license": "https://creativecommons.org/licenses/by/4.0/",
   "url": "https://verbacorpus.org",
   "citation": "Yemelianov, Dmytro (2026). verba — Ukrainian Proverbs Corpus (v1.0.0). https://verbacorpus.org",
+  "isBasedOn": [
+    {
+      "@type": "Book",
+      "name": "Галицько-руські народні приповідки",
+      "author": "Іван Франко (зібрав, упоряд. і пояснив)",
+      "datePublished": "1901",
+      "url": "https://www.i-franko.name/uk/Folklore/1901/GalRusProverbs.html"
+    },
+    {
+      "@type": "Book",
+      "name": "Українські приказки, прислів'я і таке інше",
+      "author": "Матвій Номис (упоряд.)",
+      "datePublished": "1864",
+      "url": "https://archive.org/details/nomis1864"
+    },
+    {
+      "@type": "Book",
+      "name": "Українські народні прислів'я та приказки",
+      "author": "Бобкова В., Лавров Ф., Ліздвой М., Сухобрус Г., Ткаченко Ф. (упоряд.)",
+      "datePublished": "1961"
+    },
+    {
+      "@type": "Book",
+      "name": "Галицькі приповідки і загадки",
+      "author": "Григорій Ількевич (зібрав)",
+      "datePublished": "1841",
+      "url": "http://irbis-nbuv.gov.ua/dlib/item/0000436"
+    },
+    {
+      "@type": "Book",
+      "name": "Практичний російсько-український словник приказок",
+      "author": "Млодзинський Г. (упоряд.)",
+      "datePublished": "2009",
+      "isbn": "978-966-02-5147-2",
+      "url": "https://repository.encyclopedia.kyiv.ua/items/show/48"
+    }
+  ],
   "creator": {
     "@type": "Person",
     "name": "Dmytro Yemelianov",

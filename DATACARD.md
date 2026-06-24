@@ -157,6 +157,18 @@ Cite as: Yemelianov, Dmytro (2026). *verba — Ukrainian Proverbs Corpus* (v1.0.
 
 ---
 
+## Sources
+
+The corpus unifies text from five published collections. Full bibliographic data is in [`references.bib`](references.bib) and [`references.csl.json`](references.csl.json).
+
+1. Іван Франко (зібрав, упоряд. і пояснив). Галицько-руські народні приповідки. Етнографічний збірник, тт. X, XVI, XXIII, XXVII, XXVIII (у 3 т., 6 вип., 1901–1910). Львів: Накладом Наукового товариства імені Шевченка, 1901. https://www.i-franko.name/uk/Folklore/1901/GalRusProverbs.html
+2. Матвій Номис (упоряд.). Українські приказки, прислів'я і таке інше. Санкт-Петербург: Друкарня Тиблена і Ко (К. Куліша), 1864. https://archive.org/details/nomis1864
+3. Бобкова В., Лавров Ф., Ліздвой М., Сухобрус Г., Ткаченко Ф. (упоряд.). Українські народні прислів'я та приказки. Вид. 2-ге, випр. і доп. Київ: Видавництво АН УРСР, 1961.
+4. Григорій Ількевич (зібрав). Галицькі приповідки і загадки. Відень: Друкарня оо. Мехитаристів, 1841. http://irbis-nbuv.gov.ua/dlib/item/0000436
+5. Млодзинський Г. (упоряд.). Практичний російсько-український словник приказок. Репринт вид. 1929 р. Київ: Інститут енциклопедичних досліджень НАН України, 2009. ISBN 978-966-02-5147-2. https://repository.encyclopedia.kyiv.ua/items/show/48
+
+---
+
 ## Citation
 
 ```
