@@ -686,3 +686,19 @@ body.swipe-open { overflow: hidden; }
 .sw-card::before { top: 0; }
 .sw-card::after { bottom: 0; transform: scaleY(-1); }
 .sw-card { padding-block: calc(var(--emb-c-rows) * var(--emb-stitch) + 1.6rem); }
+
+/* ---- Embroidery Phase 3: page-edge frame (wide screens) + empty/404 motif ---- */
+@media (min-width: 1200px) {
+  body::before, body::after {
+    content: ""; position: fixed; top: 0; bottom: 0; z-index: 1;
+    width: calc(var(--emb-b-rows) * var(--emb-stitch));
+    background: var(--emb-bv) repeat-y top center / 100% auto; pointer-events: none;
+  }
+  body::before { left: 0; }
+  body::after { right: 0; }
+}
+.empty::before {
+  content: ""; display: block; height: calc(var(--emb-b-rows) * var(--emb-stitch));
+  width: min(240px, 60%); margin: 0 auto 1.1rem;
+  background: var(--emb-b) repeat-x center / auto 100%;
+}
