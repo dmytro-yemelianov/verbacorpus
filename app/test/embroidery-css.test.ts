@@ -28,5 +28,7 @@ describe("embroidery-css generator", () => {
     expect(css).toContain("prefers-color-scheme: dark");
     expect(css).toContain("%23d8aa54");
     expect(css).toContain("%23b4232a");
+    expect(css).toContain("--emb-stitch: 3px"); // single shared stitch size
+    expect(css).toContain("--emb-a-rows:");      // derived band heights
   });
 });
