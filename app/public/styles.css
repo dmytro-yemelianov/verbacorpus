@@ -38,7 +38,7 @@ a { color: var(--willow); text-underline-offset: 2px; }
 :focus-visible { outline: 2px solid var(--willow); outline-offset: 2px; border-radius: 2px; }
 
 /* ---- Masthead ---- */
-.masthead { border-bottom: 1px solid var(--rule); padding-block: clamp(1.4rem, 4vw, 2.6rem) 1.4rem; }
+.masthead { padding-block: clamp(1.4rem, 4vw, 2.6rem) 1.4rem; }
 .eyebrow {
   margin: 0 0 .9rem; font-size: .72rem; letter-spacing: .18em; text-transform: uppercase;
   color: var(--willow); font-weight: 600;
@@ -255,7 +255,7 @@ body.drawer-open {
 .detail-close:hover { background: var(--willow); }
 
 /* ---- Colophon ---- */
-.colophon { border-top: 1px solid var(--rule); padding-block: 2rem 3rem; color: var(--muted); }
+.colophon { padding-block: 2rem 3rem; color: var(--muted); }
 .col-stat { font-family: var(--mono); font-size: .76rem; color: var(--faint); margin: 0 0 .8rem; }
 .col-version { font-family: var(--mono); font-size: .74rem; color: var(--faint); margin: -.4rem 0 .8rem; }
 .col-sources { list-style: none; padding: 0; margin: 0 0 1rem; font-size: .85rem; display: grid; gap: .25rem; }
@@ -328,7 +328,6 @@ body.drawer-open {
   background: rgba(244, 241, 232, 0.85);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border-bottom: 1px solid var(--rule);
   transition: background 0.3s ease, border-color 0.3s ease;
 }
 :root[data-theme="dark"] .topbar {
@@ -600,3 +599,29 @@ body.swipe-open { overflow: hidden; }
   justify-content: center;
 }
 
+/* ---- Embroidery chrome (рушник bands; pixels + stitch size in embroidery.css) ---- */
+/* Decorative: empty pseudo-elements are ignored by assistive tech. One --emb-stitch
+   drives every band/icon, so the stitch (cell) size is identical site-wide. */
+.topbar::after {
+  content: ""; display: block;
+  height: calc(var(--emb-a-rows) * var(--emb-stitch));
+  background: var(--emb-a) repeat-x left center / auto 100%;
+}
+.masthead::after {
+  content: ""; display: block;
+  height: calc(var(--emb-b-rows) * var(--emb-stitch));
+  margin-top: clamp(1rem, 3vw, 1.6rem);
+  background: var(--emb-b) repeat-x left center / auto 100%;
+}
+.colophon::before {
+  content: ""; display: block;
+  height: calc(var(--emb-b-rows) * var(--emb-stitch));
+  margin-bottom: clamp(1.2rem, 3vw, 2rem);
+  background: var(--emb-b) repeat-x left center / auto 100%;
+}
+.colophon::after {
+  content: ""; display: block;
+  height: calc(var(--emb-a-rows) * var(--emb-stitch));
+  margin-top: clamp(1.2rem, 3vw, 2rem);
+  background: var(--emb-a) repeat-x left center / auto 100%;
+}
