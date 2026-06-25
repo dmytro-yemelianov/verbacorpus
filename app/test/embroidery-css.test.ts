@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { BORDERS } from "../src/shader/embroidery";
-import { bandSVG, embroideryCss } from "../src/embroidery-css";
+import { bandSVG, embroideryCss, iconSVG } from "../src/embroidery-css";
 
 const A = BORDERS.find((b) => b.id === "upa_2c1afca8547010f7")!;
 
@@ -30,5 +30,23 @@ describe("embroidery-css generator", () => {
     expect(css).toContain("%23b4232a");
     expect(css).toContain("--emb-stitch: 3px"); // single shared stitch size
     expect(css).toContain("--emb-a-rows:");      // derived band heights
+  });
+
+  it("iconSVG is transparent (no background rect) and themeable", () => {
+    const ic = { rows: 2, cols: 2, cells: ["R.", ".B"] };
+    const light = decodeURIComponent(iconSVG(ic, true).slice("data:image/svg+xml,".length));
+    expect(light).not.toContain("#f4f1e8"); // no linen background fill on icons
+    expect(light).toContain("#b4232a");     // red cell
+    expect(light).toContain("#1a1a1a");     // ink cell
+    const dark = decodeURIComponent(iconSVG(ic, false).slice("data:image/svg+xml,".length));
+    expect(dark).toContain("#d8aa54");      // gold in dark
+  });
+
+  it("embroideryCss emits icon vars + utility classes at the shared stitch", () => {
+    const css = embroideryCss();
+    expect(css).toContain("--ico-heart:");
+    expect(css).toContain(".emb-ico {");
+    expect(css).toContain(".emb-ico-heart {");
+    expect(css).toContain("var(--emb-stitch)"); // icon sizes derive from the stitch
   });
 });
