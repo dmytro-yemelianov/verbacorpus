@@ -625,3 +625,35 @@ body.swipe-open { overflow: hidden; }
   margin-top: clamp(1.2rem, 3vw, 2rem);
   background: var(--emb-a) repeat-x left center / auto 100%;
 }
+
+/* ---- Cross-stitch icons in the UI (classes generated in embroidery.css) ---- */
+.topbar-link-ext::after {
+  content: ""; display: inline-block; margin-left: .35em; vertical-align: -0.02em;
+  width: calc(7 * var(--emb-stitch)); height: calc(6 * var(--emb-stitch));
+  background: var(--ico-link) no-repeat center / contain;
+}
+#themeToggle { font-size: 0; line-height: 0; display: inline-grid; place-items: center; }
+#themeToggle::before {
+  content: ""; display: block;
+  width: calc(7 * var(--emb-stitch)); height: calc(7 * var(--emb-stitch));
+  background: var(--ico-moon) no-repeat center / contain;
+}
+:root[data-theme="dark"] #themeToggle::before { background-image: var(--ico-sun); }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) #themeToggle::before { background-image: var(--ico-sun); }
+}
+#savedBtn::before {
+  content: ""; display: inline-block; margin-right: .45em; vertical-align: -0.02em;
+  width: calc(7 * var(--emb-stitch)); height: calc(6 * var(--emb-stitch));
+  background: var(--ico-heart) no-repeat center / contain;
+}
+.detail-cardbtn::before {
+  content: ""; display: inline-block; margin-right: .45em; vertical-align: -0.08em;
+  width: calc(9 * var(--emb-stitch)); height: calc(9 * var(--emb-stitch));
+  background: var(--ico-image) no-repeat center / contain;
+}
+.search-wrap::before {
+  content: ""; flex: none; align-self: center; margin-right: .1rem;
+  width: calc(8 * var(--emb-stitch)); height: calc(8 * var(--emb-stitch));
+  background: var(--ico-search) no-repeat center / contain;
+}

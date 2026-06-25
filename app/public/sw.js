@@ -1,5 +1,5 @@
-const CACHE = "ukr-proverbs-v23";
-const SHELL = ["/", "/styles.css", "/fonts/spectral.css", "/fonts/spectral-400-normal-cyrillic.woff2", "/fonts/spectral-500-normal-cyrillic.woff2", "/app.js", "/chrome.js", "/manifest.webmanifest", "/data/landing.json", "/data/meta.json", "/data/proverbs.json"];
+const CACHE = "ukr-proverbs-v25";
+const SHELL = ["/", "/styles.css", "/embroidery.css", "/fonts/spectral.css", "/fonts/spectral-400-normal-cyrillic.woff2", "/fonts/spectral-500-normal-cyrillic.woff2", "/app.js", "/chrome.js", "/manifest.webmanifest", "/data/landing.json", "/data/meta.json", "/data/proverbs.json"];
 
 // Network-first for the app shell that changes on deploy (HTML pages, app.js, styles, i18n
 // catalogs) so a new deploy shows immediately when online; cache-first for big/stable assets
@@ -7,7 +7,7 @@ const SHELL = ["/", "/styles.css", "/fonts/spectral.css", "/fonts/spectral-400-n
 function isShell(p) {
   return p === "/" || p.endsWith(".html") || /^\/[a-z]{2}(\/|$)/.test(p) ||
     p.startsWith("/blog") || p === "/app.js" || p === "/chrome.js" ||
-    p === "/styles.css" || p.startsWith("/i18n/");
+    p === "/styles.css" || p === "/embroidery.css" || p.startsWith("/i18n/");
 }
 
 
