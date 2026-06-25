@@ -702,3 +702,13 @@ body.swipe-open { overflow: hidden; }
   width: min(240px, 60%); margin: 0 auto 1.1rem;
   background: var(--emb-b) repeat-x center / auto 100%;
 }
+
+/* ---- Proverb-row action buttons → stitched icons (↗ 🖼 ♥) ---- */
+.entry-share-btn, .entry-card-btn, .entry-save { font-size: 0; }
+.entry-share-btn::before, .entry-card-btn::before, .entry-save::before {
+  content: ""; display: block; background: no-repeat center / contain;
+}
+.entry-share-btn::before { width: calc(7 * var(--emb-stitch)); height: calc(6 * var(--emb-stitch)); background-image: var(--ico-link); }
+.entry-card-btn::before  { width: calc(9 * var(--emb-stitch)); height: calc(9 * var(--emb-stitch)); background-image: var(--ico-image); }
+.entry-save::before      { width: calc(7 * var(--emb-stitch)); height: calc(6 * var(--emb-stitch)); background-image: var(--ico-heart); opacity: .38; transition: opacity .12s; }
+.entry-save.on::before   { opacity: 1; }
