@@ -67,14 +67,12 @@
     </div>
   </header>
 
-  <section class="hero wrap" id="hero" data-i18n-attr="aria-label:hero.ariaLabel" aria-label="Прислів'я дня"></section>
-
   <div class="controls wrap">
     <div class="search-wrap">
       <label class="vh" for="q" data-i18n="search.label">Пошук</label>
       <input id="q" type="search" data-i18n-attr="placeholder:search.placeholder" placeholder="Шукати прислів'я або слово…" autocomplete="off" spellcheck="false" />
       <button id="semToggle" class="sem-toggle" type="button" role="switch" aria-checked="false" title="Пошук за змістом (потрібен інтернет)" data-i18n="search.semantic">за змістом</button>
-      <button id="savedBtn" class="saved-btn" type="button">♥ Збережені (0)</button>
+      <button id="savedBtn" class="saved-btn" type="button">Збережені (0)</button>
       <button id="swipeBtn" class="swipe-btn" type="button" data-i18n="swipe.btn">Гортати ⇆</button>
       <span id="count" class="count" aria-live="polite"></span>
     </div>
@@ -93,6 +91,10 @@
       </details>
     </div>
   </div>
+
+  <section class="hero wrap" id="hero" data-i18n-attr="aria-label:hero.ariaLabel" aria-label="Прислів'я дня"></section>
+
+  <section id="latestBlog" class="wrap" hidden></section>
 
   <main id="results" class="wrap"></main>
 

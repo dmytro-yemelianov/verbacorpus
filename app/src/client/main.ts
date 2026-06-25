@@ -21,6 +21,7 @@ let semanticMode = false;
 let renderSeq = 0;
 let saved: string[] = loadSaved();
 let savedView = false;
+let blogArticles: Array<{ slug: string; title: string; date: string; lede: string }> = [];
 
 const SOURCE_ORDER = ["Franko1901", "Nomis1864", "Bobkova", "Mlodzynskyi2009", "Ilkevich1841"];
 
@@ -134,9 +135,10 @@ function setSaved(id: string) {
   if (savedView) renderSavedView();
 }
 function updateSavedCount() {
-  const b = $("savedBtn"); if (b) b.textContent = tr("saved.label", "♥ Збережені ({n})").replace("{n}", String(saved.length));
+  const b = $("savedBtn"); if (b) b.textContent = tr("saved.label", "Збережені ({n})").replace("{n}", String(saved.length));
 }
 function renderSavedView() {
+  updateHeroAndBlog();
   const items = saved.map((id) => byId.get(id)).filter(Boolean) as Proverb[];
   $("count").textContent = tr("saved.count", "Збережено {n}").replace("{n}", String(items.length));
   showResults(items, tr("results.head", "Результати"), false);
@@ -155,13 +157,16 @@ async function boot() {
   // Fast first paint: load only the tiny landing sample + meta + i18n. The full
   // 48k-proverb corpus (and its MiniSearch index) loads in the background below.
   // credentials:"omit" so these match the anonymous <link rel=preload> (no double fetch)
-  const [i18nData, metaData, landing] = await Promise.all([
+  const blogPrefix = LANG === "uk" ? "" : `/${LANG}`;
+  const [i18nData, metaData, landing, latestBlog] = await Promise.all([
     fetch(`/i18n/${LANG}.json`).then((r) => r.json()).catch(() => ({})),
     fetch("/data/meta.json", { credentials: "omit" }).then((r) => r.json()),
     fetch("/data/landing.json", { credentials: "omit" }).then((r) => r.json()),
+    fetch(`${blogPrefix}/blog/latest.json`).then((r) => r.json()).catch(() => []),
   ]);
   i18n = i18nData;
   meta = metaData;
+  blogArticles = latestBlog || [];
   all = landing as Proverb[];
   byId = new Map(all.map((p) => [p.id, p]));
   presentable = all.filter((p) => isPresentable(p.text));
@@ -199,6 +204,20 @@ async function boot() {
   });
 
   updateSavedCount();
+  const detailDlg = $<HTMLDialogElement>("detail");
+  detailDlg.addEventListener("click", (e) => {
+    if (e.target === detailDlg) detailDlg.close();
+  });
+  detailDlg.addEventListener("close", () => {
+    document.body.classList.remove("drawer-open");
+    if ((detailDlg as any)._popstateClose) {
+      (detailDlg as any)._popstateClose = false;
+    } else {
+      if (history.state && history.state.modalOpen) {
+        history.back();
+      }
+    }
+  });
   $("savedBtn").addEventListener("click", () => {
     savedView = !savedView;
     $("savedBtn").classList.toggle("active", savedView);
@@ -230,7 +249,21 @@ async function boot() {
     else { if (!reduceMotion) card.style.transition = "transform .2s ease"; card.style.transform = ""; }
   });
 
-  window.addEventListener("popstate", () => {
+  window.addEventListener("popstate", (e) => {
+    const state = e.state;
+    const dlg = $<HTMLDialogElement>("detail");
+    if (state && state.proverbId) {
+      const p = byId.get(state.proverbId);
+      if (p && !dlg.open) {
+        openDetail(p);
+      }
+    } else {
+      if (dlg.open) {
+        (dlg as any)._popstateClose = true;
+        dlg.close();
+      }
+    }
+
     const qp = new URLSearchParams(location.search);
     $<HTMLInputElement>("q").value = qp.get("q") || "";
     activeCat = qp.get("cat") || "";
@@ -303,6 +336,49 @@ function renderHero() {
   });
 }
 
+function updateHeroAndBlog() {
+  const q = ($("q") as HTMLInputElement).value.trim();
+  const filtering = !!(q || activeCat || activeSource) || savedView;
+
+  const heroEl = $("hero");
+  if (heroEl) {
+    heroEl.hidden = filtering;
+  }
+
+  const blogEl = $("latestBlog");
+  if (blogEl) {
+    if (filtering || !blogArticles.length) {
+      blogEl.hidden = true;
+    } else {
+      blogEl.hidden = false;
+      renderLatestBlog();
+    }
+  }
+}
+
+function renderLatestBlog() {
+  const el = $("latestBlog");
+  if (!el || !blogArticles.length) return;
+
+  const LANG = (window as any).__LANG__ || document.documentElement.lang || "uk";
+  const prefix = LANG === "uk" ? "/blog" : `/${LANG}/blog`;
+
+  const items = blogArticles.map((a) =>
+    `<li class="blog-card">
+      <a href="${prefix}/${esc(a.slug)}">
+        <span class="blog-card-date">${esc(a.date)}</span>
+        <span class="blog-card-title">${esc(a.title)}</span>
+        <span class="blog-card-lede">${esc(a.lede)}</span>
+      </a>
+    </li>`
+  ).join("");
+
+  el.innerHTML = `
+    <h2 class="results-head">${esc(tr("blog.latest", "Останнє з блогу"))}</h2>
+    <ul class="blog-list">${items}</ul>
+  `;
+}
+
 function renderFilters() {
   $("sources").innerHTML = SOURCE_ORDER
     .map((s) => `<button class="chip${s === activeSource ? " active" : ""}" type="button" data-src="${s}">${esc(srcLabel(s))}</button>`).join("");
@@ -332,6 +408,7 @@ function renderFilters() {
 async function renderResults() {
   const seq = ++renderSeq;
   const q = ($("q") as HTMLInputElement).value.trim();
+  updateHeroAndBlog();
 
   // Update URL parameters dynamically for sharing
   const params = new URLSearchParams();
@@ -415,13 +492,31 @@ function renderPage() {
           <div class="entry-tags">
             ${p.category.map((c) => `<span class="tag">${esc(catLabel(c))}</span>`).join("")}
             <span class="tag-src">${esc(p.sources.map(srcLabel).join(" · "))}</span>
-            <button class="entry-save${isSavedId(p.id) ? " on" : ""}" type="button" data-save="${esc(p.id)}" aria-label="${esc(tr("swipe.save", "Зберегти"))}" aria-pressed="${isSavedId(p.id)}">♥</button>
+            <div class="entry-actions">
+              <button class="entry-action-btn entry-share-btn" type="button" data-share="${esc(p.id)}" title="${esc(tr("detail.share", "Поділитися"))}">↗</button>
+              <button class="entry-action-btn entry-card-btn" type="button" data-card="${esc(p.id)}" title="${esc(tr("detail.card", "Картка"))}">🖼</button>
+              <button class="entry-action-btn entry-save${isSavedId(p.id) ? " on" : ""}" type="button" data-save="${esc(p.id)}" aria-label="${esc(tr("swipe.save", "Зберегти"))}" aria-pressed="${isSavedId(p.id)}">♥</button>
+            </div>
           </div>
         </div>
       </article>`).join("") +
     (more ? `<button id="moreBtn" class="more-btn" type="button">${esc(tr("more.btn", "Показати ще"))}</button>` : "");
   for (const el of Array.from(document.querySelectorAll<HTMLElement>(".entry"))) {
     el.addEventListener("click", () => { const p = byId.get(el.dataset.id!); if (p) openDetail(p); });
+  }
+  for (const b of Array.from(document.querySelectorAll<HTMLElement>(".entry-share-btn"))) {
+    b.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const p = byId.get(b.dataset.share!);
+      if (p) share(p);
+    });
+  }
+  for (const b of Array.from(document.querySelectorAll<HTMLElement>(".entry-card-btn"))) {
+    b.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const p = byId.get(b.dataset.card!);
+      if (p) openDetail(p, { showCustomizer: true });
+    });
   }
   for (const b of Array.from(document.querySelectorAll<HTMLElement>(".entry-save"))) {
     b.addEventListener("click", (e) => { e.stopPropagation(); setSaved(b.dataset.save!); if (!savedView) { b.classList.toggle("on"); b.setAttribute("aria-pressed", String(isSavedId(b.dataset.save!))); } });
@@ -430,7 +525,7 @@ function renderPage() {
   if (moreBtn) moreBtn.addEventListener("click", () => { shown = nextShown(shown, STEP, pageResults.length); renderPage(); });
 }
 
-async function openDetail(p: Proverb) {
+async function openDetail(p: Proverb, opts: { showCustomizer?: boolean } = {}) {
   if (!explCache) {
     explCache = await fetch("/data/explanations.json").then((r) => r.json()).catch(() => ({}));
   }
@@ -446,13 +541,53 @@ async function openDetail(p: Proverb) {
   const dlg = $<HTMLDialogElement>("detail");
   dlg.innerHTML =
     `<form method="dialog" class="detail-inner">
+      <button class="drawer-close-btn" type="submit" value="close" aria-label="${esc(tr("swipe.close", "Закрити"))}">✕</button>
       <div class="detail-cat">№&nbsp;${esc(p.id.replace(/^p0*/, ""))}</div>
       <p class="detail-text">${esc(prettify(p.text))}</p>
       ${differs(p) ? `<p class="detail-modern">${esc(prettify(p.modern_text))}</p>` : ""}
       ${expl ? `<div class="detail-expl">${esc(expl)}</div>` : ""}
       ${variants.length ? `<div class="detail-variants"><h4>${esc(tr("detail.variants", "Варіанти"))}</h4><ul>${variants.map((v) => `<li>${esc(prettify(v.text))}</li>`).join("")}</ul></div>` : ""}
-      <div class="detail-meta">${p.category.map((c) => `<span class="tag">${esc(catLabel(c))}</span>`).join("")}<span>${cite}</span></div>
-      <div class="detail-share"><button class="detail-sharebtn" type="button">${esc(tr("detail.share", "Поділитися"))}</button><a class="detail-cardbtn" href="/card/${esc(p.id)}.png" target="_blank" rel="noopener">${esc(tr("detail.card", "Картка"))}</a></div>
+      <div class="detail-meta">${p.category.map((c) => `<span class="tag">${esc(catLabel(c))}</span>`).join("")}</div>
+      <details class="detail-source-collapse">
+        <summary>${esc(tr("detail.sourceTitle", "Джерело"))}</summary>
+        <div class="detail-source-content">${cite}</div>
+      </details>
+      <div class="detail-share"><button class="detail-sharebtn" type="button">${esc(tr("detail.share", "Поділитися"))}</button><button class="detail-cardbtn" id="customCardBtn" type="button">${esc(tr("detail.card", "Картка"))}</button></div>
+      <div class="card-customizer" id="cardCustomizer" hidden>
+        <h4>${esc(tr("card.customizerTitle", "Налаштування картки"))}</h4>
+        <div class="customizer-layout">
+          <div class="customizer-preview">
+            <img id="cardPreview" src="/card/${esc(p.id)}.png?v=3" alt="Card Preview" />
+          </div>
+          <div class="customizer-controls">
+            <div class="control-field">
+              <label for="cardFormatSelect">${esc(tr("card.format", "Формат (Розмір)"))}</label>
+              <select id="cardFormatSelect">
+                <option value="fb">${esc(tr("card.format.fb", "Facebook / Пост (1.91:1)"))}</option>
+                <option value="square">${esc(tr("card.format.square", "Instagram Пост (1:1)"))}</option>
+                <option value="story">${esc(tr("card.format.story", "Instagram Історія (9:16)"))}</option>
+                <option value="yt">${esc(tr("card.format.yt", "YouTube Пост (16:9)"))}</option>
+              </select>
+            </div>
+            <div class="control-field">
+              <label for="cardTypeSelect">${esc(tr("card.fileType", "Формат файлу"))}</label>
+              <select id="cardTypeSelect">
+                <option value="png">PNG (${esc(tr("card.fileType.png", "Зображення"))})</option>
+                <option value="gif">GIF (${esc(tr("card.fileType.gif", "Анімація"))})</option>
+              </select>
+            </div>
+            <div class="control-field">
+              <label for="cardLangSelect">${esc(tr("card.language", "Мова підпису"))}</label>
+              <select id="cardLangSelect">
+              </select>
+            </div>
+            <div class="customizer-actions">
+              <a id="cardDownloadBtn" class="more-btn" href="/card/${esc(p.id)}.png?v=3" download="verba-${esc(p.id)}.png" target="_blank">${esc(tr("card.download", "Завантажити картку"))}</a>
+              <button id="cardCopyEmbedBtn" class="chip" type="button">${esc(tr("card.copyEmbed", "Копіювати код вставки"))}</button>
+            </div>
+          </div>
+        </div>
+      </div>
       <button class="detail-close" type="submit" value="close">${esc(tr("detail.close", "Закрити"))}</button>
     </form>`;
 
@@ -473,8 +608,100 @@ async function openDetail(p: Proverb) {
 
   const sb = dlg.querySelector<HTMLButtonElement>(".detail-sharebtn");
   if (sb) sb.addEventListener("click", () => share(p));
+
+  const customCardBtn = dlg.querySelector("#customCardBtn") as HTMLButtonElement | null;
+  const customizer = dlg.querySelector("#cardCustomizer") as HTMLDivElement | null;
+  const scrollToCustomizer = () => {
+    if (!customizer) return;
+    let top = 0;
+    let el: HTMLElement | null = customizer;
+    while (el && el !== dlg) {
+      top += el.offsetTop;
+      el = el.offsetParent as HTMLElement | null;
+    }
+    dlg.scrollTo({ top, behavior: "smooth" });
+  };
+  if (customCardBtn && customizer) {
+    customCardBtn.addEventListener("click", () => {
+      customizer.hidden = !customizer.hidden;
+      if (!customizer.hidden) {
+        setTimeout(scrollToCustomizer, 50);
+      }
+    });
+  }
+
+  const LANG: string = (window as any).__LANG__ || document.documentElement.lang || "uk";
+  const langSelect = dlg.querySelector("#cardLangSelect") as HTMLSelectElement | null;
+  if (langSelect) {
+    const LANGS_LIST = ["uk", "en", "de", "fr", "es", "pl", "it", "pt", "ja", "zh"];
+    const LANG_NAMES_LIST: Record<string, string> = {
+      uk: "Українська", en: "English", de: "Deutsch", fr: "Français", es: "Español",
+      pl: "Polski", it: "Italiano", pt: "Português", ja: "日本語", zh: "中文"
+    };
+    langSelect.innerHTML = LANGS_LIST.map((l) => `<option value="${l}"${l === LANG ? " selected" : ""}>${LANG_NAMES_LIST[l] || l}</option>`).join("");
+  }
+
+  const formatSelect = dlg.querySelector("#cardFormatSelect") as HTMLSelectElement | null;
+  const typeSelect = dlg.querySelector("#cardTypeSelect") as HTMLSelectElement | null;
+  const cardPreview = dlg.querySelector("#cardPreview") as HTMLImageElement | null;
+  const cardDownloadBtn = dlg.querySelector("#cardDownloadBtn") as HTMLAnchorElement | null;
+  const cardCopyEmbedBtn = dlg.querySelector("#cardCopyEmbedBtn") as HTMLButtonElement | null;
+
+  const updateCardUrl = () => {
+    if (!formatSelect || !langSelect || !cardPreview || !cardDownloadBtn || !typeSelect) return;
+    const format = formatSelect.value;
+    const lang = langSelect.value;
+    const ext = typeSelect.value;
+    const cardUrl = `/card/${p.id}.${ext}?format=${format}&lang=${lang}&v=3`;
+    cardPreview.src = cardUrl; // preview the actually-selected type (png or animated gif)
+    cardDownloadBtn.href = cardUrl;
+    cardDownloadBtn.download = `verba-${p.id}.${ext}`;
+  };
+
+  if (formatSelect) formatSelect.addEventListener("change", updateCardUrl);
+  if (typeSelect) typeSelect.addEventListener("change", updateCardUrl);
+  if (langSelect) langSelect.addEventListener("change", updateCardUrl);
+
+  if (cardCopyEmbedBtn) {
+    cardCopyEmbedBtn.addEventListener("click", async () => {
+      if (!formatSelect || !langSelect || !typeSelect) return;
+      const format = formatSelect.value;
+      const lang = langSelect.value;
+      const ext = typeSelect.value;
+      const cardUrl = `https://${location.host}/card/${p.id}.${ext}?format=${format}&lang=${lang}&v=3`;
+      
+      let width = 1200, height = 630;
+      if (format === "square") { width = 1080; height = 1080; }
+      else if (format === "story") { width = 1080; height = 1920; }
+      else if (format === "yt") { width = 1280; height = 720; }
+
+      const embedCode = `<iframe src="${cardUrl}" width="${width}" height="${height}" frameborder="0" style="border:1px solid #ccc; max-width:100%;"></iframe>`;
+      try {
+        await navigator.clipboard.writeText(embedCode);
+        const origText = cardCopyEmbedBtn.textContent;
+        cardCopyEmbedBtn.textContent = tr("card.copiedEmbed", "Код скопійовано! ✓");
+        setTimeout(() => { cardCopyEmbedBtn.textContent = origText; }, 1500);
+      } catch {}
+    });
+  }
+
+  const activeLang: string = (window as any).__LANG__ || document.documentElement.lang || "uk";
+  const prefix = activeLang === "uk" ? "" : "/" + activeLang;
+  const itemUrl = `${prefix}/p/${p.id}`;
+  if (location.pathname !== itemUrl) {
+    history.pushState({ modalOpen: true, proverbId: p.id }, "", itemUrl);
+  }
+
   dlg.showModal();
+  document.body.classList.add("drawer-open");
+
+  if (opts.showCustomizer && customizer) {
+    customizer.hidden = false;
+    setTimeout(scrollToCustomizer, 100);
+  }
 }
+
+declare const __COMMIT_HASH__: string;
 
 function renderColophon() {
   $("colStat").textContent = tr("colophon.stats", "{count} записів · {sources} джерел · {themes} тем")
@@ -482,8 +709,11 @@ function renderColophon() {
     .replace("{sources}", String(meta.sources.length))
     .replace("{themes}", String(Object.keys(meta.taxonomy).length));
   if (meta.version) {
+    const websiteRef = typeof __COMMIT_HASH__ !== "undefined" && __COMMIT_HASH__
+      ? ` · ${tr("colophon.websiteVersion", "Сайт")}: <a href="https://github.com/dmytro-yemelianov/verbacorpus/commit/${esc(__COMMIT_HASH__)}" rel="noopener">${esc(__COMMIT_HASH__)}</a>`
+      : "";
     $("colVersion").innerHTML =
-      `${esc(tr("colophon.version", "Версія даних"))} <a href="https://github.com/dmytro-yemelianov/verbacorpus/releases/tag/v${esc(meta.version)}" rel="noopener">v${esc(meta.version)}</a>`;
+      `${esc(tr("colophon.version", "Версія даних"))} <a href="https://github.com/dmytro-yemelianov/verbacorpus/releases/tag/v${esc(meta.version)}" rel="noopener">v${esc(meta.version)}</a>` + websiteRef;
   }
   $("colSources").innerHTML = meta.sources.map((s) =>
     `<li><b>${esc(s.author || s.key)}</b> — <i>${esc(s.title)}</i>${s.year ? ", " + esc(s.year) : ""}</li>`).join("");
