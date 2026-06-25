@@ -69,6 +69,18 @@ function byId(id: string): Border {
   return b;
 }
 
+// Transpose a horizontal repeat-unit into a vertical one (for grid spines /
+// side-bands that tile down the page). new[c][r] = old[r][c]; dims swap.
+function transpose(b: Border): Border {
+  const cells: string[] = [];
+  for (let c = 0; c < b.cols; c++) {
+    let row = "";
+    for (let r = 0; r < b.rows; r++) row += b.cells[r][c];
+    cells.push(row);
+  }
+  return { id: b.id + "-v", rows: b.cols, cols: b.rows, cells };
+}
+
 // Global stitch (cell) size in px — the SINGLE source of truth so every band and
 // icon across the site renders stitches at the same physical size.
 const STITCH_PX = 3;
@@ -84,6 +96,7 @@ export function embroideryCss(): string {
   const vars = (light: boolean) =>
     [
       ...bandKeys.map((k) => `  --emb-${k}: url("${bandSVG(byId(TOKENS[k]), light)}");`),
+      `  --emb-bv: url("${bandSVG(transpose(byId(TOKENS.b)), light)}");`, // vertical spine
       ...iconKeys.map((k) => `  --ico-${k}: url("${iconSVG(ICONS[k], light)}");`),
     ].join("\n");
 

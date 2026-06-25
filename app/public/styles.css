@@ -657,3 +657,32 @@ body.swipe-open { overflow: hidden; }
   width: calc(8 * var(--emb-stitch)); height: calc(8 * var(--emb-stitch));
   background: var(--ico-search) no-repeat center / contain;
 }
+
+/* ---- Embroidery Phase 2: hero frame, grid spines, swipe-deck bands ---- */
+/* Hero: рушник rose bands top + bottom; clip to the card's rounded corners. */
+.hero-card { position: relative; overflow: hidden; }
+.hero-card::before, .hero-card::after {
+  content: ""; position: absolute; left: 0; right: 0; height: calc(var(--emb-c-rows) * var(--emb-stitch));
+  background: var(--emb-c) repeat-x left center / auto 100%; pointer-events: none;
+}
+.hero-card::before { top: 0; }
+.hero-card::after { bottom: 0; transform: scaleY(-1); }
+.hero-card { padding-block: calc(var(--emb-c-rows) * var(--emb-stitch) + 1.4rem); }
+
+/* Grid entries: a thin vertical embroidery spine down the left gutter. */
+.entry { position: relative; padding-left: calc(var(--emb-b-rows) * var(--emb-stitch) + 1.1rem); }
+.entry::before {
+  content: ""; position: absolute; left: .2rem; top: .7rem; bottom: .7rem;
+  width: calc(var(--emb-b-rows) * var(--emb-stitch));
+  background: var(--emb-bv) repeat-y top left / 100% auto; pointer-events: none;
+}
+
+/* Swipe-deck card: rose bands top + bottom, like the hero / share cards. */
+.sw-card { position: relative; overflow: hidden; }
+.sw-card::before, .sw-card::after {
+  content: ""; position: absolute; left: 0; right: 0; height: calc(var(--emb-c-rows) * var(--emb-stitch));
+  background: var(--emb-c) repeat-x left center / auto 100%; pointer-events: none;
+}
+.sw-card::before { top: 0; }
+.sw-card::after { bottom: 0; transform: scaleY(-1); }
+.sw-card { padding-block: calc(var(--emb-c-rows) * var(--emb-stitch) + 1.6rem); }
