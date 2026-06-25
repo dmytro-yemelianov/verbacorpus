@@ -119,7 +119,8 @@ function renderSwipeCard() {
      <p class="sw-text">${esc(prettify(p.text))}</p>
      ${differs(p) ? `<p class="sw-modern">${esc(prettify(p.modern_text))}</p>` : ""}
      <div class="sw-tags">${p.category.map((c) => `<span class="tag">${esc(catLabel(c))}</span>`).join("")}<span class="tag-src">${esc(p.sources.map(srcLabel).join(" · "))}</span></div>`;
-  inner.onclick = () => openDetail(p);
+  // Tap-to-open is handled in the pointerup gesture (movement-aware) so a swipe
+  // never also fires a click. Keyboard activation stays here for accessibility.
   inner.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openDetail(p); } };
   $("swSave").setAttribute("aria-pressed", String(isSavedId(p.id)));
   $("swSave").classList.toggle("on", isSavedId(p.id));
@@ -237,16 +238,22 @@ async function boot() {
   });
   // touch / pointer drag
   const card = $("swipeCard");
-  let sx = 0, dx = 0, dragging = false;
-  card.addEventListener("pointerdown", (e) => { dragging = true; sx = e.clientX; dx = 0; card.style.transition = "none"; card.setPointerCapture(e.pointerId); });
-  card.addEventListener("pointermove", (e) => { if (!dragging) return; dx = e.clientX - sx; card.style.transform = `translateX(${dx}px) rotate(${dx / 28}deg)`; });
+  let sx = 0, sy = 0, dx = 0, dragging = false, moved = false;
+  card.addEventListener("pointerdown", (e) => { dragging = true; sx = e.clientX; sy = e.clientY; dx = 0; moved = false; card.style.transition = "none"; card.setPointerCapture(e.pointerId); });
+  card.addEventListener("pointermove", (e) => { if (!dragging) return; dx = e.clientX - sx; if (Math.hypot(dx, e.clientY - sy) > 8) moved = true; card.style.transform = `translateX(${dx}px) rotate(${dx / 28}deg)`; });
   card.addEventListener("pointercancel", () => { dragging = false; card.style.transform = ""; });
   card.addEventListener("pointerup", () => {
     if (!dragging) return; dragging = false;
     const threshold = card.offsetWidth * 0.25;
     if (dx > threshold) { saveCurrent(); advance(1); }
     else if (dx < -threshold) advance(-1);
-    else { if (!reduceMotion) card.style.transition = "transform .2s ease"; card.style.transform = ""; }
+    else {
+      // Below the swipe threshold: snap back. Open details ONLY for a true tap
+      // (no real movement) — a drag must never also trigger the click handler.
+      if (!reduceMotion) card.style.transition = "transform .2s ease";
+      card.style.transform = "";
+      if (!moved) { const cur = deck[deckI]; if (cur) openDetail(cur); }
+    }
   });
 
   window.addEventListener("popstate", (e) => {
