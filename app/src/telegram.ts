@@ -22,20 +22,33 @@ function escapeHtml(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
-export function formatProverbHtml(p: Proverb, explanation?: string | null): string {
+export type SourceMeta = { key: string; title?: string; author?: string; year?: string };
+
+// Short bibliography reference for one source key: «Book title» — Author, Year.
+// Falls back to the plain source label when the metadata isn't available.
+function citeSource(key: string, sources?: SourceMeta[]): string {
+  const s = sources?.find((x) => x.key === key);
+  if (!s || (!s.title && !s.author && !s.year)) return escapeHtml(srcLabel(key));
+  const head = s.title ? `«${escapeHtml(s.title)}»` : escapeHtml(srcLabel(key));
+  const tail = [s.author, s.year].filter(Boolean).map((x) => escapeHtml(x!)).join(", ");
+  return tail ? `${head} — ${tail}` : head;
+}
+
+export function formatProverbHtml(p: Proverb, explanation?: string | null, sources?: SourceMeta[]): string {
   const pt = escapeHtml(prettify(p.text));
   const pm = p.modern_text && p.modern_text.trim() !== p.text.trim() ? escapeHtml(prettify(p.modern_text)) : "";
-  const cats = p.category.map((c) => `#${c}`).join(" ");
-  const srcs = p.sources.map(srcLabel).join(" · ");
+  const srcs = p.sources.map((k) => citeSource(k, sources)).join("; ");
 
   let html = `<b>${pt}</b>\n`;
   if (pm) {
     html += `<i>(${pm})</i>\n`;
   }
-  html += `\n🏷️ <b>Теми:</b> ${cats}\n📖 <b>Джерело:</b> ${srcs}`;
+  // Bibliography-style source, collapsed (tap to expand) so the caption stays compact.
+  html += `\n📖 <b>Джерело:</b> <tg-spoiler>${srcs}</tg-spoiler>`;
   if (explanation) {
-    html += `\n\n💡 <b>Пояснення:</b>\n<tg-spoiler>${escapeHtml(explanation)}</tg-spoiler>`;
+    html += `\n💡 <b>Пояснення:</b> <tg-spoiler>${escapeHtml(explanation)}</tg-spoiler>`;
   }
+  html += `\n\n📣 <a href="${CHANNEL_URL}">Наш канал</a>`;
   return html;
 }
 
@@ -107,7 +120,7 @@ export function initBot(
       return ctx.reply("❌ Не вдалося знайти прислів'я.");
     }
     const explanation = explanations[p.id] || null;
-    const formatted = formatProverbHtml(p, explanation);
+    const formatted = formatProverbHtml(p, explanation, meta.sources);
     const photoUrl = `https://${host}/card/${p.id}.png?format=telegram&lang=uk&v=4`;
 
     const keyboard = new InlineKeyboard()
@@ -202,7 +215,7 @@ export function initBot(
     if (!p) return ctx.answerCallbackQuery("Помилка");
 
     const explanation = explanations[p.id] || null;
-    const formatted = formatProverbHtml(p, explanation);
+    const formatted = formatProverbHtml(p, explanation, meta.sources);
     const photoUrl = `https://${host}/card/${p.id}.png?format=telegram&lang=uk&v=4`;
 
     const keyboard = new InlineKeyboard()
@@ -242,7 +255,7 @@ export function initBot(
     }
 
     const explanation = explanations[p.id] || null;
-    const formatted = formatProverbHtml(p, explanation);
+    const formatted = formatProverbHtml(p, explanation, meta.sources);
     const photoUrl = `https://${host}/card/${p.id}.png?format=telegram&lang=uk&v=4`;
 
     const keyboard = new InlineKeyboard()
@@ -300,7 +313,7 @@ export function initBot(
 
     const results = matches.map((p) => {
       const explanation = explanations[p.id] || null;
-      const formatted = formatProverbHtml(p, explanation);
+      const formatted = formatProverbHtml(p, explanation, meta.sources);
       const pt = prettify(p.text);
 
       return {

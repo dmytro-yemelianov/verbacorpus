@@ -382,7 +382,7 @@ export default {
 
       const pick = pool[dailyIndex(new Date().toISOString().slice(0, 10), pool.length)] ?? proverbs[0];
       const explanation = explanations[pick.id] || null;
-      const formatted = formatProverbHtml(pick, explanation);
+      const formatted = formatProverbHtml(pick, explanation, meta.sources);
       const host = "verbacorpus.org";
       const photoUrl = `https://${host}/card/${pick.id}.png?format=telegram&lang=uk&v=4`;
 
