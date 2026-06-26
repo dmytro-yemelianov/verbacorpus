@@ -29,11 +29,11 @@ describe("buildProverbPage", () => {
   it("emits escaped per-proverb OG meta and card-first hero", () => {
     const html = buildProverbPage({ ...P, text: 'a<b' }, "example.com");
     expect(html).toContain('<meta property="og:title" content="a&lt;b"');
-    expect(html).toContain('<meta property="og:image" content="https://example.com/card/p000123.png"');
+    expect(html).toContain('<meta property="og:image" content="https://example.com/card/p000123.png?v=3"');
     expect(html).toContain('<meta name="twitter:card" content="summary_large_image"');
     expect(html).toContain('https://example.com/p/p000123');
     expect(html).toContain("a&lt;b");
-    expect(html).toContain('<img class="p-card" src="/card/p000123.png"');
+    expect(html).toContain('<img class="p-card" src="/card/p000123.png?v=3"');
     expect(html).toContain('class="topbar"');
     expect(html).toContain('id="copyLink"');
     expect(html).toContain('data-link="https://example.com/s/123"');

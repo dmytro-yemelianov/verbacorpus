@@ -24,7 +24,7 @@ describe("/p/:id", () => {
   });
   it("is card-first with the top nav", async () => {
     const html = await (await call("/p/p1")).text();
-    expect(html).toContain('class="p-card" src="/card/p1.png"');
+    expect(html).toContain('class="p-card" src="/card/p1.png?v=3"');
     expect(html).toContain('class="topbar"');
     expect(html).toContain('id="copyLink"');
   });
@@ -39,5 +39,37 @@ describe("/s/:n short links", () => {
   it("404s on junk / out-of-range", async () => {
     expect((await call("/s/0")).status).toBe(404);
     expect((await call("/s/abc")).status).toBe(404);
+  });
+});
+
+describe("/card/:id.png / .gif endpoints", () => {
+  it("serves png social card with cache control", async () => {
+    const res = await call("/card/p1.png");
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toContain("image/png");
+    expect(res.headers.get("cache-control")).toContain("public, max-age=");
+  });
+  it("serves animated gif card with cache control", async () => {
+    const res = await call("/card/p1.gif?format=square&lang=en");
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toContain("image/gif");
+    expect(res.headers.get("cache-control")).toContain("public, max-age=");
+  });
+  it("animated gif is palette-restricted (small global color table)", async () => {
+    const res = await call("/card/p1.gif?format=square&lang=uk");
+    expect(res.status).toBe(200);
+    const buf = new Uint8Array(await res.arrayBuffer());
+    // Logical Screen Descriptor packed byte (offset 10): bit7 = global color
+    // table flag, bits0-2 encode size as 2^(n+1). A fixed ~12-color palette pads
+    // to a 16-slot table; the old 256-color quantize would have filled all 256.
+    const packed = buf[10];
+    const hasGCT = (packed & 0x80) !== 0;
+    const gctSize = hasGCT ? 1 << ((packed & 0x07) + 1) : 0;
+    expect(hasGCT).toBe(true);
+    expect(gctSize).toBeLessThanOrEqual(16);
+  });
+
+  it("404 for unknown id on cards", async () => {
+    expect((await call("/card/zzz.png")).status).toBe(404);
   });
 });

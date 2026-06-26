@@ -13,14 +13,16 @@ export type CardModel = { text: string; modern: string; footer: string; qr: stri
 
 const num = (id: string) => id.replace(/^p0*/, "");
 
-export function cardModel(p: Proverb & { explanation?: string | null }, opts: { host: string; maxLen?: number }): CardModel {
+export function cardModel(p: Proverb & { explanation?: string | null }, opts: { host: string; maxLen?: number; lang?: string }): CardModel {
   const max = opts.maxLen ?? 160;
   const raw = prettify(p.text);
   const text = raw.length > max ? raw.slice(0, max) + "…" : raw;
   const modern = p.modern_text && p.modern_text.trim() !== p.text.trim() ? prettify(p.modern_text) : "";
   const su = shortUrl(p.id, opts.host);
-  const footer = [...p.sources.map(srcLabel), `№${num(p.id)}`, su.replace(/^https:\/\//, "")].join(" · ");
-  const qr = qrDataUri(su, { module: 4, margin: 2 });
+  const lang = opts.lang || "uk";
+  const numPrefix = lang === "uk" ? "№" : "No. ";
+  const footer = [...p.sources.map(srcLabel), `${numPrefix}${num(p.id)}`, su.replace(/^https:\/\//, "")].join(" · ");
+  const qr = qrDataUri(su, { module: 4, margin: 2, light: "#f4f1e8" });
   return { text, modern, footer, qr, shortUrl: su };
 }
 
@@ -35,7 +37,7 @@ export function buildProverbPage(p: Proverb, host: string, cat: Record<string, s
   const e = escapeHtml;
   const pt = prettify(p.text);
   const pm = p.modern_text && p.modern_text.trim() !== p.text.trim() ? prettify(p.modern_text) : "";
-  const img = `https://${e(host)}/card/${e(p.id)}.png`;
+  const img = `https://${e(host)}/card/${e(p.id)}.png?v=3`;
   const canon = `https://${e(host)}${lang === DEFAULT_LANG ? "" : "/" + e(lang)}/p/${e(p.id)}`;
   const desc = [prettify(p.modern_text), p.sources.map(srcLabel).join(", "), p.category.join(", ")].filter(Boolean).join(" — ");
   const tags = p.category.map((c) => `<span class="tag">${e(c)}</span>`).join("");
@@ -106,14 +108,14 @@ ${hreflang}
   </div>
 </nav>
 <main class="wrap p-detail" style="max-width:760px;padding-block:clamp(2rem,8vw,5rem);">
-<img class="p-card" src="/card/${e(p.id)}.png" alt="${e(pt)}" width="1200" height="630" />
+<img class="p-card" src="/card/${e(p.id)}.png?v=3" alt="${e(pt)}" width="1200" height="630" />
 <p class="hero-text" style="margin:0;">${e(pt)}</p>
 ${pm ? `<p class="hero-modern">${e(pm)}</p>` : ""}
 <p style="margin-top:1rem;">${tags} <span class="tag-src">${e(p.sources.map(srcLabel).join(" · "))}</span></p>
 ${sourceCitations.length ? `<p style="margin-top:.8rem;font-size:.85rem;color:var(--muted);line-height:1.5;">${sourceCitations.map((c) => e(c)).join("<br>")}</p>` : ""}
 <div class="p-share">
   <button id="copyLink" type="button" data-link="${e(su)}" data-i18n="detail.copyLink">${e(copyLinkLabel)}</button>
-  <a href="/card/${e(p.id)}.png" target="_blank" rel="noopener" data-i18n="detail.card">${e(cardLabel)}</a>
+  <a href="/card/${e(p.id)}.png?v=3" target="_blank" rel="noopener" data-i18n="detail.card">${e(cardLabel)}</a>
 </div>
 </main>
 <script type="module" src="/chrome.js"></script>

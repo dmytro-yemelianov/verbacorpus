@@ -3,7 +3,7 @@ import { mapMatches, type Match } from "./shared/semantic";
 import { negotiate, serialize, type Format, type Rec } from "./shared/serialize";
 import openapiDoc from "./openapi.json";
 import { buildProverbPage, cardModel, dailyIndex } from "./shared/meta";
-import { renderCard } from "./card";
+import { makeVyshyvankaGif, makeVyshyvankaPng } from "./card-gif";
 import { parseLang, t, hreflangLinks, DEFAULT_LANG } from "./shared/i18n";
 import { fromShort } from "./shared/shortlink";
 import uk from "../public/i18n/uk.json";
@@ -125,6 +125,37 @@ export default {
           });
           return HTML(buildProverbPage(p, host, cat, lang, srcCites));
         }
+        const cmGif = raw0.match(/^\/card\/(.+)\.gif$/);
+        if (cmGif) {
+          const key = decodeURIComponent(cmGif[1]);
+          const cacheable = (resp: Response, maxAge: number) => {
+            const r = new Response(resp.body, resp);
+            r.headers.set("cache-control", `public, max-age=${maxAge}${maxAge > 86400 ? ", immutable" : ""}`);
+            r.headers.set("access-control-allow-origin", "*");
+            return r;
+          };
+          const qp = url.searchParams;
+          const format = qp.get("format") || "fb";
+          const cardLang = qp.get("lang") || "uk";
+
+          let p: Proverb | undefined;
+          if (key === "daily") {
+            const pool = proverbs.filter((p) => { const t = p.text.trim(); return /^[А-ЯІЇЄҐ]/.test(t) && t.length >= 18 && t.length <= 90 && t.split(/\s+/).length >= 4; });
+            p = pool[dailyIndex(new Date().toISOString().slice(0, 10), pool.length)] ?? proverbs[0];
+          } else {
+            p = byId.get(key);
+          }
+
+          if (!p) return new Response("not found", { status: 404, headers: { "access-control-allow-origin": "*" } });
+
+          const model = cardModel(p, { host: url.host, lang: cardLang });
+          const gifBytes = await makeVyshyvankaGif(model, format, p.id);
+
+          const gifResp = new Response(gifBytes, {
+            headers: { "content-type": "image/gif" }
+          });
+          return cacheable(gifResp, key === "daily" ? 86400 : 31536000);
+        }
         const cm = raw0.match(/^\/card\/(.+)\.png$/);
         if (cm) {
           const key = decodeURIComponent(cm[1]);
@@ -134,17 +165,28 @@ export default {
             r.headers.set("access-control-allow-origin", "*");
             return r;
           };
+          const qp = url.searchParams;
+          const format = qp.get("format") || "fb";
+          const cardLang = qp.get("lang") || "uk";
+          const minimal = qp.get("minimal") === "1";
+          const nochrome = qp.get("nochrome") === "1";
+
+          const pngResp = async (pick: Proverb, maxAge: number) => {
+            const bytes = await makeVyshyvankaPng(cardModel(pick, { host: url.host, lang: cardLang }), format, pick.id, { minimal, nochrome });
+            return cacheable(new Response(bytes, { headers: { "content-type": "image/png" } }), maxAge);
+          };
           if (key === "daily") {
             const pool = proverbs.filter((p) => { const t = p.text.trim(); return /^[А-ЯІЇЄҐ]/.test(t) && t.length >= 18 && t.length <= 90 && t.split(/\s+/).length >= 4; });
             const pick = pool[dailyIndex(new Date().toISOString().slice(0, 10), pool.length)] ?? proverbs[0];
-            return cacheable(renderCard(cardModel(pick, { host: url.host })), 86400);
+            return pngResp(pick, 86400);
           }
           const p = byId.get(key);
           if (!p) return new Response("not found", { status: 404, headers: { "access-control-allow-origin": "*" } });
-          return cacheable(renderCard(cardModel(p, { host: url.host })), 31536000);
+          return pngResp(p, 31536000);
         }
         return new Response("not found", { status: 404, headers: { "access-control-allow-origin": "*" } });
       }
+
       // Static assets + API bypass the translation layer (rest has no lang prefix for them)
       const htmlPage = rest === "/" || rest === "/about" || rest === "/about.html" || rest === "/api.html" || rest === "/blog" || rest.startsWith("/blog/");
       if (!rest.startsWith("/api/") && !htmlPage) {
