@@ -77,6 +77,16 @@ export function renderCard(m: CardModel, opts: { format?: string; state?: number
       </div>
       <div style="display:flex;justify-content:flex-end;">${qrCol(132)}</div>
     </div>`;
+  } else if (format === "sticker") {
+    // 512×512 Telegram sticker: big centered proverb on linen, рушник bands via the
+    // shader compositor (makeVyshyvankaPng). No QR / footer / source — sticker spec.
+    width = 512;
+    height = 512;
+    html = `<div style="display:flex;width:512px;height:512px;background:${bg};padding:${layer ? bandPx(512) + 22 : 40}px 34px;font-family:'PT Serif';align-items:center;justify-content:center;text-align:center;">
+      <div style="font-size:46px;color:#232520;line-height:1.22;display:flex;flex-wrap:wrap;justify-content:center;text-align:center;font-weight:normal;">
+        <span>${escapedText}</span>
+      </div>
+    </div>`;
   } else if (format === "telegram") {
     width = 1200;
     height = 630;
