@@ -384,7 +384,7 @@ export default {
       const explanation = explanations[pick.id] || null;
       const formatted = formatProverbHtml(pick, explanation);
       const host = "verbacorpus.org";
-      const photoUrl = `https://${host}/card/${pick.id}.png?format=telegram&lang=uk`;
+      const photoUrl = `https://${host}/card/${pick.id}.png?format=telegram&lang=uk&v=4`;
 
       const bot = initBot(env as any, proverbs, explanations, meta, host);
       const keyboard = new InlineKeyboard()

@@ -105,7 +105,7 @@ export function initBot(
     }
     const explanation = explanations[p.id] || null;
     const formatted = formatProverbHtml(p, explanation);
-    const photoUrl = `https://${host}/card/${p.id}.png?format=telegram&lang=uk`;
+    const photoUrl = `https://${host}/card/${p.id}.png?format=telegram&lang=uk&v=4`;
 
     const keyboard = new InlineKeyboard()
       .text("🎲 Ще одне", "random_shuffle")
@@ -198,7 +198,7 @@ export function initBot(
 
     const explanation = explanations[p.id] || null;
     const formatted = formatProverbHtml(p, explanation);
-    const photoUrl = `https://${host}/card/${p.id}.png?format=telegram&lang=uk`;
+    const photoUrl = `https://${host}/card/${p.id}.png?format=telegram&lang=uk&v=4`;
 
     const keyboard = new InlineKeyboard()
       .text("🎲 Ще одне", "random_shuffle")
@@ -236,7 +236,7 @@ export function initBot(
 
     const explanation = explanations[p.id] || null;
     const formatted = formatProverbHtml(p, explanation);
-    const photoUrl = `https://${host}/card/${p.id}.png?format=telegram&lang=uk`;
+    const photoUrl = `https://${host}/card/${p.id}.png?format=telegram&lang=uk&v=4`;
 
     const keyboard = new InlineKeyboard()
       .text("🎲 Ще з цієї теми", `cat:${categoryKey}`)
@@ -292,7 +292,6 @@ export function initBot(
     const results = matches.map((p) => {
       const explanation = explanations[p.id] || null;
       const formatted = formatProverbHtml(p, explanation);
-      const cardUrl = `https://${host}/card/${p.id}.png?format=square&lang=uk`;
       const pt = prettify(p.text);
 
       return {
@@ -300,7 +299,7 @@ export function initBot(
         id: p.id,
         title: pt,
         description: p.modern_text && p.modern_text !== p.text ? `(${prettify(p.modern_text)})` : p.category.map((c) => taxonomy[c] || c).join(", "),
-        thumb_url: `https://${host}/card/${p.id}.png?format=square&minimal=1&nochrome=1`,
+        thumb_url: `https://${host}/card/${p.id}.png?format=telegram&lang=uk&v=4`,
         input_message_content: {
           message_text: formatted,
           parse_mode: "HTML" as const,
