@@ -80,22 +80,20 @@ export function renderCard(m: CardModel, opts: { format?: string; state?: number
   } else if (format === "telegram") {
     width = 1200;
     height = 630;
-    const footerParts = m.footer.split(" · ");
-    const sourcesAndNum = footerParts.slice(0, -1).join(" · ");
     html = `<div style="display:flex;flex-direction:column;width:1200px;height:630px;background:${bg};padding:${layer ? bandPx(630) + 30 : 80}px 80px 70px 80px;font-family:'PT Serif';justify-content:space-between;">
       <div style="display:flex;flex-direction:column;flex:1;justify-content:center;">
         <div style="font-size:62px;color:#232520;line-height:1.24;display:flex;flex-wrap:wrap;font-weight:normal;margin-bottom:40px;">
           <span>${escapedText}</span>
         </div>
       </div>
-      <div style="display:flex;justify-content:space-between;align-items:center;border-top:2px solid #e5dfcf;padding-top:24px;">
+      <div style="display:flex;flex-direction:column;border-top:2px solid #e5dfcf;padding-top:22px;">
         <div style="display:flex;align-items:center;">
           <svg viewBox="0 0 40 64" style="width:24px;height:38px;margin-right:12px;display:flex;"><path d="M20 4 C 31 22 30 46 21 60 C 12 46 11 22 20 4 Z" fill="#5e7355"/><path d="M20 11 C 23 28 22 47 21 54" stroke="#f4f1e8" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg>
           <span style="font-size:28px;color:#5e7355;font-weight:bold;letter-spacing:0.02em;">verba</span>
-          <span style="font-size:24px;color:#8a8270;margin-left:16px;">verbacorpus.org · t.me/VerbaCorpus</span>
+          <span style="font-size:24px;color:#8a8270;margin-left:16px;">verbacorpus.org · @VerbaCorpus</span>
         </div>
-        <div style="font-size:24px;color:#6f6a5c;letter-spacing:.01em;font-weight:normal;">
-          ${e(sourcesAndNum)}
+        <div style="display:flex;font-size:22px;color:#6f6a5c;line-height:1.35;letter-spacing:.01em;margin-top:14px;">
+          <span>${e(m.cite)}</span>
         </div>
       </div>
     </div>`;

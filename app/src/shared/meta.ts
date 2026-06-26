@@ -9,11 +9,22 @@ export function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
 }
 
-export type CardModel = { text: string; modern: string; footer: string; qr: string; shortUrl: string };
+export type SourceMeta = { key: string; title?: string; author?: string; year?: string };
+export type CardModel = { text: string; modern: string; footer: string; cite: string; qr: string; shortUrl: string };
 
 const num = (id: string) => id.replace(/^p0*/, "");
 
-export function cardModel(p: Proverb & { explanation?: string | null }, opts: { host: string; maxLen?: number; lang?: string }): CardModel {
+// Short bibliography reference for one source key: «Book title» — Author, Year.
+// Falls back to the plain label when no metadata is available.
+function citeSource(key: string, sources?: SourceMeta[]): string {
+  const s = sources?.find((x) => x.key === key);
+  if (!s || (!s.title && !s.author && !s.year)) return srcLabel(key);
+  const head = s.title ? `«${s.title}»` : srcLabel(key);
+  const tail = [s.author, s.year].filter(Boolean).join(", ");
+  return tail ? `${head} — ${tail}` : head;
+}
+
+export function cardModel(p: Proverb & { explanation?: string | null }, opts: { host: string; maxLen?: number; lang?: string; sources?: SourceMeta[] }): CardModel {
   const max = opts.maxLen ?? 160;
   const raw = prettify(p.text);
   const text = raw.length > max ? raw.slice(0, max) + "…" : raw;
@@ -22,8 +33,9 @@ export function cardModel(p: Proverb & { explanation?: string | null }, opts: { 
   const lang = opts.lang || "uk";
   const numPrefix = lang === "uk" ? "№" : "No. ";
   const footer = [...p.sources.map(srcLabel), `${numPrefix}${num(p.id)}`, su.replace(/^https:\/\//, "")].join(" · ");
+  const cite = p.sources.map((k) => citeSource(k, opts.sources)).join("; ");
   const qr = qrDataUri(su, { module: 4, margin: 2, light: "#f4f1e8" });
-  return { text, modern, footer, qr, shortUrl: su };
+  return { text, modern, footer, cite, qr, shortUrl: su };
 }
 
 export function dailyIndex(dateStr: string, poolLen: number): number {

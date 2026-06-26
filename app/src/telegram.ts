@@ -48,7 +48,7 @@ export function formatProverbHtml(p: Proverb, explanation?: string | null, sourc
   if (explanation) {
     html += `\n💡 <b>Пояснення:</b> <tg-spoiler>${escapeHtml(explanation)}</tg-spoiler>`;
   }
-  html += `\n\n📣 <a href="${CHANNEL_URL}">Наш канал</a>`;
+  html += `\n\n📣 <a href="${CHANNEL_URL}">@VerbaCorpus</a>`;
   return html;
 }
 
@@ -121,13 +121,13 @@ export function initBot(
     }
     const explanation = explanations[p.id] || null;
     const formatted = formatProverbHtml(p, explanation, meta.sources);
-    const photoUrl = `https://${host}/card/${p.id}.png?format=telegram&lang=uk&v=4`;
+    const photoUrl = `https://${host}/card/${p.id}.png?format=telegram&lang=uk&v=5`;
 
     const keyboard = new InlineKeyboard()
       .text("🎲 Ще одне", "random_shuffle")
       .url("🔗 На сайті", `https://${host}/p/${p.id}`)
       .row()
-      .url("📣 Канал", CHANNEL_URL);
+      .url("📣 @VerbaCorpus", CHANNEL_URL);
 
     await ctx.replyWithPhoto(photoUrl, {
       caption: formatted,
@@ -216,13 +216,13 @@ export function initBot(
 
     const explanation = explanations[p.id] || null;
     const formatted = formatProverbHtml(p, explanation, meta.sources);
-    const photoUrl = `https://${host}/card/${p.id}.png?format=telegram&lang=uk&v=4`;
+    const photoUrl = `https://${host}/card/${p.id}.png?format=telegram&lang=uk&v=5`;
 
     const keyboard = new InlineKeyboard()
       .text("🎲 Ще одне", "random_shuffle")
       .url("🔗 На сайті", `https://${host}/p/${p.id}`)
       .row()
-      .url("📣 Канал", CHANNEL_URL);
+      .url("📣 @VerbaCorpus", CHANNEL_URL);
 
     await ctx.editMessageMedia(
       {
@@ -256,14 +256,14 @@ export function initBot(
 
     const explanation = explanations[p.id] || null;
     const formatted = formatProverbHtml(p, explanation, meta.sources);
-    const photoUrl = `https://${host}/card/${p.id}.png?format=telegram&lang=uk&v=4`;
+    const photoUrl = `https://${host}/card/${p.id}.png?format=telegram&lang=uk&v=5`;
 
     const keyboard = new InlineKeyboard()
       .text("🎲 Ще з цієї теми", `cat:${categoryKey}`)
       .text("🏷️ Всі теми", "cats_list")
       .url("🔗 На сайті", `https://${host}/p/${p.id}`)
       .row()
-      .url("📣 Канал", CHANNEL_URL);
+      .url("📣 @VerbaCorpus", CHANNEL_URL);
 
     // If callback came from a text message (like /categories list) we need to reply with a photo message
     // If it came from a photo message, we edit media
@@ -321,7 +321,7 @@ export function initBot(
         id: p.id,
         title: pt,
         description: p.modern_text && p.modern_text !== p.text ? `(${prettify(p.modern_text)})` : p.category.map((c) => taxonomy[c] || c).join(", "),
-        thumb_url: `https://${host}/card/${p.id}.png?format=telegram&lang=uk&v=4`,
+        thumb_url: `https://${host}/card/${p.id}.png?format=telegram&lang=uk&v=5`,
         input_message_content: {
           message_text: formatted,
           parse_mode: "HTML" as const,
@@ -331,7 +331,7 @@ export function initBot(
           .url("🔗 Читати на сайті", `https://${host}/p/${p.id}`)
           .switchInline("🔍 Шукати ще", "")
           .row()
-          .url("📣 Канал", CHANNEL_URL),
+          .url("📣 @VerbaCorpus", CHANNEL_URL),
       };
     });
 

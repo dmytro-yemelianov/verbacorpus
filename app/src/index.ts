@@ -153,7 +153,7 @@ export default {
 
           if (!p) return new Response("not found", { status: 404, headers: { "access-control-allow-origin": "*" } });
 
-          const model = cardModel(p, { host: url.host, lang: cardLang });
+          const model = cardModel(p, { host: url.host, lang: cardLang, sources: meta.sources });
           const gifBytes = await makeVyshyvankaGif(model, format, p.id);
 
           const gifResp = new Response(gifBytes, {
@@ -177,7 +177,7 @@ export default {
           const nochrome = qp.get("nochrome") === "1";
 
           const pngResp = async (pick: Proverb, maxAge: number) => {
-            const bytes = await makeVyshyvankaPng(cardModel(pick, { host: url.host, lang: cardLang }), format, pick.id, { minimal, nochrome });
+            const bytes = await makeVyshyvankaPng(cardModel(pick, { host: url.host, lang: cardLang, sources: meta.sources }), format, pick.id, { minimal, nochrome });
             return cacheable(new Response(bytes, { headers: { "content-type": "image/png" } }), maxAge);
           };
           if (key === "daily") {
@@ -384,7 +384,7 @@ export default {
       const explanation = explanations[pick.id] || null;
       const formatted = formatProverbHtml(pick, explanation, meta.sources);
       const host = "verbacorpus.org";
-      const photoUrl = `https://${host}/card/${pick.id}.png?format=telegram&lang=uk&v=4`;
+      const photoUrl = `https://${host}/card/${pick.id}.png?format=telegram&lang=uk&v=5`;
 
       const bot = initBot(env as any, proverbs, explanations, meta, host);
       const keyboard = new InlineKeyboard()
