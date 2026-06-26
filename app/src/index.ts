@@ -6,6 +6,8 @@ import { buildProverbPage, cardModel, dailyIndex } from "./shared/meta";
 import { makeVyshyvankaGif, makeVyshyvankaPng } from "./card-gif";
 import { parseLang, t, hreflangLinks, DEFAULT_LANG } from "./shared/i18n";
 import { fromShort } from "./shared/shortlink";
+import { initBot, formatProverbHtml } from "./telegram";
+import { webhookCallback, InlineKeyboard } from "grammy";
 import uk from "../public/i18n/uk.json";
 import en from "../public/i18n/en.json";
 import de from "../public/i18n/de.json";
@@ -27,6 +29,9 @@ interface Env {
     query: (vector: number[], opts: { topK: number }) => Promise<{ matches: Match[] }>;
     getByIds: (ids: string[]) => Promise<Array<{ id: string; values: number[] }>>;
   };
+  TELEGRAM_BOT_TOKEN?: string;
+  TELEGRAM_CHANNEL_ID?: string;
+  TELEGRAM_WEBHOOK_SECRET?: string;
 }
 
 const SEMANTIC_MIN_SCORE = 0.4;
@@ -232,6 +237,21 @@ export default {
       const path = raw.startsWith("/api/v1/") ? "/api/" + raw.slice("/api/v1/".length) : (raw === "/api/v1" ? "/api" : raw);
       const qp = url.searchParams;
 
+      if (path === "/api/telegram-webhook") {
+        if (!env.TELEGRAM_BOT_TOKEN) {
+          return new Response("Telegram Bot Token is not configured", { status: 500 });
+        }
+        if (env.TELEGRAM_WEBHOOK_SECRET) {
+          const secretHeader = request.headers.get("x-telegram-bot-api-secret-token");
+          if (secretHeader !== env.TELEGRAM_WEBHOOK_SECRET) {
+            return new Response("Unauthorized", { status: 403 });
+          }
+        }
+        const { proverbs, explanations, meta } = await load(env);
+        const bot = initBot(env as any, proverbs, explanations, meta, url.host);
+        return webhookCallback(bot, "cloudflare-mod")(request);
+      }
+
       // docs pointer (static — not subject to format negotiation)
       if (path === "/api") return J({ api: "ukr-proverbs", version: "v1", docs: "/api.html", openapi: "/api/v1/openapi.json",
         endpoints: ["/api/v1/search", "/api/v1/semantic", "/api/v1/random", "/api/v1/query", "/api/v1/proverb/:id", "/api/v1/export", "/api/v1/categories", "/api/v1/meta"] });
@@ -318,8 +338,53 @@ export default {
         } catch { return J({ error: "similar lookup failed" }, 502); }
       }
       return J({ error: "unknown endpoint" }, 404);
-    } catch {
+    } catch (err: any) {
+      console.error("Internal error:", err);
       return J({ error: "internal error" }, 500);
     }
   },
+
+  async scheduled(event: any, env: Env, ctx: ExecutionContext): Promise<void> {
+    ctx.waitUntil((async () => {
+      if (!env.TELEGRAM_BOT_TOKEN || !env.TELEGRAM_CHANNEL_ID) {
+        console.error("Telegram credentials missing for scheduled posting");
+        return;
+      }
+
+      const get = async (p: string) => {
+        const res = await env.ASSETS.fetch("https://assets" + p);
+        if (!res.ok) throw new Error(`Failed to fetch ${p}: ${res.status}`);
+        return res.json();
+      };
+      
+      const [proverbs, explanations, meta] = await Promise.all([
+        get("/data/proverbs.json") as Promise<Proverb[]>,
+        get("/data/explanations.json") as Promise<Record<string, string>>,
+        get("/data/meta.json") as Promise<any>,
+      ]);
+
+      const pool = proverbs.filter((p) => {
+        const t = p.text.trim();
+        return /^[А-ЯІЇЄҐ]/.test(t) && t.length >= 18 && t.length <= 90 && t.split(/\s+/).length >= 4;
+      });
+
+      const pick = pool[dailyIndex(new Date().toISOString().slice(0, 10), pool.length)] ?? proverbs[0];
+      const explanation = explanations[pick.id] || null;
+      const formatted = formatProverbHtml(pick, explanation);
+      const host = "verbacorpus.org";
+      const photoUrl = `https://${host}/card/${pick.id}.png?format=telegram&lang=uk`;
+
+      const bot = initBot(env as any, proverbs, explanations, meta, host);
+      const keyboard = new InlineKeyboard()
+        .url("🔗 Читати на сайті", `https://${host}/p/${pick.id}`);
+
+      await bot.api.sendPhoto(env.TELEGRAM_CHANNEL_ID, photoUrl, {
+        caption: `🎲 <b>Прислів'я дня</b>\n\n${formatted}`,
+        parse_mode: "HTML",
+        reply_markup: keyboard,
+      });
+
+      console.log(`Successfully posted daily proverb ${pick.id} to Telegram`);
+    })());
+  }
 };
