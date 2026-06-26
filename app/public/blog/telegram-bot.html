@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="theme-color" content="#5E7355" />
+<meta name="description" content="Презентуємо офіційного Telegram-бота та канал корпусу verba. Шукайте прислів&#x27;я за словом чи змістом, гортайте теми та діліться мудрістю в один клік прямо в чатах." />
+<title>verba в Telegram: інтерактивний бот та автоматичний канал — verba</title>
+<meta property="og:type" content="article" />
+<meta property="og:title" content="verba в Telegram: інтерактивний бот та автоматичний канал" />
+<meta property="og:description" content="Презентуємо офіційного Telegram-бота та канал корпусу verba. Шукайте прислів&#x27;я за словом чи змістом, гортайте теми та діліться мудрістю в один клік прямо в чатах." />
+<meta property="og:image" content="https://verbacorpus.org/card/daily.png" />
+<meta name="twitter:card" content="summary_large_image" />
+<link rel="canonical" href="https://verbacorpus.org/blog/telegram-bot" />
+<link rel="stylesheet" href="/fonts/spectral.css" />
+<link rel="stylesheet" href="/styles.css" />
+<script>(function(){var d=document.documentElement;try{var t=localStorage.getItem("theme");if(t==="dark"||t==="light")d.setAttribute("data-theme",t);}catch(e){}function cur(){return d.getAttribute("data-theme")||(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");}function meta(){var m=document.querySelector('meta[name="theme-color"]');if(m)m.content=cur()==="dark"?"#191c16":"#5E7355";}addEventListener("DOMContentLoaded",function(){meta();var b=document.getElementById("themeToggle");if(!b)return;function sync(){b.textContent=cur()==="dark"?"☀":"☾";}sync();b.addEventListener("click",function(){var n=cur()==="dark"?"light":"dark";d.setAttribute("data-theme",n);try{localStorage.setItem("theme",n);}catch(e){}sync();meta();});});})();</script>
+</head>
+<body>
+  <nav class="topbar">
+    <div class="wrap topbar-inner">
+      <a class="topbar-brand" href="/" aria-label="verba"><svg class="leaf" viewBox="0 0 40 64" aria-hidden="true"><path d="M20 4 C 31 22 30 46 21 60 C 12 46 11 22 20 4 Z" fill="#5e7355"/><path d="M20 11 C 23 28 22 47 21 54" stroke="#f4f1e8" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg><span>verba</span></a>
+      <div class="topbar-nav">
+        <a class="topbar-link" href="/about" data-i18n="nav.about">Про проєкт</a>
+        <a class="topbar-link" href="/blog" data-i18n="nav.blog">Блог</a>
+        <a class="topbar-link" href="/api.html" data-i18n="nav.api">API</a>
+        <a class="topbar-link topbar-link-ext" href="https://t.me/verbaCorpus_bot" rel="noopener">Telegram</a>
+        <a class="topbar-link topbar-link-ext" href="https://github.com/dmytro-yemelianov/verbacorpus" rel="noopener">GitHub</a>
+        <div id="langSwitch" class="lang-switch"></div>
+        <button id="themeToggle" class="theme-toggle-btn" type="button" aria-label="Перемкнути тему" data-i18n-attr="aria-label:ui.themeToggle">☾</button>
+      </div>
+    </div>
+  </nav>
+  <main class="wrap article">
+    <p class="article-back"><a href="/blog">← Блог</a></p>
+    <h1 class="article-title">verba в Telegram: інтерактивний бот та автоматичний канал</h1>
+    <p class="article-date">2026-06-26</p>
+    <p>Раді повідомити, що корпус українських прислів'їв та приказок <strong>verba</strong> тепер став ще ближчим до вас! Ми запустили офіційного Telegram-бота та автоматичний канал, які дозволяють взаємодіяти з нашими даними прямо в месенджері.</p>
+<p>Бот доступний за посиланням: <strong><a href="https://t.me/verbaCorpus_bot">@verbaCorpus_bot</a></strong>.
+Канал із прислів'ям дня: <strong><a href="https://t.me/VerbaCorpus">@VerbaCorpus</a></strong>.</p>
+<hr />
+<h2>Що вміє Telegram-бот?</h2>
+<p>Ми перенесли основні можливості нашого вебсайту та API прямо в інтерфейс Telegram:</p>
+<ul>
+<li><strong>🎲 Випадкове прислів'я (<code>/random</code>)</strong>: Бот надсилає випадкове прислів'я, згенероване як красива квадратна картка з вишиваним орнаментом. До кожного вислову додається його сучасне написання, тематика та наукове пояснення (заховане під спойлер, щоб ви могли спочатку відгадати значення!).</li>
+<li><strong>🔍 Швидкий текстовий пошук (<code>/search &lt;запит&gt;</code>)</strong>: Знаходить відповідні прислів'я за ключовими словами чи фрагментами.</li>
+<li><strong>🧠 Семантичний пошук (<code>/semantic &lt;запит&gt;</code>)</strong>: Наш бот використовує інтеграцію з <strong>Workers AI</strong> та індексом <strong>Vectorize</strong>. Він вміє шукати прислів'я <em>за змістом</em>, навіть якщо ви вводите запит своїми словами (наприклад, <code>/semantic бідність</code>).</li>
+<li><strong>🏷️ Навігація за темами (<code>/categories</code>)</strong>: Інтерактивне меню з 27 категорій корпусу. Натискайте на тему, щоб миттєво отримати випадковий вислів про працю, долю, сім'ю чи природу.</li>
+</ul>
+<hr />
+<h2>Пошук та шеринг прямо у чатах (Inline Mode)</h2>
+<p>Однією з найзручніших фіч є <strong>інлайновий пошук</strong>. Вам не потрібно додавати бота в чат — ви можете використовувати його в будь-якому особистому чи груповому листуванні!</p>
+<p>Просто введіть у полі вводу повідомлень:
+<code>@verbaCorpus_bot &lt;запит&gt;</code></p>
+<p>Бот покаже список відповідних прислів'їв. Виберіть будь-яке з них, і воно надішлеться у чат у вигляді красивої інтерактивної картки із посиланням на детальну сторінку нашого сайту.</p>
+<hr />
+<h2>Канал «Прислів'я дня»</h2>
+<p>Якщо ви хочете щодня отримувати крихту народної мудрості, підписуйтеся на наш Telegram-канал <strong><a href="https://t.me/VerbaCorpus">@VerbaCorpus</a></strong>. </p>
+<p>Щоранку о 9:00 бот автоматично обиратиме одне з канонічних прислів'їв та публікуватиме його разом із красивим зображенням-карткою, тлумаченням та тегами.</p>
+<p>Спробуйте нові інструменти вже зараз та діліться українською мудрістю з друзями!</p>
+  </main>
+  <footer class="colophon"><div class="wrap"><p class="col-note"><a href="/">← verba</a> · <a href="/about" data-i18n="nav.about">Про проєкт</a> · <a href="/api.html" data-i18n="nav.api">API</a></p></div></footer>
+  <script type="module" src="/chrome.js"></script>
+</body>
+</html>

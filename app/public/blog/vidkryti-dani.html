@@ -24,7 +24,8 @@
         <a class="topbar-link" href="/about" data-i18n="nav.about">Про проєкт</a>
         <a class="topbar-link" href="/blog" data-i18n="nav.blog">Блог</a>
         <a class="topbar-link" href="/api.html" data-i18n="nav.api">API</a>
-        <a class="topbar-link" href="https://github.com/dmytro-yemelianov/verbacorpus" rel="noopener">GitHub</a>
+        <a class="topbar-link topbar-link-ext" href="https://t.me/verbaCorpus_bot" rel="noopener">Telegram</a>
+        <a class="topbar-link topbar-link-ext" href="https://github.com/dmytro-yemelianov/verbacorpus" rel="noopener">GitHub</a>
         <div id="langSwitch" class="lang-switch"></div>
         <button id="themeToggle" class="theme-toggle-btn" type="button" aria-label="Перемкнути тему" data-i18n-attr="aria-label:ui.themeToggle">☾</button>
       </div>
@@ -57,6 +58,7 @@
 <p>Якщо вам потрібен увесь корпус цілком для локального аналізу або навчання моделей штучного інтелекту, ви можете завантажити повні дампи даних.</p>
 <ul>
 <li><strong>Дампи релізів:</strong> у кожному релізі проєкту на GitHub публікуються оновлені файли <code>corpus.json</code>, <code>corpus.csv</code> та <code>corpus.xml</code>.</li>
+<li><strong>Hugging Face:</strong> корпус опубліковано як набір даних <a href="https://huggingface.co/datasets/dmytro-yemelianov/verba"><code>dmytro-yemelianov/verba</code></a> — його можна завантажити однією командою через бібліотеку <code>datasets</code>, <code>pandas</code> або CLI <code>hf</code>. Покрокова інструкція — у статті <a href="/blog/verba-na-hugging-face">«verba на Hugging Face»</a>.</li>
 <li><strong>Специфікація Croissant:</strong> для ML-розробників та платформ на кшталт Hugging Face або Google Dataset Search ми інтегрували файл <code>croissant.json</code>. Це сучасний стандарт опису наборів даних для машинного навчання, який дозволяє автоматично імпортувати корпус verba в інструменти ML-пайплайнів.</li>
 </ul>
 <hr />

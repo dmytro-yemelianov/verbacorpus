@@ -1,5 +1,5 @@
 from __future__ import annotations
-import glob, html, os, re, sys
+import glob, html, json, os, re, sys
 import markdown
 
 HOST = "verbacorpus.org"
@@ -11,7 +11,8 @@ _TOPBAR = '''<nav class="topbar">
         <a class="topbar-link" href="/about" data-i18n="nav.about">Про проєкт</a>
         <a class="topbar-link" href="/blog" data-i18n="nav.blog">Блог</a>
         <a class="topbar-link" href="/api.html" data-i18n="nav.api">API</a>
-        <a class="topbar-link" href="https://github.com/dmytro-yemelianov/verbacorpus" rel="noopener">GitHub</a>
+        <a class="topbar-link topbar-link-ext" href="https://t.me/verbaCorpus_bot" rel="noopener">Telegram</a>
+        <a class="topbar-link topbar-link-ext" href="https://github.com/dmytro-yemelianov/verbacorpus" rel="noopener">GitHub</a>
         <div id="langSwitch" class="lang-switch"></div>
         <button id="themeToggle" class="theme-toggle-btn" type="button" aria-label="Перемкнути тему" data-i18n-attr="aria-label:ui.themeToggle">☾</button>
       </div>
@@ -28,7 +29,10 @@ def parse_frontmatter(text: str):
     for line in m.group(1).splitlines():
         if ":" in line:
             k, v = line.split(":", 1)
-            meta[k.strip()] = v.strip()
+            val = v.strip()
+            if (val.startswith('"') and val.endswith('"')) or (val.startswith("'") and val.endswith("'")):
+                val = val[1:-1].strip()
+            meta[k.strip()] = val
     return meta, m.group(2)
 
 def _head(title: str, desc: str, canonical: str) -> str:
@@ -123,6 +127,16 @@ def build(content_dir: str, out_dir: str) -> dict[str, list[dict]]:
                 fh.write(render_page(meta, body_html, lang))
             arts.append(meta)
         arts.sort(key=lambda m: m.get("date", ""), reverse=True)
+        latest_data = []
+        for a in arts[:3]:
+            latest_data.append({
+                "slug": a.get("slug", ""),
+                "title": a.get("title", ""),
+                "date": a.get("date", ""),
+                "lede": a.get("lede", "")
+            })
+        with open(os.path.join(lang_out, "latest.json"), "w", encoding="utf-8") as fh:
+            json.dump(latest_data, fh, ensure_ascii=False, indent=2)
         with open(os.path.join(lang_out, "index.html"), "w", encoding="utf-8") as fh:
             fh.write(render_index(arts, lang))
         

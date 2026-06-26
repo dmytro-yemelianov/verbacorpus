@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="theme-color" content="#5E7355" />
+<meta name="description" content="Корпус verba тепер опубліковано на Hugging Face як відкритий набір даних. Показуємо, як завантажити його через бібліотеку datasets, pandas, CLI hf чи DuckDB — і одразу почати працювати." />
+<title>verba на Hugging Face: завантаження й використання корпусу — verba</title>
+<meta property="og:type" content="article" />
+<meta property="og:title" content="verba на Hugging Face: завантаження й використання корпусу" />
+<meta property="og:description" content="Корпус verba тепер опубліковано на Hugging Face як відкритий набір даних. Показуємо, як завантажити його через бібліотеку datasets, pandas, CLI hf чи DuckDB — і одразу почати працювати." />
+<meta property="og:image" content="https://verbacorpus.org/card/daily.png" />
+<meta name="twitter:card" content="summary_large_image" />
+<link rel="canonical" href="https://verbacorpus.org/blog/verba-na-hugging-face" />
+<link rel="stylesheet" href="/fonts/spectral.css" />
+<link rel="stylesheet" href="/styles.css" />
+<script>(function(){var d=document.documentElement;try{var t=localStorage.getItem("theme");if(t==="dark"||t==="light")d.setAttribute("data-theme",t);}catch(e){}function cur(){return d.getAttribute("data-theme")||(matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light");}function meta(){var m=document.querySelector('meta[name="theme-color"]');if(m)m.content=cur()==="dark"?"#191c16":"#5E7355";}addEventListener("DOMContentLoaded",function(){meta();var b=document.getElementById("themeToggle");if(!b)return;function sync(){b.textContent=cur()==="dark"?"☀":"☾";}sync();b.addEventListener("click",function(){var n=cur()==="dark"?"light":"dark";d.setAttribute("data-theme",n);try{localStorage.setItem("theme",n);}catch(e){}sync();meta();});});})();</script>
+</head>
+<body>
+  <nav class="topbar">
+    <div class="wrap topbar-inner">
+      <a class="topbar-brand" href="/" aria-label="verba"><svg class="leaf" viewBox="0 0 40 64" aria-hidden="true"><path d="M20 4 C 31 22 30 46 21 60 C 12 46 11 22 20 4 Z" fill="#5e7355"/><path d="M20 11 C 23 28 22 47 21 54" stroke="#f4f1e8" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg><span>verba</span></a>
+      <div class="topbar-nav">
+        <a class="topbar-link" href="/about" data-i18n="nav.about">Про проєкт</a>
+        <a class="topbar-link" href="/blog" data-i18n="nav.blog">Блог</a>
+        <a class="topbar-link" href="/api.html" data-i18n="nav.api">API</a>
+        <a class="topbar-link topbar-link-ext" href="https://t.me/verbaCorpus_bot" rel="noopener">Telegram</a>
+        <a class="topbar-link topbar-link-ext" href="https://github.com/dmytro-yemelianov/verbacorpus" rel="noopener">GitHub</a>
+        <div id="langSwitch" class="lang-switch"></div>
+        <button id="themeToggle" class="theme-toggle-btn" type="button" aria-label="Перемкнути тему" data-i18n-attr="aria-label:ui.themeToggle">☾</button>
+      </div>
+    </div>
+  </nav>
+  <main class="wrap article">
+    <p class="article-back"><a href="/blog">← Блог</a></p>
+    <h1 class="article-title">verba на Hugging Face: завантаження й використання корпусу</h1>
+    <p class="article-date">2026-06-24</p>
+    <p>Корпус <strong>verba</strong> тепер доступний на <a href="https://huggingface.co/datasets/dmytro-yemelianov/verba">Hugging Face</a> — найбільшому хабі наборів даних для машинного навчання та NLP. Це означає, що завантажити всі 48 787 прислів'їв і почати з ними працювати можна буквально одним рядком коду, без реєстрації, ключів чи ручного скачування файлів.</p>
+<p>У цій статті — чотири способи дістати корпус (бібліотека <code>datasets</code>, <code>pandas</code>, CLI <code>hf</code> та SQL-запити через DuckDB) і кілька прикладів того, що з ним робити далі.</p>
+<hr />
+<h2>Що опубліковано</h2>
+<p>Сторінка набору даних: <strong><a href="https://huggingface.co/datasets/dmytro-yemelianov/verba">huggingface.co/datasets/dmytro-yemelianov/verba</a></strong>.</p>
+<p>У репозиторії лежать чотири файли:</p>
+<ul>
+<li><code>corpus.csv</code> — канонічний корпус: <strong>48 787 записів, 10 колонок</strong>. Це сплит <code>train</code>, який автоматично показує переглядач даних і завантажує бібліотека <code>datasets</code>.</li>
+<li><code>sources.csv</code> — реєстр п'яти джерел (бібліографія).</li>
+<li><code>croissant.json</code> — метадані у стандарті MLCommons Croissant для ML-пайплайнів.</li>
+<li><code>README.md</code> — повна <a href="https://github.com/dmytro-yemelianov/verbacorpus/blob/main/DATACARD.md">карта даних</a> (методологія, межі якості, ліцензія).</li>
+</ul>
+<p>Набір <strong>публічний</strong> і поширюється на умовах <strong>CC BY 4.0</strong> (упорядкування та збагачення); історичні тексти — у суспільному надбанні. Жодних токенів для читання не потрібно.</p>
+<hr />
+<h2>1. Бібліотека <code>datasets</code> (Python)</h2>
+<p>Найпростіший спосіб для дослідників і ML-інженерів:</p>
+<pre><code class="language-python">from datasets import load_dataset
+
+ds = load_dataset(&quot;dmytro-yemelianov/verba&quot;, split=&quot;train&quot;)
+print(len(ds))                       # 48787
+print(ds[0][&quot;text&quot;], &quot;→&quot;, ds[0][&quot;modern_text&quot;])
+
+# відібрати прислів'я певної теми
+work = ds.filter(lambda r: &quot;work_labor&quot; in (r[&quot;category&quot;] or &quot;&quot;))
+print(len(work))
+</code></pre>
+<p>Для великих обсягів або обмеженої пам'яті вмикайте потокове читання — дані тоді не зберігаються на диск:</p>
+<pre><code class="language-python">ds = load_dataset(&quot;dmytro-yemelianov/verba&quot;, split=&quot;train&quot;, streaming=True)
+for row in ds.take(5):
+    print(row[&quot;modern_text&quot;])
+</code></pre>
+<hr />
+<h2>2. <code>pandas</code> напряму з Hub</h2>
+<p>Якщо звичніше працювати з таблицями, читайте CSV прямо з хабу через протокол <code>hf://</code> (потрібен встановлений пакет <code>huggingface_hub</code>):</p>
+<pre><code class="language-python">import pandas as pd
+
+df = pd.read_csv(&quot;hf://datasets/dmytro-yemelianov/verba/corpus.csv&quot;)
+
+# 10 найчастіших тем
+df[&quot;category&quot;].str.split(&quot;;&quot;).explode().value_counts().head(10)
+</code></pre>
+<hr />
+<h2>3. CLI <code>hf</code> — локальна копія</h2>
+<p>Щоб завантажити набір даних на диск (наприклад, для офлайн-обробки чи навчання моделі), скористайтеся офіційним інструментом <code>hf</code>:</p>
+<pre><code class="language-bash"># встановлення CLI (один раз)
+curl -LsSf https://hf.co/cli/install.sh | bash -s
+
+# увесь репозиторій набору даних у теку ./verba
+hf download dmytro-yemelianov/verba --repo-type dataset --local-dir ./verba
+
+# або лише один файл
+hf download dmytro-yemelianov/verba corpus.csv --repo-type dataset --local-dir ./verba
+</code></pre>
+<hr />
+<h2>4. SQL без завантаження (DuckDB)</h2>
+<p>Hugging Face автоматично конвертує корпус у формат <strong>Parquet</strong>, тож можна виконувати аналітичні запити, не качаючи весь файл. Адресу Parquet-файлів підкаже команда:</p>
+<pre><code class="language-bash">hf datasets parquet dmytro-yemelianov/verba
+</code></pre>
+<p>А далі — звичайний SQL через DuckDB прямо з CLI:</p>
+<pre><code class="language-bash">hf datasets sql &quot;SELECT category, COUNT(*) AS n
+  FROM read_parquet('https://huggingface.co/api/datasets/dmytro-yemelianov/verba/parquet/default/train/0.parquet')
+  GROUP BY category ORDER BY n DESC LIMIT 10&quot;
+</code></pre>
+<hr />
+<h2>Схема та поля</h2>
+<p>Кожен рядок — одне прислів'я. Колонки <code>corpus.csv</code>:</p>
+<table>
+<thead>
+<tr>
+<th>Колонка</th>
+<th>Значення</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>Стабільний ідентифікатор (<code>pNNNNNN</code>)</td>
+</tr>
+<tr>
+<td><code>text</code></td>
+<td>Дослівний текст в оригінальному правописі джерела</td>
+</tr>
+<tr>
+<td><code>normalized_text</code></td>
+<td>Ключ для зіставлення (нижній регістр, без пунктуації)</td>
+</tr>
+<tr>
+<td><code>modern_text</code></td>
+<td>Сучасний стандартний правопис (згенеровано ШІ)</td>
+</tr>
+<tr>
+<td><code>keyword</code></td>
+<td>Лема/гасло (Франко), якщо є</td>
+</tr>
+<tr>
+<td><code>explanation</code></td>
+<td>Наукове пояснення (переважно з Франка), очищене</td>
+</tr>
+<tr>
+<td><code>category</code></td>
+<td>1–3 теми з 27-темної таксономії, через <code>;</code>, головна — перша</td>
+</tr>
+<tr>
+<td><code>sources</code></td>
+<td>Ключі джерел, через <code>;</code></td>
+</tr>
+<tr>
+<td><code>source_refs</code></td>
+<td>Покликання в межах джерела, через <code>;</code></td>
+</tr>
+<tr>
+<td><code>variant_group</code></td>
+<td>Ідентифікатор групи ймовірних діалектних варіантів</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2>Ліцензія та цитування</h2>
+<ul>
+<li><strong>Упорядкування та збагачення</strong> (структура, сучасне написання, теми, групи варіантів) — <strong>CC BY 4.0</strong>.</li>
+<li><strong>Історичні тексти</strong> (Ількевич 1841, Номис 1864, Франко 1901) — суспільне надбання.</li>
+<li><strong>Сучасні збірки</strong> (Бобкова, Млодзинський 2009) — під авторським правом упорядників; включені для наукового та освітнього використання з атрибуцією в полі <code>sources</code>.</li>
+</ul>
+<p>Як цитувати:</p>
+<blockquote>
+<p><em>Yemelianov, Dmytro (2026). verba — Ukrainian Proverbs Corpus (v1.0.2). URL: https://verbacorpus.org.</em></p>
+</blockquote>
+<hr />
+<h2>Що далі</h2>
+<ul>
+<li>Інші формати, REST API та правила цитування — у статті <a href="/blog/vidkryti-dani">«Відкриті дані: як користуватися корпусом»</a>.</li>
+<li>Повна <a href="/api.html">документація API</a> з прикладами <code>curl</code>.</li>
+<li>Вихідний код і релізи — на <a href="https://github.com/dmytro-yemelianov/verbacorpus">GitHub</a>.</li>
+</ul>
+  </main>
+  <footer class="colophon"><div class="wrap"><p class="col-note"><a href="/">← verba</a> · <a href="/about" data-i18n="nav.about">Про проєкт</a> · <a href="/api.html" data-i18n="nav.api">API</a></p></div></footer>
+  <script type="module" src="/chrome.js"></script>
+</body>
+</html>

@@ -58,6 +58,7 @@ npx vitest run          # API + search tests
 
 The corpus is versioned (SemVer-for-data) and published as **[GitHub Releases](https://github.com/dmytro-yemelianov/verbacorpus/releases)** — each tag bundles `corpus.csv/json/jsonl/xml`, the data card, and the Croissant metadata. The current version (`VERSION`) is also stamped into `meta.json`, so the site (verbacorpus.org) and the API (`/api/v1/meta`) report which snapshot they serve.
 
+- **Hugging Face:** [`datasets/dmytro-yemelianov/verba`](https://huggingface.co/datasets/dmytro-yemelianov/verba) — load with `datasets`/`pandas` or the `hf` CLI; the `train` split is `corpus.csv` (48787 rows), shipped alongside `sources.csv`, `croissant.json`, and the data card as the dataset README.
 - **Data card:** [`DATACARD.md`](DATACARD.md) (Datasheets-for-Datasets) · **machine-readable:** [`croissant.json`](croissant.json) (MLCommons Croissant) · **changes:** [`CHANGELOG.md`](CHANGELOG.md)
 - **Cite:** see [`CITATION.cff`](CITATION.cff) (GitHub's "Cite this repository") — Yemelianov, Dmytro (2026). *verba — Ukrainian Proverbs Corpus* (v1.0.0).
 - **License:** compilation + enrichment **CC BY 4.0**; historical source texts public domain; modern-collection texts under their publishers' rights (see the data card).
