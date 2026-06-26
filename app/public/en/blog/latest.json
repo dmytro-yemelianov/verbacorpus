@@ -1,0 +1,20 @@
+[
+  {
+    "slug": "telegram-bot",
+    "title": "verba in Telegram: Interactive Bot & Automated Channel",
+    "date": "2026-06-26",
+    "lede": "Introducing the official Telegram bot and channel for the verba corpus. Search proverbs by keyword or meaning, browse categories, and share wisdom directly in any chat."
+  },
+  {
+    "slug": "open-data",
+    "title": "Open Data: How to Reuse the Corpus",
+    "date": "2026-06-24",
+    "lede": "For researchers and developers — explore download formats, REST API specifications, Croissant dataset metadata, and citation guidelines for the verba corpus."
+  },
+  {
+    "slug": "sources",
+    "title": "Five Collections: Where the Proverbs Come From",
+    "date": "2026-06-24",
+    "lede": "The history of the five classic sources that comprise the verba corpus, from Ilkevych to Mlodzynskyi, along with notes on digital OCR processing."
+  }
+]

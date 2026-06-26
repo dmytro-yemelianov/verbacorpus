@@ -14,6 +14,8 @@ const SLUG_MAP: Record<string, Record<string, string>> = {
   "sources": { en: "sources", uk: "dzherela" },
   "vidkryti-dani": { en: "open-data", uk: "vidkryti-dani" },
   "open-data": { en: "open-data", uk: "vidkryti-dani" },
+  "verba-na-hugging-face": { en: "verba-on-hugging-face", uk: "verba-na-hugging-face" },
+  "verba-on-hugging-face": { en: "verba-on-hugging-face", uk: "verba-na-hugging-face" },
 };
 
 export function langHref(l: string): string {
@@ -73,10 +75,10 @@ function localizeNav(): void {
   if (LANG === DEFAULT_LANG) return; // uk is unprefixed; links already correct
   document.querySelectorAll<HTMLAnchorElement>("a").forEach((a) => {
     const href = a.getAttribute("href") || "";
+    const isAlreadyLocalized = LANGS.some((l) => href.startsWith("/" + l + "/") || href === "/" + l);
     // Only internal paths starting with / (excluding assets like fonts, css, files, or api)
     if (href.startsWith("/") && 
-        !href.startsWith("/" + LANG + "/") && 
-        href !== "/" + LANG && 
+        !isAlreadyLocalized && 
         !href.startsWith("/api/") && 
         !href.endsWith(".css") && 
         !href.endsWith(".js") &&
@@ -92,10 +94,49 @@ function localizeNav(): void {
   });
 }
 
+declare const __COMMIT_HASH__: string;
+
+function appendWebsiteVersion(): void {
+  const hash = typeof __COMMIT_HASH__ !== "undefined" ? __COMMIT_HASH__ : "";
+  if (!hash) return;
+
+  const aboutMeta = document.getElementById("aboutMeta");
+  if (aboutMeta && !document.getElementById("aboutCodeVersion")) {
+    const span = document.createElement("span");
+    span.id = "aboutCodeVersion";
+    const LANG = (window as any).__LANG__ || document.documentElement.lang || "uk";
+    const label = LANG === "uk" ? "сайт" : "site";
+    span.innerHTML = ` · ${esc(label)}: <a href="https://github.com/dmytro-yemelianov/verbacorpus/commit/${esc(hash)}" rel="noopener">${esc(hash)}</a>`;
+    aboutMeta.appendChild(span);
+    return;
+  }
+
+  const wrap = document.querySelector(".colophon .wrap");
+  if (!wrap) return;
+
+  if (document.getElementById("colVersion")) return;
+  if (document.getElementById("codeVersion")) return;
+
+  const div = document.createElement("div");
+  div.id = "codeVersion";
+  div.className = "col-version";
+  div.style.marginTop = "0.4rem";
+  div.style.fontSize = "0.74rem";
+  div.style.fontFamily = "var(--mono)";
+  div.style.color = "var(--faint)";
+
+  const LANG = (window as any).__LANG__ || document.documentElement.lang || "uk";
+  const label = LANG === "uk" ? "Версія сайту" : "Website version";
+
+  div.innerHTML = `${esc(label)}: <a href="https://github.com/dmytro-yemelianov/verbacorpus/commit/${esc(hash)}" rel="noopener">${esc(hash)}</a>`;
+  wrap.appendChild(div);
+}
+
 function initChrome(): void {
   renderLangSwitch();
   wireCopyLink();
   localizeNav();
+  appendWebsiteVersion();
 }
 
 // Auto-render when present in the DOM (covers both the SPA and the static pages).

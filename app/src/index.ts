@@ -191,6 +191,18 @@ export default {
         }
         return new Response("not found", { status: 404, headers: { "access-control-allow-origin": "*" } });
       }
+      if (rest === "/blog/latest.json") {
+        let assetRes = await env.ASSETS.fetch(new Request(`https://${url.host}${lang === "uk" ? "" : "/" + lang}/blog/latest.json`, request));
+        if (!assetRes.ok && lang !== "uk") {
+          if (lang !== "en") {
+            assetRes = await env.ASSETS.fetch(new Request(`https://${url.host}/en/blog/latest.json`, request));
+          }
+          if (!assetRes.ok) {
+            assetRes = await env.ASSETS.fetch(new Request(`https://${url.host}/blog/latest.json`, request));
+          }
+        }
+        return assetRes;
+      }
 
       // Static assets + API bypass the translation layer (rest has no lang prefix for them)
       const htmlPage = rest === "/" || rest === "/about" || rest === "/about.html" || rest === "/api.html" || rest === "/blog" || rest.startsWith("/blog/");

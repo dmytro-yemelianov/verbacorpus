@@ -35,6 +35,7 @@ Check out curl examples and parameter details in the [API Documentation](/api.ht
 If you need the entire corpus for local processing or training machine learning models:
 
 * **Release Dumps:** Every version release on GitHub packages the latest files (`corpus.json`, `corpus.csv`, and `corpus.xml`).
+* **Hugging Face:** the corpus is published as the [`dmytro-yemelianov/verba`](https://huggingface.co/datasets/dmytro-yemelianov/verba) dataset — load it in one line with the `datasets` library, `pandas`, or the `hf` CLI. See the step-by-step [“verba on Hugging Face”](/en/blog/verba-on-hugging-face) guide.
 * **Croissant Spec:** For integration with machine learning platforms like Hugging Face or Google Dataset Search, we publish a `croissant.json` file. It adheres to the MLCommons Croissant metadata standard, enabling automated imports into training pipelines.
 
 ---

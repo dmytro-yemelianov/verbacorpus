@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <meta name="theme-color" content="#5E7355" />
 <meta name="description" content="For researchers and developers — explore download formats, REST API specifications, Croissant dataset metadata, and citation guidelines for the verba corpus." />
-<title>&quot;Open Data: How to Reuse the Corpus&quot; — verba</title>
+<title>Open Data: How to Reuse the Corpus — verba</title>
 <meta property="og:type" content="article" />
-<meta property="og:title" content="&quot;Open Data: How to Reuse the Corpus&quot;" />
+<meta property="og:title" content="Open Data: How to Reuse the Corpus" />
 <meta property="og:description" content="For researchers and developers — explore download formats, REST API specifications, Croissant dataset metadata, and citation guidelines for the verba corpus." />
 <meta property="og:image" content="https://verbacorpus.org/card/daily.png" />
 <meta name="twitter:card" content="summary_large_image" />
@@ -24,7 +24,8 @@
         <a class="topbar-link" href="/about" data-i18n="nav.about">Про проєкт</a>
         <a class="topbar-link" href="/blog" data-i18n="nav.blog">Блог</a>
         <a class="topbar-link" href="/api.html" data-i18n="nav.api">API</a>
-        <a class="topbar-link" href="https://github.com/dmytro-yemelianov/verbacorpus" rel="noopener">GitHub</a>
+        <a class="topbar-link topbar-link-ext" href="https://t.me/verbaCorpus_bot" rel="noopener">Telegram</a>
+        <a class="topbar-link topbar-link-ext" href="https://github.com/dmytro-yemelianov/verbacorpus" rel="noopener">GitHub</a>
         <div id="langSwitch" class="lang-switch"></div>
         <button id="themeToggle" class="theme-toggle-btn" type="button" aria-label="Перемкнути тему" data-i18n-attr="aria-label:ui.themeToggle">☾</button>
       </div>
@@ -32,7 +33,7 @@
   </nav>
   <main class="wrap article">
     <p class="article-back"><a href="/en/blog">← Blog</a></p>
-    <h1 class="article-title">&quot;Open Data: How to Reuse the Corpus&quot;</h1>
+    <h1 class="article-title">Open Data: How to Reuse the Corpus</h1>
     <p class="article-date">2026-06-24</p>
     <p>The <strong>verba</strong> project is designed in the spirit of Open Science. We aim to make Ukrainian paremiology easily accessible for linguistic research, machine learning datasets, and digital humanities software.</p>
 <p>This article outlines how to interact with the corpus metadata, use the REST API, download dumps, and cite the dataset in academic papers.</p>
@@ -57,6 +58,7 @@
 <p>If you need the entire corpus for local processing or training machine learning models:</p>
 <ul>
 <li><strong>Release Dumps:</strong> Every version release on GitHub packages the latest files (<code>corpus.json</code>, <code>corpus.csv</code>, and <code>corpus.xml</code>).</li>
+<li><strong>Hugging Face:</strong> the corpus is published as the <a href="https://huggingface.co/datasets/dmytro-yemelianov/verba"><code>dmytro-yemelianov/verba</code></a> dataset — load it in one line with the <code>datasets</code> library, <code>pandas</code>, or the <code>hf</code> CLI. See the step-by-step <a href="/en/blog/verba-on-hugging-face">“verba on Hugging Face”</a> guide.</li>
 <li><strong>Croissant Spec:</strong> For integration with machine learning platforms like Hugging Face or Google Dataset Search, we publish a <code>croissant.json</code> file. It adheres to the MLCommons Croissant metadata standard, enabling automated imports into training pipelines.</li>
 </ul>
 <hr />
