@@ -54,4 +54,7 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: app
+          # Pin to a version that supports wrangler.jsonc (the action defaults to an
+          # older wrangler that predates it → "Missing entry-point").
+          wranglerVersion: "4.103.0"
           command: deploy
