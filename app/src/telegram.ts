@@ -4,6 +4,9 @@ import { mapMatches } from "./shared/semantic";
 import { srcLabel } from "./shared/sources";
 import { prettify } from "./shared/text";
 
+// Public Telegram channel for the corpus — surfaced as a tappable button on card replies.
+const CHANNEL_URL = "https://t.me/VerbaCorpus";
+
 export interface TelegramEnv {
   TELEGRAM_BOT_TOKEN: string;
   TELEGRAM_CHANNEL_ID: string;
@@ -109,7 +112,9 @@ export function initBot(
 
     const keyboard = new InlineKeyboard()
       .text("🎲 Ще одне", "random_shuffle")
-      .url("🔗 На сайті", `https://${host}/p/${p.id}`);
+      .url("🔗 На сайті", `https://${host}/p/${p.id}`)
+      .row()
+      .url("📣 Канал", CHANNEL_URL);
 
     await ctx.replyWithPhoto(photoUrl, {
       caption: formatted,
@@ -202,7 +207,9 @@ export function initBot(
 
     const keyboard = new InlineKeyboard()
       .text("🎲 Ще одне", "random_shuffle")
-      .url("🔗 На сайті", `https://${host}/p/${p.id}`);
+      .url("🔗 На сайті", `https://${host}/p/${p.id}`)
+      .row()
+      .url("📣 Канал", CHANNEL_URL);
 
     await ctx.editMessageMedia(
       {
@@ -241,7 +248,9 @@ export function initBot(
     const keyboard = new InlineKeyboard()
       .text("🎲 Ще з цієї теми", `cat:${categoryKey}`)
       .text("🏷️ Всі теми", "cats_list")
-      .url("🔗 На сайті", `https://${host}/p/${p.id}`);
+      .url("🔗 На сайті", `https://${host}/p/${p.id}`)
+      .row()
+      .url("📣 Канал", CHANNEL_URL);
 
     // If callback came from a text message (like /categories list) we need to reply with a photo message
     // If it came from a photo message, we edit media
@@ -307,7 +316,9 @@ export function initBot(
         },
         reply_markup: new InlineKeyboard()
           .url("🔗 Читати на сайті", `https://${host}/p/${p.id}`)
-          .switchInline("🔍 Шукати ще", ""),
+          .switchInline("🔍 Шукати ще", "")
+          .row()
+          .url("📣 Канал", CHANNEL_URL),
       };
     });
 
