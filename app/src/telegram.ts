@@ -6,6 +6,8 @@ import { prettify } from "./shared/text";
 
 // Public Telegram channel for the corpus — surfaced as a tappable button on card replies.
 const CHANNEL_URL = "https://t.me/VerbaCorpus";
+// Static sticker pack (built by scripts/build-stickers.mjs).
+const STICKER_PACK_URL = "https://t.me/addstickers/verba_by_verbacorpus_bot";
 
 export interface TelegramEnv {
   TELEGRAM_BOT_TOKEN: string;
@@ -100,7 +102,8 @@ export function initBot(
       `🎲 /random — випадкове прислів'я\n` +
       `🏷️ /categories — переглянути за темами\n` +
       `🔍 /search &lt;запит&gt; — швидкий текстовий пошук\n` +
-      `🧠 /semantic &lt;запит&gt; — семантичний пошук за змістом (AI)\n\n` +
+      `🧠 /semantic &lt;запит&gt; — семантичний пошук за змістом (AI)\n` +
+      `🎨 /stickers — набір стікерів verba\n\n` +
       `💡 <i>Ви також можете використовувати мене в будь-якому чаті! Просто введіть <code>@${ctx.me.username} &lt;запит&gt;</code>, щоб поділитися карткою з прислів'ям.</i>`;
     await ctx.reply(welcome, { parse_mode: "HTML", link_preview_options: { is_disabled: true } });
   });
@@ -112,8 +115,16 @@ export function initBot(
       `• /categories — список з 27 тематичних категорій. Виберіть будь-яку, щоб отримати прислів'я на цю тему.\n` +
       `• /search <code>&lt;слово&gt;</code> — пошук за ключовим словом або фразою.\n` +
       `• /semantic <code>&lt;фраза&gt;</code> — штучний інтелект знайде прислів'я, схожі за змістом (навіть якщо слова відрізняються).\n\n` +
+      `• /stickers — набір стікерів з прислів'ями для будь-яких чатів.\n\n` +
       `Бот містить 48,787 унікальних народних висловів.`;
     await ctx.reply(helpText, { parse_mode: "HTML" });
+  });
+
+  bot.command("stickers", async (ctx) => {
+    await ctx.reply("🎨 <b>Стікери verba</b>\n\nНабір стікерів з українськими прислів'ями — додайте й діліться ними в будь-якому чаті:", {
+      parse_mode: "HTML",
+      reply_markup: new InlineKeyboard().url("➕ Додати стікерпак", STICKER_PACK_URL),
+    });
   });
 
   bot.command("random", async (ctx) => {
