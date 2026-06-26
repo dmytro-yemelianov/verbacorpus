@@ -11,12 +11,16 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "gifenc": "^1.0.3",
+    "grammy": "^1.44.0",
     "minisearch": "^7.1.0",
     "qrcode-generator": "^1.5.2",
+    "upng-js": "^2.1.0",
     "workers-og": "^0.0.27"
   },
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "^0.9.6",
+    "@cloudflare/workers-types": "^4.20260626.1",
     "esbuild": "^0.25.10",
     "typescript": "^5.9.3",
     "vitest": "~3.2.4",
