@@ -10,3 +10,10 @@ expand/work/
 data/sources/nomis.pdf
 verba-corpus-*.zip
 node_modules/
+
+# Secrets — wrangler local vars (Telegram bot token, webhook secret, channel id)
+.dev.vars
+.dev.vars.*
+
+# Agent tooling caches (antigravity / hf-cli skill install), not project source
+.agents/
