@@ -58,8 +58,9 @@ export function formatProverbHtml(p: Proverb, explanation?: string | null, sourc
   if (pm) {
     html += `<i>(${pm})</i>\n`;
   }
-  // Bibliography-style source, collapsed (tap to expand) so the caption stays compact.
-  html += `\n📖 <b>Джерело:</b> <tg-spoiler>${srcs}</tg-spoiler>`;
+  // Bibliography-style source, shown directly (unmasked) so the attribution is visible
+  // on shared/forwarded cards without tapping.
+  html += `\n📖 <b>Джерело:</b> ${srcs}`;
   if (explanation) {
     html += `\n💡 <b>Пояснення:</b> <tg-spoiler>${escapeHtml(explanation)}</tg-spoiler>`;
   }
@@ -425,7 +426,7 @@ export function initBot(
     });
 
     await ctx.answerInlineQuery(results, {
-      cache_time: 300, // 5 minutes cache
+      cache_time: 10, // short cache so keyboard/caption changes show up on re-share
       is_personal: false,
     });
   });
