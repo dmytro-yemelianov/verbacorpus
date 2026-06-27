@@ -535,8 +535,8 @@ function renderPage() {
         <div class="entry-src"><span class="tag-src">${esc(p.sources.map(srcLabel).join(" · "))}</span></div>
         <div class="entry-foot">
           <div class="entry-actions">
-            <button class="entry-action-btn entry-share-btn" type="button" data-share="${esc(p.id)}" title="${esc(tr("detail.share", "Поділитися"))}">↗</button>
-            <button class="entry-action-btn entry-card-btn" type="button" data-card="${esc(p.id)}" title="${esc(tr("detail.card", "Картка"))}">🖼</button>
+            <button class="entry-action-btn entry-share-btn" type="button" data-share="${esc(p.id)}" title="${esc(tr("detail.share", "Поділитися"))}" aria-label="${esc(tr("detail.share", "Поділитися"))}">↗</button>
+            <button class="entry-action-btn entry-card-btn" type="button" data-card="${esc(p.id)}" title="${esc(tr("detail.card", "Картка"))}" aria-label="${esc(tr("detail.card", "Картка"))}">🖼</button>
             <button class="entry-action-btn entry-save${isSavedId(p.id) ? " on" : ""}" type="button" data-save="${esc(p.id)}" aria-label="${esc(tr("swipe.save", "Зберегти"))}" aria-pressed="${isSavedId(p.id)}">♥</button>
           </div>
           <div class="entry-meta">№&nbsp;${esc(p.id.replace(/^p0*/, ""))}${pageShowScore && p.score !== undefined ? ` · <span class="entry-score">${p.score.toFixed(2)}</span>` : ""}</div>

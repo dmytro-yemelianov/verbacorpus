@@ -227,7 +227,7 @@ body::after {
 .entry-src { margin-top: .3rem; }
 /* Footer: action buttons, then the record № beneath them — both pinned bottom-right
    (the № is the least-important info, so it sits last and faint). */
-.entry-foot { margin-top: .7rem; display: flex; flex-direction: column; align-items: flex-end; gap: .3rem; }
+.entry-foot { margin-top: auto; padding-top: .7rem; display: flex; flex-direction: column; align-items: flex-end; gap: .3rem; }
 .entry-meta { font-family: var(--mono); font-size: .66rem; color: var(--faint); letter-spacing: .02em; }
 .tag { font-size: .7rem; letter-spacing: .06em; text-transform: uppercase; color: var(--willow); font-weight: 600; }
 .tag-src { font-family: var(--mono); font-size: .68rem; letter-spacing: .02em; color: var(--faint); text-transform: none; font-weight: 400; }
