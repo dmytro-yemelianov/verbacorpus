@@ -397,7 +397,8 @@ export default {
       const photoUrl = `https://${host}/card/${pick.id}.png?format=telegram&lang=uk&v=5`;
 
       const keyboard = new InlineKeyboard()
-        .url("🔗 Читати на сайті", `https://${host}/p/${pick.id}`);
+        .url("🔗 Читати на сайті", `https://${host}/p/${pick.id}`)
+        .url("🎲 Випадкове", "https://t.me/verbacorpus_bot?start=random");
 
       await bot.api.sendPhoto(env.TELEGRAM_CHANNEL_ID, photoUrl, {
         caption: `🎲 <b>Прислів'я дня</b>\n\n${formatted}`,

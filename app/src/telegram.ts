@@ -1,4 +1,4 @@
-import { Bot, InlineKeyboard } from "grammy";
+import { Bot, InlineKeyboard, Keyboard } from "grammy";
 import { type Proverb, randomProverb, searchProverbs, filterProverbs } from "./shared/corpus";
 import { mapMatches } from "./shared/semantic";
 import { srcLabel } from "./shared/sources";
@@ -9,6 +9,9 @@ import { gatherNews, pickUnseen, matchProverbs, putDraft, markSeen, newsId, NEWS
 const CHANNEL_URL = "https://t.me/VerbaCorpus";
 // Static sticker pack (built by scripts/build-stickers.mjs).
 const STICKER_PACK_URL = "https://t.me/addstickers/verba_by_verbacorpus_bot";
+// Deep-link base for the bot — `${BOT_URL}?start=random` opens the bot and triggers a
+// random card, so shared/forwarded cards (and the channel) carry working action buttons.
+const BOT_URL = "https://t.me/verbacorpus_bot";
 // Only this Telegram user id can trigger admin commands (/news, etc).
 const ADMIN_USER_ID = 198155742; // @dyemelianov
 
@@ -132,73 +135,73 @@ export function initBot(
   const taxonomy = meta.taxonomy || {};
   const byId = new Map(corpus.map((p) => [p.id, p]));
 
-  bot.command("start", async (ctx) => {
-    const welcome =
-      `🇺🇦 <b>Вітаємо у verba bot!</b>\n\n` +
-      `Це офіційний бот корпусу українських прислів'їв та приказок (<a href="https://verbacorpus.org">verbacorpus.org</a>).\n\n` +
-      `Користуйтеся командами для пошуку народної мудрості:\n` +
-      `🎲 /random — випадкове прислів'я\n` +
-      `🏷️ /categories — переглянути за темами\n` +
-      `🔍 /search &lt;запит&gt; — швидкий текстовий пошук\n` +
-      `🧠 /semantic &lt;запит&gt; — семантичний пошук за змістом (AI)\n` +
-      `🎨 /stickers — набір стікерів verba\n\n` +
-      `💡 <i>Ви також можете використовувати мене в будь-якому чаті! Просто введіть <code>@${ctx.me.username} &lt;запит&gt;</code>, щоб поділитися карткою з прислів'ям.</i>`;
-    await ctx.reply(welcome, { parse_mode: "HTML", link_preview_options: { is_disabled: true } });
-  });
+  // Persistent reply-keyboard menu — users tap instead of typing commands.
+  const mainKeyboard = new Keyboard()
+    .text("🎲 Випадкове").text("🏷️ Категорії").row()
+    .text("🎨 Стікери").text("ℹ️ Довідка")
+    .resized().persistent();
 
-  bot.command("help", async (ctx) => {
-    const helpText =
-      `📖 <b>Довідка бота verba</b>\n\n` +
-      `• /random — випадкове прислів'я з усього корпусу.\n` +
-      `• /categories — список з 27 тематичних категорій. Виберіть будь-яку, щоб отримати прислів'я на цю тему.\n` +
-      `• /search <code>&lt;слово&gt;</code> — пошук за ключовим словом або фразою.\n` +
-      `• /semantic <code>&lt;фраза&gt;</code> — штучний інтелект знайде прислів'я, схожі за змістом (навіть якщо слова відрізняються).\n\n` +
-      `• /stickers — набір стікерів з прислів'ями для будь-яких чатів.\n\n` +
-      `Бот містить 48,787 унікальних народних висловів.`;
-    await ctx.reply(helpText, { parse_mode: "HTML" });
-  });
-
-  bot.command("stickers", async (ctx) => {
-    await ctx.reply("🎨 <b>Стікери verba</b>\n\nНабір стікерів з українськими прислів'ями — додайте й діліться ними в будь-якому чаті:", {
-      parse_mode: "HTML",
-      reply_markup: new InlineKeyboard().url("➕ Додати стікерпак", STICKER_PACK_URL),
-    });
-  });
-
-  bot.command("news", async (ctx) => {
-    if (ctx.from?.id !== ADMIN_USER_ID) return ctx.reply("⛔ Команда лише для адміністратора.");
-    const n = await draftNews(bot.api, env, byId, host);
-    await ctx.reply(n ? `📨 Надіслано чернеток: ${n}.` : "Немає свіжих новин.");
-  });
-
-  bot.command("random", async (ctx) => {
+  // Card-sending helpers reused by /commands, the reply keyboard (hears), and ?start deep links.
+  const sendRandomCard = async (ctx: any) => {
     const p = randomProverb(corpus, {});
-    if (!p) {
-      return ctx.reply("❌ Не вдалося знайти прислів'я.");
-    }
+    if (!p) return ctx.reply("❌ Не вдалося знайти прислів'я.");
     const explanation = explanations[p.id] || null;
-    const formatted = formatProverbHtml(p, explanation, meta.sources);
-    const photoUrl = `https://${host}/card/${p.id}.png?format=telegram&lang=uk&v=5`;
-
     const keyboard = new InlineKeyboard()
       .text("🎲 Ще одне", "random_shuffle")
       .url("🔗 На сайті", `https://${host}/p/${p.id}`)
       .row()
       .url("📣 @VerbaCorpus", CHANNEL_URL);
-
-    await ctx.replyWithPhoto(photoUrl, {
-      caption: formatted,
+    await ctx.replyWithPhoto(`https://${host}/card/${p.id}.png?format=telegram&lang=uk&v=5`, {
+      caption: formatProverbHtml(p, explanation, meta.sources),
       parse_mode: "HTML",
       reply_markup: keyboard,
     });
+  };
+  const sendCategories = (ctx: any) =>
+    ctx.reply("🏷️ <b>Оберіть тему для пошуку прислів'їв:</b>", { parse_mode: "HTML", reply_markup: buildCategoriesKeyboard(taxonomy) });
+  const sendStickers = (ctx: any) =>
+    ctx.reply("🎨 <b>Стікери verba</b>\n\nНабір стікерів з українськими прислів'ями — додайте й діліться ними в будь-якому чаті:", {
+      parse_mode: "HTML",
+      reply_markup: new InlineKeyboard().url("➕ Додати стікерпак", STICKER_PACK_URL),
+    });
+  const sendHelp = (ctx: any) =>
+    ctx.reply(
+      `📖 <b>Довідка бота verba</b>\n\n` +
+        `• /random — випадкове прислів'я з усього корпусу.\n` +
+        `• /categories — 27 тематичних категорій.\n` +
+        `• /search <code>&lt;слово&gt;</code> — пошук за словом або фразою.\n` +
+        `• /semantic <code>&lt;фраза&gt;</code> — пошук за змістом (AI).\n` +
+        `• /stickers — набір стікерів.\n\n` +
+        `Бот містить 48,787 унікальних народних висловів.`,
+      { parse_mode: "HTML" },
+    );
+
+  bot.command("start", async (ctx) => {
+    if (ctx.match === "random") return sendRandomCard(ctx);   // deep link t.me/<bot>?start=random
+    const welcome =
+      `🇺🇦 <b>Вітаємо у verba bot!</b>\n\n` +
+      `Це офіційний бот корпусу українських прислів'їв та приказок (<a href="https://verbacorpus.org">verbacorpus.org</a>).\n\n` +
+      `Користуйтеся кнопками нижче або командами:\n` +
+      `🎲 /random · 🏷️ /categories · 🔍 /search · 🧠 /semantic · 🎨 /stickers\n\n` +
+      `💡 <i>Мене можна використовувати в будь-якому чаті — введіть <code>@${ctx.me.username} &lt;запит&gt;</code>, щоб поділитися карткою.</i>`;
+    await ctx.reply(welcome, { parse_mode: "HTML", link_preview_options: { is_disabled: true }, reply_markup: mainKeyboard });
   });
 
-  bot.command("categories", async (ctx) => {
-    const keyboard = buildCategoriesKeyboard(taxonomy);
-    await ctx.reply("🏷️ <b>Оберіть тему для пошуку прислів'їв:</b>", {
-      parse_mode: "HTML",
-      reply_markup: keyboard,
-    });
+  bot.command("help", (ctx) => sendHelp(ctx));
+  bot.command("stickers", (ctx) => sendStickers(ctx));
+  bot.command("random", (ctx) => sendRandomCard(ctx));
+  bot.command("categories", (ctx) => sendCategories(ctx));
+
+  // Reply-keyboard buttons send their label as text → route to the same actions.
+  bot.hears("🎲 Випадкове", (ctx) => sendRandomCard(ctx));
+  bot.hears("🏷️ Категорії", (ctx) => sendCategories(ctx));
+  bot.hears("🎨 Стікери", (ctx) => sendStickers(ctx));
+  bot.hears("ℹ️ Довідка", (ctx) => sendHelp(ctx));
+
+  bot.command("news", async (ctx) => {
+    if (ctx.from?.id !== ADMIN_USER_ID) return ctx.reply("⛔ Команда лише для адміністратора.");
+    const n = await draftNews(bot.api, env, byId, host);
+    await ctx.reply(n ? `📨 Надіслано чернеток: ${n}.` : "Немає свіжих новин.");
   });
 
   bot.command("search", async (ctx) => {
@@ -416,6 +419,7 @@ export function initBot(
           .url("🔗 Читати на сайті", `https://${host}/p/${p.id}`)
           .switchInline("🔍 Шукати ще", "")
           .row()
+          .url("🎲 Випадкове", `${BOT_URL}?start=random`)   // deep link works for any recipient
           .url("📣 @VerbaCorpus", CHANNEL_URL),
       };
     });
