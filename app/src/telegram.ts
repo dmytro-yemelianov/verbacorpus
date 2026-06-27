@@ -12,6 +12,12 @@ const STICKER_PACK_URL = "https://t.me/addstickers/verba_by_verbacorpus_bot";
 // Deep-link base for the bot — `${BOT_URL}?start=random` opens the bot and triggers a
 // random card, so shared/forwarded cards (and the channel) carry working action buttons.
 const BOT_URL = "https://t.me/verbacorpus_bot";
+// Donations — non-commercial project; funds go to native-speaker audio + corpus growth.
+// monobank jar takes card / Apple Pay / Google Pay. KOFI_URL stays empty until set up;
+// the Ko-fi button only renders when it has a real URL.
+const JAR_URL = "https://send.monobank.ua/jar/7mzPGnKyQr";
+const KOFI_URL = "https://ko-fi.com/dmytroyemelianov";
+const SUPPORT_URL = "https://verbacorpus.org/about#support";
 // Only this Telegram user id can trigger admin commands (/news, etc).
 const ADMIN_USER_ID = 198155742; // @dyemelianov
 
@@ -139,7 +145,8 @@ export function initBot(
   // Persistent reply-keyboard menu — users tap instead of typing commands.
   const mainKeyboard = new Keyboard()
     .text("🎲 Випадкове").text("🏷️ Категорії").row()
-    .text("🎨 Стікери").text("ℹ️ Довідка")
+    .text("🎨 Стікери").text("ℹ️ Довідка").row()
+    .text("❤️ Підтримати")
     .resized().persistent();
 
   // Card-sending helpers reused by /commands, the reply keyboard (hears), and ?start deep links.
@@ -165,6 +172,18 @@ export function initBot(
       parse_mode: "HTML",
       reply_markup: new InlineKeyboard().url("➕ Додати стікерпак", STICKER_PACK_URL),
     });
+  const sendDonate = (ctx: any) => {
+    const keyboard = new InlineKeyboard().url("🌾 monobank банка", JAR_URL);
+    if (KOFI_URL) keyboard.url("☕ Ko-fi", KOFI_URL);
+    keyboard.row().url("ℹ️ Про підтримку", SUPPORT_URL);
+    return ctx.reply(
+      `🌾 <b>Підтримати verba</b>\n\n` +
+        `verba — некомерційний проєкт із відкритими даними. Сайт і бот безкоштовні; ` +
+        `донати йдуть на розвиток: озвучення прислів'їв носіями та розширення корпусу.\n\n` +
+        `Дякую, що бережемо живе слово разом! 🇺🇦`,
+      { parse_mode: "HTML", link_preview_options: { is_disabled: true }, reply_markup: keyboard },
+    );
+  };
   const sendHelp = (ctx: any) =>
     ctx.reply(
       `📖 <b>Довідка бота verba</b>\n\n` +
@@ -172,7 +191,8 @@ export function initBot(
         `• /categories — 27 тематичних категорій.\n` +
         `• /search <code>&lt;слово&gt;</code> — пошук за словом або фразою.\n` +
         `• /semantic <code>&lt;фраза&gt;</code> — пошук за змістом (AI).\n` +
-        `• /stickers — набір стікерів.\n\n` +
+        `• /stickers — набір стікерів.\n` +
+        `• /donate — підтримати проєкт.\n\n` +
         `Бот містить 48,787 унікальних народних висловів.`,
       { parse_mode: "HTML" },
     );
@@ -183,7 +203,7 @@ export function initBot(
       `🇺🇦 <b>Вітаємо у verba bot!</b>\n\n` +
       `Це офіційний бот корпусу українських прислів'їв та приказок (<a href="https://verbacorpus.org">verbacorpus.org</a>).\n\n` +
       `Користуйтеся кнопками нижче або командами:\n` +
-      `🎲 /random · 🏷️ /categories · 🔍 /search · 🧠 /semantic · 🎨 /stickers\n\n` +
+      `🎲 /random · 🏷️ /categories · 🔍 /search · 🧠 /semantic · 🎨 /stickers · ❤️ /donate\n\n` +
       `💡 <i>Мене можна використовувати в будь-якому чаті — введіть <code>@${ctx.me.username} &lt;запит&gt;</code>, щоб поділитися карткою.</i>`;
     await ctx.reply(welcome, { parse_mode: "HTML", link_preview_options: { is_disabled: true }, reply_markup: mainKeyboard });
   });
@@ -192,11 +212,13 @@ export function initBot(
   bot.command("stickers", (ctx) => sendStickers(ctx));
   bot.command("random", (ctx) => sendRandomCard(ctx));
   bot.command("categories", (ctx) => sendCategories(ctx));
+  bot.command("donate", (ctx) => sendDonate(ctx));
 
   // Reply-keyboard buttons send their label as text → route to the same actions.
   bot.hears("🎲 Випадкове", (ctx) => sendRandomCard(ctx));
   bot.hears("🏷️ Категорії", (ctx) => sendCategories(ctx));
   bot.hears("🎨 Стікери", (ctx) => sendStickers(ctx));
+  bot.hears("❤️ Підтримати", (ctx) => sendDonate(ctx));
   bot.hears("ℹ️ Довідка", (ctx) => sendHelp(ctx));
 
   bot.command("news", async (ctx) => {

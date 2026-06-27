@@ -118,6 +118,14 @@ python -m pytest     # run the test suite
 - Variant groups are link-only (non-destructive): records are grouped by fuzzy similarity (rapidfuzz `token_set_ratio` ≥ 85), never merged; groups larger than 8 are dissolved to curb over-linking. Final: 5064 groups.
 - Categorization is best-effort, single-pass: a quality audit (n=40) found modern_text ~95% acceptable and category tags ~85% acceptable (~15% debatable/wrong, usually secondary tags or themes outside the 27-key vocabulary). The primary category tag is the most reliable.
 
+## Support
+
+verba is a non-commercial, open-data project — the site, API, and Telegram bot are free. Donations fund its growth: native-speaker audio for the proverbs, new sources, and dialectal variants.
+
+- 🌾 **monobank** (card / Apple Pay / Google Pay): https://send.monobank.ua/jar/7mzPGnKyQr
+- ☕ **Ko-fi:** https://ko-fi.com/dmytroyemelianov
+- See [verbacorpus.org/about#support](https://verbacorpus.org/about#support).
+
 ## Stats (last build)
 - Total entries: 48787 (100% categorized; Nomis 1864 ingested)
 - With explanation: 30532

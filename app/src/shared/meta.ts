@@ -115,6 +115,7 @@ ${hreflang}
       <a class="topbar-link" href="/api.html" data-i18n="nav.api">${e(t(cat, "nav.api", "API"))}</a>
       <a class="topbar-link topbar-link-ext" href="https://t.me/verbaCorpus_bot" rel="noopener">Telegram</a>
       <a class="topbar-link topbar-link-ext" href="https://github.com/dmytro-yemelianov/verbacorpus" rel="noopener">GitHub</a>
+      <a class="topbar-link" href="/about#support" data-i18n="nav.support">${e(t(cat, "nav.support", "Підтримати"))}</a>
       <div id="langSwitch" class="lang-switch"></div>
       <button id="themeToggle" class="theme-toggle-btn" type="button" aria-label="Перемкнути тему" data-i18n-attr="aria-label:ui.themeToggle">☾</button>
     </div>
