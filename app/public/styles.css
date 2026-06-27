@@ -162,6 +162,11 @@ a { color: var(--willow); text-underline-offset: 2px; }
   break-inside: avoid;                       /* keep each card whole within its column */
   margin: 0 0 clamp(.5rem, 1.4vw, .9rem);    /* vertical gap between stacked cards */
 }
+/* In a multi-column flow a hover transform moves the card out from under the cursor
+   (and re-fragments the columns) → hard hover flicker. Keep the hover paint-only:
+   no translate, and don't transition transform. */
+.results-grid .entry { transition: background .18s ease, box-shadow .18s ease, border-color .18s ease; }
+.results-grid .entry:hover { transform: none; }
 .entry {
   display: grid; grid-template-columns: 4.5rem minmax(0, 1fr); gap: 0 1.2rem; align-items: baseline;
   padding: 1.2rem 1.2rem; border: 1px solid var(--rule); cursor: pointer;
