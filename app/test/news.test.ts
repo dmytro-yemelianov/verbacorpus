@@ -94,4 +94,9 @@ describe("newsCaption (news-led)", () => {
     expect(c).toContain(`href="https://x.ua/a"`);
     expect(c).toContain("@chan");
   });
+  it("HTML-escapes ampersands in the link (RSS urls carry & params)", () => {
+    const c = newsCaption({ newsTitle: "Подія", link: "https://x.ua/a?b=1&c=2", source: "@chan", proverbIds: [] }, "Без труда нема плоду", "");
+    expect(c).toContain("a?b=1&amp;c=2"); // escaped — valid HTML for parse_mode:"HTML"
+    expect(c).not.toContain("a?b=1&c=2"); // raw ampersand would be a malformed entity
+  });
 });

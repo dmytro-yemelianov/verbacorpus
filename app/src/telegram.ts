@@ -30,7 +30,7 @@ function escapeHtml(s: string): string {
 // News-led channel caption: headline (linked) + source, proverb as the comment beneath.
 export function newsCaption(d: Draft, proverbText: string, modern: string): string {
   const pm = modern && modern.trim() !== proverbText.trim() ? `\n<i>(${escapeHtml(modern)})</i>` : "";
-  return `📰 <a href="${d.link}">${escapeHtml(d.newsTitle)}</a>\n<i>${escapeHtml(d.source)}</i>\n\n💬 <b>${escapeHtml(proverbText)}</b>${pm}`;
+  return `📰 <a href="${escapeHtml(d.link)}">${escapeHtml(d.newsTitle)}</a>\n<i>${escapeHtml(d.source)}</i>\n\n💬 <b>${escapeHtml(proverbText)}</b>${pm}`;
 }
 
 export type SourceMeta = { key: string; title?: string; author?: string; year?: string };
