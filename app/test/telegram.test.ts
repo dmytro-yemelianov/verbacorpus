@@ -119,4 +119,63 @@ describe("Telegram Bot Integration", () => {
       vi.unstubAllGlobals();
     }
   });
+
+  it("news:* approval callback is refused for non-admin users (no channel post)", async () => {
+    // Same fetch-stub pattern: capture Telegram API calls so we can assert the admin
+    // gate answered the callback but never posted to the channel (no sendPhoto).
+    const calls: Array<{ url: string; body: any }> = [];
+    const realFetch = globalThis.fetch;
+    const mockFetch = vi.fn(async (input: any, init?: any) => {
+      const url = typeof input === "string" ? input : input.url;
+      if (typeof url === "string" && url.includes("api.telegram.org")) {
+        let body: any = undefined;
+        if (init?.body) {
+          try { body = JSON.parse(init.body as string); } catch { body = init.body; }
+        }
+        calls.push({ url, body });
+        return new Response(JSON.stringify({ ok: true, result: {} }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        });
+      }
+      return realFetch(input, init);
+    });
+    vi.stubGlobal("fetch", mockFetch);
+    try {
+      const ctx = createExecutionContext();
+      const testEnv = {
+        ...env,
+        TELEGRAM_BOT_TOKEN: "12345:mock_token",
+        TELEGRAM_WEBHOOK_SECRET: "super_secret",
+      };
+      const update = {
+        update_id: 3,
+        callback_query: {
+          id: "1",
+          from: { id: 999, is_bot: false, first_name: "x" },
+          message: { message_id: 1, date: 0, chat: { id: 999, type: "private" } },
+          chat_instance: "1",
+          data: "news:abc:0",
+        },
+      };
+      const request = new Request("https://verbacorpus.org/api/telegram-webhook", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-telegram-bot-api-secret-token": "super_secret",
+        },
+        body: JSON.stringify(update),
+      });
+      const res = await worker.fetch(request, testEnv as any, ctx);
+      await waitOnExecutionContext(ctx);
+      expect(res.status).toBe(200);
+      // Admin gate fired: callback answered, but nothing posted to the channel.
+      const sendPhoto = calls.find((c) => c.url.includes("/sendPhoto"));
+      expect(sendPhoto).toBeUndefined();
+      const answer = calls.find((c) => c.url.includes("/answerCallbackQuery"));
+      expect(answer).toBeDefined();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
 });

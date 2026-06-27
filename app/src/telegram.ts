@@ -21,6 +21,7 @@ export interface TelegramEnv {
     query: (vector: number[], opts: { topK: number }) => Promise<{ matches: any[] }>;
     getByIds: (ids: string[]) => Promise<Array<{ id: string; values: number[] }>>;
   };
+  NEWS_KV?: KVNamespace;
 }
 
 function escapeHtml(s: string): string {
@@ -70,8 +71,14 @@ export async function draftNews(api: any, env: any, byId: Map<string, Proverb>, 
   const items = await pickUnseen(await gatherNews((u) => fetch(u)), env.NEWS_KV, NEWS_BATCH);
   let sent = 0;
   for (const it of items) {
-    const ids = await matchProverbs(env.AI, env.VECTORIZE, it.title, byId).catch(() => [] as string[]);
-    if (!ids.length) { await markSeen(env.NEWS_KV, it.id); continue; }
+    let ids: string[];
+    try {
+      ids = await matchProverbs(env.AI, env.VECTORIZE, it.title, byId);
+    } catch (e) {
+      console.error("news match failed", it.id, e);
+      continue; // transient — leave UNSEEN so it retries next tick; do NOT markSeen
+    }
+    if (!ids.length) { await markSeen(env.NEWS_KV, it.id); continue; } // genuine no-match: don't re-draft
     const draftId = newsId(it.link);
     await markSeen(env.NEWS_KV, it.id);
     await putDraft(env.NEWS_KV, draftId, { newsTitle: it.title, link: it.link, source: it.source, proverbIds: ids });
@@ -80,7 +87,7 @@ export async function draftNews(api: any, env: any, byId: Map<string, Proverb>, 
     ids.forEach((_, i) => kb.text(String(i + 1), `news:${draftId}:${i}`));
     kb.row().text("⏭ Пропустити", `news:${draftId}:skip`);
     await api.sendMessage(ADMIN_USER_ID,
-      `📰 <b>${escapeHtml(it.title)}</b>\n${escapeHtml(it.source)} · <a href="${it.link}">читати</a>\n\nПрислів'я-коментар — оберіть:\n${list}`,
+      `📰 <b>${escapeHtml(it.title)}</b>\n${escapeHtml(it.source)} · <a href="${escapeHtml(it.link)}">читати</a>\n\nПрислів'я-коментар — оберіть:\n${list}`,
       { parse_mode: "HTML", link_preview_options: { is_disabled: true }, reply_markup: kb });
     sent++;
   }
@@ -347,10 +354,10 @@ export function initBot(
   bot.callbackQuery(/^news:(.+):(\d+|skip)$/, async (ctx) => {
     if (ctx.from?.id !== ADMIN_USER_ID) return ctx.answerCallbackQuery("⛔");
     const [, draftId, action] = ctx.match as RegExpMatchArray;
-    const d = await getDraft((env as any).NEWS_KV, draftId);
+    const d = await getDraft(env.NEWS_KV, draftId);
     if (!d) { await ctx.answerCallbackQuery("Чернетка застаріла"); return; }
     if (action === "skip") {
-      await delDraft((env as any).NEWS_KV, draftId);
+      await delDraft(env.NEWS_KV, draftId);
       await ctx.editMessageText("⏭ Пропущено.", { reply_markup: undefined });
       return ctx.answerCallbackQuery();
     }
@@ -361,7 +368,7 @@ export function initBot(
     try {
       await bot.api.sendPhoto(env.TELEGRAM_CHANNEL_ID, pngUrl, {
         caption: newsCaption(d, prettify(p.text), modern), parse_mode: "HTML" });
-      await delDraft((env as any).NEWS_KV, draftId);
+      await delDraft(env.NEWS_KV, draftId);
       await ctx.editMessageText(`✅ Опубліковано: ${escapeHtml(prettify(p.text)).slice(0, 80)}`, { reply_markup: undefined });
     } catch (e) {
       console.error("news post failed", e);
