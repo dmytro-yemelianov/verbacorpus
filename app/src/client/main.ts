@@ -479,6 +479,40 @@ function showResults(results: Array<Proverb & { score?: number }>, head: string,
   renderPage();
 }
 
+// Embroidery motif archive (123 UPA units) for the card hover reveal. Lazy-loaded;
+// each unit becomes a tileable SVG data-URI assigned at random to a card's --card-motif.
+type Motif = { r: number; c: number; m: string[] };
+let motifUnits: Motif[] = [];
+let motifPalette: Record<string, string> = {};
+let motifsReady: Promise<void> | null = null;
+const MOTIF_CELL = 8;
+function loadMotifs(): Promise<void> {
+  if (!motifsReady) {
+    motifsReady = fetch("/data/embroidery-archive.json")
+      .then((r) => r.json())
+      .then((d) => { motifUnits = d.units || []; motifPalette = d.palette || {}; })
+      .catch(() => { motifUnits = []; });
+  }
+  return motifsReady;
+}
+function motifUri(u: Motif): string {
+  const W = u.c * MOTIF_CELL, H = u.r * MOTIF_CELL;
+  let rects = "";
+  for (let y = 0; y < u.r; y++) {
+    const row = u.m[y];
+    for (let x = 0; x < u.c; x++) {
+      const col = motifPalette[row[x]];
+      if (!col) continue;                    // '.'/'*' (empty/fragment) → transparent
+      rects += `<rect x='${x * MOTIF_CELL}' y='${y * MOTIF_CELL}' width='${MOTIF_CELL}' height='${MOTIF_CELL}' fill='${col}'/>`;
+    }
+  }
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='${W}' height='${H}' shape-rendering='crispEdges'>${rects}</svg>`;
+  return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+}
+function assignMotif(el: HTMLElement) {
+  if (motifUnits.length) el.style.setProperty("--card-motif", motifUri(motifUnits[(Math.random() * motifUnits.length) | 0]));
+}
+
 function renderPage() {
   if (!pageResults.length) {
     $("results").innerHTML = `<p class="empty">${esc(tr("empty.search", "Нічого не знайдено. Спробуйте інше слово або зніміть фільтри."))}</p>`;
@@ -511,10 +545,11 @@ function renderPage() {
     `</div>` +
     (more ? `<button id="moreBtn" class="more-btn" type="button">${esc(tr("more.btn", "Показати ще"))}</button>` : "");
   for (const el of Array.from(document.querySelectorAll<HTMLElement>(".entry"))) {
-    // Each card hides a random рушник motif, surfaced on hover by the cursor light.
-    el.style.setProperty("--card-motif", `var(--emb-${"abc"[(Math.random() * 3) | 0]})`);
+    assignMotif(el);   // a random hidden рушник motif from the archive (if loaded)
     el.addEventListener("click", () => { const p = byId.get(el.dataset.id!); if (p) openDetail(p); });
   }
+  // Lazy-load the motif archive, then assign a random motif to each card on screen.
+  loadMotifs().then(() => { for (const el of Array.from(document.querySelectorAll<HTMLElement>(".entry"))) assignMotif(el); });
   // Cursor-following light: track the pointer over the results so the radial mask
   // (--mx/--my) reveals each card's motif near the cursor. Wired once; #results persists.
   const resultsEl = $("results");
