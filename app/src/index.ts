@@ -32,6 +32,7 @@ interface Env {
   TELEGRAM_BOT_TOKEN?: string;
   TELEGRAM_CHANNEL_ID?: string;
   TELEGRAM_WEBHOOK_SECRET?: string;
+  NEWS_KV: KVNamespace;
 }
 
 const SEMANTIC_MIN_SCORE = 0.4;

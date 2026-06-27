@@ -14,12 +14,13 @@
   "preview_urls": true,
   "ai": { "binding": "AI" },
   "vectorize": [{ "binding": "VECTORIZE", "index_name": "proverbs-bge-m3-v2" }],
+  "kv_namespaces": [{ "binding": "NEWS_KV", "id": "b9bcfa756c624727b2489f0faf7d3350" }],
   "routes": [
     { "pattern": "verbacorpus.org", "custom_domain": true },
     { "pattern": "www.verbacorpus.org", "custom_domain": true }
   ],
   "triggers": {
-    "crons": ["0 9 * * *"]
+    "crons": ["0 9 * * *", "0 5,8,11,14,17 * * *"]
   },
   "rules": [{ "type": "Data", "globs": ["**/*.ttf"], "fallthrough": true }]
 }
