@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { parseRss, newsId, parseTgPreview, pickUnseen, putDraft, getDraft, markSeen, NEWS_BATCH, matchProverbs } from "../src/news";
+import { newsCaption } from "../src/telegram";
 
 const RSS = `<?xml version="1.0"?><rss><channel>
   <item><title>Перша новина</title><link>https://x.ua/a</link><pubDate>Wed, 25 Jun 2026 10:00:00 +0300</pubDate></item>
@@ -83,5 +84,14 @@ describe("matchProverbs", () => {
     ]);
     const ids = await matchProverbs(ai, vectorize, "новина", byId, 2);
     expect(ids).toEqual(["p1", "p2"]); // p3 below default minScore 0.4
+  });
+});
+
+describe("newsCaption (news-led)", () => {
+  it("leads with the linked headline, proverb as the comment", () => {
+    const c = newsCaption({ newsTitle: "Велика подія", link: "https://x.ua/a", source: "@chan", proverbIds: [] }, "Без труда нема плоду", "");
+    expect(c.indexOf("Велика подія")).toBeLessThan(c.indexOf("Без труда нема плоду"));
+    expect(c).toContain(`href="https://x.ua/a"`);
+    expect(c).toContain("@chan");
   });
 });

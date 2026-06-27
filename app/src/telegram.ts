@@ -3,7 +3,7 @@ import { type Proverb, randomProverb, searchProverbs, filterProverbs } from "./s
 import { mapMatches } from "./shared/semantic";
 import { srcLabel } from "./shared/sources";
 import { prettify } from "./shared/text";
-import { gatherNews, pickUnseen, matchProverbs, putDraft, markSeen, newsId, NEWS_BATCH } from "./news";
+import { gatherNews, pickUnseen, matchProverbs, putDraft, markSeen, newsId, NEWS_BATCH, getDraft, delDraft, type Draft } from "./news";
 
 // Public Telegram channel for the corpus — surfaced as a tappable button on card replies.
 const CHANNEL_URL = "https://t.me/VerbaCorpus";
@@ -25,6 +25,12 @@ export interface TelegramEnv {
 
 function escapeHtml(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+// News-led channel caption: headline (linked) + source, proverb as the comment beneath.
+export function newsCaption(d: Draft, proverbText: string, modern: string): string {
+  const pm = modern && modern.trim() !== proverbText.trim() ? `\n<i>(${escapeHtml(modern)})</i>` : "";
+  return `📰 <a href="${d.link}">${escapeHtml(d.newsTitle)}</a>\n<i>${escapeHtml(d.source)}</i>\n\n💬 <b>${escapeHtml(proverbText)}</b>${pm}`;
 }
 
 export type SourceMeta = { key: string; title?: string; author?: string; year?: string };
@@ -333,6 +339,34 @@ export function initBot(
         parse_mode: "HTML",
         reply_markup: keyboard,
       });
+    }
+    await ctx.answerCallbackQuery();
+  });
+
+  // Admin approval: post or skip a news-matched proverb to the channel.
+  bot.callbackQuery(/^news:(.+):(\d+|skip)$/, async (ctx) => {
+    if (ctx.from?.id !== ADMIN_USER_ID) return ctx.answerCallbackQuery("⛔");
+    const [, draftId, action] = ctx.match as RegExpMatchArray;
+    const d = await getDraft((env as any).NEWS_KV, draftId);
+    if (!d) { await ctx.answerCallbackQuery("Чернетка застаріла"); return; }
+    if (action === "skip") {
+      await delDraft((env as any).NEWS_KV, draftId);
+      await ctx.editMessageText("⏭ Пропущено.", { reply_markup: undefined });
+      return ctx.answerCallbackQuery();
+    }
+    const p = byId.get(d.proverbIds[Number(action)]);
+    if (!p) { await ctx.answerCallbackQuery("Прислів'я не знайдено"); return; }
+    const modern = p.modern_text && p.modern_text.trim() !== p.text.trim() ? prettify(p.modern_text) : "";
+    const pngUrl = `https://${host}/card/${p.id}.png?format=telegram&lang=uk&v=5`;
+    try {
+      await bot.api.sendPhoto(env.TELEGRAM_CHANNEL_ID, pngUrl, {
+        caption: newsCaption(d, prettify(p.text), modern), parse_mode: "HTML" });
+      await delDraft((env as any).NEWS_KV, draftId);
+      await ctx.editMessageText(`✅ Опубліковано: ${escapeHtml(prettify(p.text)).slice(0, 80)}`, { reply_markup: undefined });
+    } catch (e) {
+      console.error("news post failed", e);
+      await ctx.answerCallbackQuery("Помилка публікації, спробуйте ще раз");
+      return; // keep the draft for a retry
     }
     await ctx.answerCallbackQuery();
   });
