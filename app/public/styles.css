@@ -151,9 +151,18 @@ a { color: var(--willow); text-underline-offset: 2px; }
   font-size: .7rem; letter-spacing: .14em; text-transform: uppercase; color: var(--faint);
   border-bottom: 1px solid var(--rule); padding-bottom: .5rem; margin-bottom: .3rem; font-weight: 600;
 }
+/* Result cards flow into adaptive rows: as many columns as fit at ~21rem each,
+   collapsing to a single column on narrow viewports. */
+.results-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 21rem), 1fr));
+  gap: clamp(.5rem, 1.4vw, .9rem);
+  align-items: start;
+}
+.results-grid .entry { margin-block: 0; }       /* gap controls spacing in the grid */
 .entry {
   display: grid; grid-template-columns: 4.5rem minmax(0, 1fr); gap: 0 1.2rem; align-items: baseline;
-  padding: 1.2rem 1.2rem; border: 1px solid transparent; border-bottom: 1px solid var(--rule); cursor: pointer;
+  padding: 1.2rem 1.2rem; border: 1px solid var(--rule); cursor: pointer;
   border-radius: 8px; margin-block: 0.4rem;
   transition: background .18s ease, transform .18s ease, box-shadow .18s ease, border-color .18s ease;
 }

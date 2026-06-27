@@ -490,6 +490,7 @@ function renderPage() {
   const suffix = pageHead === randomHead ? "" : ` · ${tr("results.shownOf", "{n} з {m}").replace("{n}", fmt(page.length)).replace("{m}", fmt(pageResults.length))}`;
   $("results").innerHTML =
     `<p class="results-head">${esc(pageHead)}${suffix}</p>` +
+    `<div class="results-grid">` +
     page.map((p) =>
       `<article class="entry" data-id="${esc(p.id)}">
         <div class="entry-cat">№&nbsp;${esc(p.id.replace(/^p0*/, ""))}${pageShowScore && p.score !== undefined ? `<br><span class="entry-score">${p.score.toFixed(2)}</span>` : ""}</div>
@@ -507,6 +508,7 @@ function renderPage() {
           </div>
         </div>
       </article>`).join("") +
+    `</div>` +
     (more ? `<button id="moreBtn" class="more-btn" type="button">${esc(tr("more.btn", "Показати ще"))}</button>` : "");
   for (const el of Array.from(document.querySelectorAll<HTMLElement>(".entry"))) {
     el.addEventListener("click", () => { const p = byId.get(el.dataset.id!); if (p) openDetail(p); });
