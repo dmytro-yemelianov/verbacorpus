@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseRss, newsId, parseTgPreview } from "../src/news";
+import { parseRss, newsId, parseTgPreview, pickUnseen, putDraft, getDraft, markSeen, NEWS_BATCH } from "../src/news";
 
 const RSS = `<?xml version="1.0"?><rss><channel>
   <item><title>Перша новина</title><link>https://x.ua/a</link><pubDate>Wed, 25 Jun 2026 10:00:00 +0300</pubDate></item>
@@ -40,5 +40,32 @@ describe("parseTgPreview", () => {
   });
   it("returns [] for an empty/blocked preview", () => {
     expect(parseTgPreview("<html>no messages</html>", "x")).toEqual([]);
+  });
+});
+
+function mockKv() {
+  const m = new Map<string, string>();
+  return { m, get: async (k: string) => m.get(k) ?? null,
+    put: async (k: string, v: string) => void m.set(k, v),
+    delete: async (k: string) => void m.delete(k) };
+}
+
+describe("dedup + draft store", () => {
+  it("pickUnseen returns up to n unseen, newest first, skipping seen", async () => {
+    const kv = mockKv();
+    const items = [
+      { id: "a", title: "A", link: "la", source: "s", ts: 3 },
+      { id: "b", title: "B", link: "lb", source: "s", ts: 2 },
+      { id: "c", title: "C", link: "lc", source: "s", ts: 1 },
+    ];
+    await markSeen(kv, "a");
+    const picked = await pickUnseen(items, kv, 2);
+    expect(picked.map((p) => p.id)).toEqual(["b", "c"]);
+  });
+  it("draft round-trips and NEWS_BATCH is 3", async () => {
+    const kv = mockKv();
+    await putDraft(kv, "d1", { newsTitle: "T", link: "L", source: "s", proverbIds: ["p1", "p2"] });
+    expect((await getDraft(kv, "d1"))?.proverbIds[0]).toBe("p1");
+    expect(NEWS_BATCH).toBe(3);
   });
 });
