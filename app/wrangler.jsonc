@@ -19,7 +19,7 @@
     { "pattern": "www.verbacorpus.org", "custom_domain": true }
   ],
   "triggers": {
-    "crons": ["0 9 * * *"]
+    "crons": ["0 6 * * *"]
   },
   "rules": [{ "type": "Data", "globs": ["**/*.ttf"], "fallthrough": true }]
 }
