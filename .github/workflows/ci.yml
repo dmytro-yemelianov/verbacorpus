@@ -11,6 +11,11 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: false
 
+# Least-privilege default — no job needs more than read (deploy authenticates
+# to Cloudflare with its own API token, not GITHUB_TOKEN).
+permissions:
+  contents: read
+
 jobs:
   test:
     name: Build & test
@@ -34,6 +39,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
