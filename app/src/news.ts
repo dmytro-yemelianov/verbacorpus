@@ -29,3 +29,19 @@ export function parseRss(xml: string, source: string): NewsItem[] {
   }
   return items.sort((a, b) => b.ts - a.ts);
 }
+
+export function parseTgPreview(html: string, channel: string): NewsItem[] {
+  const items: NewsItem[] = [];
+  for (const m of html.matchAll(/<div class="tgme_widget_message[^"]*"[^>]*data-post="([^"]+)"[\s\S]*?<\/time>/gi)) {
+    const block = m[0];
+    const post = m[1]; // "channel/123"
+    const tm = block.match(/<div class="tgme_widget_message_text[^"]*"[^>]*>([\s\S]*?)<\/div>/i);
+    const title = tm ? stripTags(tm[1]) : "";
+    if (!title) continue;
+    const dm = block.match(/datetime="([^"]+)"/i);
+    const ts = dm ? Date.parse(dm[1]) || 0 : 0;
+    const link = `https://t.me/${post}`;
+    items.push({ id: newsId(link), title, link, source: `@${channel}`, ts });
+  }
+  return items.sort((a, b) => b.ts - a.ts);
+}
