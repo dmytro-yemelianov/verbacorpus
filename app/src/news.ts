@@ -1,4 +1,10 @@
+import { mapMatches } from "./shared/semantic";
+import type { Proverb } from "./shared/corpus";
+
 export type NewsItem = { id: string; title: string; link: string; source: string; ts: number };
+
+export type AiLike = { run(model: string, inputs: { text: string[] }): Promise<{ data: number[][] }> };
+export type VecLike = { query(vec: number[], opts: { topK: number }): Promise<{ matches: any[] }> };
 
 // FNV-1a hash of the link → short stable id (KV key suffix).
 export function newsId(link: string): string {
@@ -91,4 +97,11 @@ export async function getDraft(kv: KVLike, id: string): Promise<Draft | null> {
 }
 export async function delDraft(kv: KVLike, id: string): Promise<void> {
   await kv.delete(`draft:${id}`);
+}
+
+export async function matchProverbs(ai: AiLike, vectorize: VecLike, text: string, byId: Map<string, Proverb>, limit = 5): Promise<string[]> {
+  const { data } = await ai.run("@cf/baai/bge-m3", { text: [text.slice(0, 400)] });
+  const { matches } = await vectorize.query(data[0], { topK: 100 });
+  const { results } = mapMatches(matches, byId, { minScore: 0.4, limit });
+  return results.map((r: any) => r.id);
 }

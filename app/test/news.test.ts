@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseRss, newsId, parseTgPreview, pickUnseen, putDraft, getDraft, markSeen, NEWS_BATCH } from "../src/news";
+import { parseRss, newsId, parseTgPreview, pickUnseen, putDraft, getDraft, markSeen, NEWS_BATCH, matchProverbs } from "../src/news";
 
 const RSS = `<?xml version="1.0"?><rss><channel>
   <item><title>Перша новина</title><link>https://x.ua/a</link><pubDate>Wed, 25 Jun 2026 10:00:00 +0300</pubDate></item>
@@ -67,5 +67,21 @@ describe("dedup + draft store", () => {
     await putDraft(kv, "d1", { newsTitle: "T", link: "L", source: "s", proverbIds: ["p1", "p2"] });
     expect((await getDraft(kv, "d1"))?.proverbIds[0]).toBe("p1");
     expect(NEWS_BATCH).toBe(3);
+  });
+});
+
+describe("matchProverbs", () => {
+  it("embeds text, queries vectorize, returns up to `limit` proverb ids by score", async () => {
+    const ai = { run: async () => ({ data: [[0.1, 0.2, 0.3]] }) };
+    const vectorize = { query: async () => ({ matches: [
+      { id: "p1", score: 0.9 }, { id: "p2", score: 0.8 }, { id: "p3", score: 0.1 },
+    ] }) };
+    const byId = new Map<string, any>([
+      ["p1", { id: "p1", text: "одне", category: [], sources: [] }],
+      ["p2", { id: "p2", text: "два", category: [], sources: [] }],
+      ["p3", { id: "p3", text: "три", category: [], sources: [] }],
+    ]);
+    const ids = await matchProverbs(ai, vectorize, "новина", byId, 2);
+    expect(ids).toEqual(["p1", "p2"]); // p3 below default minScore 0.4
   });
 });
