@@ -195,9 +195,14 @@ body::after {
           mask-image: radial-gradient(circle 7rem at var(--mx, 50%) var(--my, 50%), #fff, rgba(255,255,255,.45) 50%, transparent 74%);
 }
 .results-grid .entry:hover::after { opacity: .6; }
-@media (prefers-reduced-motion: reduce) { .results-grid .entry::after { display: none; } }
+/* Reduced-motion: keep the reveal AND its cursor-following pool — the pool tracks
+   the user's own pointer (direct manipulation, not autonomous motion), so only the
+   opacity fade is dropped. (Previously `display:none` disabled the reveal entirely.) */
+@media (prefers-reduced-motion: reduce) {
+  .results-grid .entry::after { transition: none; }
+}
 .entry {
-  display: grid; grid-template-columns: 4.5rem minmax(0, 1fr); gap: 0 1.2rem; align-items: baseline;
+  display: flex; flex-direction: column;
   padding: 1.2rem 1.2rem; border: 1px solid var(--rule); cursor: pointer;
   border-radius: 8px; margin-block: 0.4rem;
   transition: background .18s ease, transform .18s ease, box-shadow .18s ease, border-color .18s ease;
@@ -216,10 +221,14 @@ body::after {
     box-shadow: 0 6px 20px rgba(0,0,0,.15);
   }
 }
-.entry-cat { font-family: var(--mono); font-size: .72rem; color: var(--faint); letter-spacing: .02em; padding-top: .3rem; }
 .entry-text { font-family: var(--serif); font-size: 1.18rem; line-height: 1.4; }
 .entry-modern { font-family: var(--serif); font-style: italic; color: var(--muted); font-size: 1rem; margin-top: .25rem; }
-.entry-tags { margin-top: .45rem; display: flex; flex-wrap: wrap; gap: .35rem .8rem; align-items: center; }
+.entry-tags { margin-top: .55rem; display: flex; flex-wrap: wrap; gap: .35rem .8rem; align-items: center; }
+.entry-src { margin-top: .3rem; }
+/* Footer: action buttons, then the record № beneath them — both pinned bottom-right
+   (the № is the least-important info, so it sits last and faint). */
+.entry-foot { margin-top: auto; padding-top: .7rem; display: flex; flex-direction: column; align-items: flex-end; gap: .3rem; }
+.entry-meta { font-family: var(--mono); font-size: .66rem; color: var(--faint); letter-spacing: .02em; }
 .tag { font-size: .7rem; letter-spacing: .06em; text-transform: uppercase; color: var(--willow); font-weight: 600; }
 .tag-src { font-family: var(--mono); font-size: .68rem; letter-spacing: .02em; color: var(--faint); text-transform: none; font-weight: 400; }
 .empty { font-family: var(--serif); font-style: italic; color: var(--muted); padding: 2.5rem 0; font-size: 1.1rem; }
@@ -313,8 +322,6 @@ body.drawer-open {
   .hero-shuffle { justify-self: start; }
   .filter-group { grid-template-columns: 1fr; gap: .3rem; }
   .filter-label { padding-top: 0; }
-  .entry { grid-template-columns: 1fr; gap: .15rem; }
-  .entry-cat { padding-top: 0; }
   /* Keep the full navigation on phones: the nav wraps onto its own row beneath the brand,
      with the language selector and theme toggle pushed to the right. */
   .topbar-inner { flex-wrap: wrap; gap: .25rem 1rem; }
