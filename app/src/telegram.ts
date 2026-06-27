@@ -3,11 +3,14 @@ import { type Proverb, randomProverb, searchProverbs, filterProverbs } from "./s
 import { mapMatches } from "./shared/semantic";
 import { srcLabel } from "./shared/sources";
 import { prettify } from "./shared/text";
+import { gatherNews, pickUnseen, matchProverbs, putDraft, markSeen, newsId, NEWS_BATCH, type NewsItem } from "./news";
 
 // Public Telegram channel for the corpus — surfaced as a tappable button on card replies.
 const CHANNEL_URL = "https://t.me/VerbaCorpus";
 // Static sticker pack (built by scripts/build-stickers.mjs).
 const STICKER_PACK_URL = "https://t.me/addstickers/verba_by_verbacorpus_bot";
+// Only this Telegram user id can trigger admin commands (/news, etc).
+const ADMIN_USER_ID = 198155742; // @dyemelianov
 
 export interface TelegramEnv {
   TELEGRAM_BOT_TOKEN: string;
@@ -52,6 +55,30 @@ export function formatProverbHtml(p: Proverb, explanation?: string | null, sourc
   }
   html += `\n\n📣 <a href="${CHANNEL_URL}">@VerbaCorpus</a>`;
   return html;
+}
+
+// Draft up to NEWS_BATCH unseen news items: match proverbs, store a draft, DM the admin.
+// Returns the number of drafts sent. env carries AI/VECTORIZE/NEWS_KV/TELEGRAM_CHANNEL_ID.
+export async function draftNews(api: any, env: any, byId: Map<string, Proverb>, host: string): Promise<number> {
+  if (!env.AI || !env.VECTORIZE || !env.NEWS_KV) return 0;
+  const items = await pickUnseen(await gatherNews((u) => fetch(u)), env.NEWS_KV, NEWS_BATCH);
+  let sent = 0;
+  for (const it of items) {
+    const ids = await matchProverbs(env.AI, env.VECTORIZE, it.title, byId).catch(() => [] as string[]);
+    if (!ids.length) { await markSeen(env.NEWS_KV, it.id); continue; }
+    const draftId = newsId(it.link);
+    await markSeen(env.NEWS_KV, it.id);
+    await putDraft(env.NEWS_KV, draftId, { newsTitle: it.title, link: it.link, source: it.source, proverbIds: ids });
+    const list = ids.map((id, i) => `${i + 1}. ${escapeHtml((byId.get(id)?.text || "").slice(0, 90))}`).join("\n");
+    const kb = new InlineKeyboard();
+    ids.forEach((_, i) => kb.text(String(i + 1), `news:${draftId}:${i}`));
+    kb.row().text("⏭ Пропустити", `news:${draftId}:skip`);
+    await api.sendMessage(ADMIN_USER_ID,
+      `📰 <b>${escapeHtml(it.title)}</b>\n${escapeHtml(it.source)} · <a href="${it.link}">читати</a>\n\nПрислів'я-коментар — оберіть:\n${list}`,
+      { parse_mode: "HTML", link_preview_options: { is_disabled: true }, reply_markup: kb });
+    sent++;
+  }
+  return sent;
 }
 
 export function buildCategoriesKeyboard(taxonomy: Record<string, string>): InlineKeyboard {
@@ -125,6 +152,12 @@ export function initBot(
       parse_mode: "HTML",
       reply_markup: new InlineKeyboard().url("➕ Додати стікерпак", STICKER_PACK_URL),
     });
+  });
+
+  bot.command("news", async (ctx) => {
+    if (ctx.from?.id !== ADMIN_USER_ID) return ctx.reply("⛔ Команда лише для адміністратора.");
+    const n = await draftNews(bot.api, env, byId, host);
+    await ctx.reply(n ? `📨 Надіслано чернеток: ${n}.` : "Немає свіжих новин.");
   });
 
   bot.command("random", async (ctx) => {
@@ -352,6 +385,12 @@ export function initBot(
       cache_time: 300, // 5 minutes cache
       is_personal: false,
     });
+  });
+
+  // Global error handler — log and swallow so the webhook always returns 200
+  // (prevents Telegram from retrying and avoids 401s with the test token).
+  bot.catch((err) => {
+    console.error("Bot middleware error:", err.message);
   });
 
   return bot;
