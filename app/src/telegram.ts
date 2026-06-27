@@ -3,7 +3,7 @@ import { type Proverb, randomProverb, searchProverbs, filterProverbs } from "./s
 import { mapMatches } from "./shared/semantic";
 import { srcLabel } from "./shared/sources";
 import { prettify } from "./shared/text";
-import { gatherNews, pickUnseen, matchProverbs, putDraft, markSeen, newsId, NEWS_BATCH, type NewsItem } from "./news";
+import { gatherNews, pickUnseen, matchProverbs, putDraft, markSeen, newsId, NEWS_BATCH } from "./news";
 
 // Public Telegram channel for the corpus — surfaced as a tappable button on card replies.
 const CHANNEL_URL = "https://t.me/VerbaCorpus";
@@ -385,12 +385,6 @@ export function initBot(
       cache_time: 300, // 5 minutes cache
       is_personal: false,
     });
-  });
-
-  // Global error handler — log and swallow so the webhook always returns 200
-  // (prevents Telegram from retrying and avoids 401s with the test token).
-  bot.catch((err) => {
-    console.error("Bot middleware error:", err.message);
   });
 
   return bot;
