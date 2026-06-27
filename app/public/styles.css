@@ -189,8 +189,10 @@ body::after {
   background-repeat: repeat;            /* tile the motif in 2D */
   background-position: 0 0;
   opacity: 0; transition: opacity .3s ease;
-  -webkit-mask-image: radial-gradient(circle 7rem at var(--mx, 50%) var(--my, 50%), #000, rgba(0,0,0,.4) 50%, transparent 74%);
-          mask-image: radial-gradient(circle 7rem at var(--mx, 50%) var(--my, 50%), #000, rgba(0,0,0,.4) 50%, transparent 74%);
+  /* WHITE (not black): WebKit can treat the mask as luminance, where black = hide,
+     which blanks the reveal. White → reveal in both alpha and luminance modes. */
+  -webkit-mask-image: radial-gradient(circle 7rem at var(--mx, 50%) var(--my, 50%), #fff, rgba(255,255,255,.45) 50%, transparent 74%);
+          mask-image: radial-gradient(circle 7rem at var(--mx, 50%) var(--my, 50%), #fff, rgba(255,255,255,.45) 50%, transparent 74%);
 }
 .results-grid .entry:hover::after { opacity: .6; }
 @media (prefers-reduced-motion: reduce) { .results-grid .entry::after { display: none; } }
