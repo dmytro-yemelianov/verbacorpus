@@ -91,8 +91,6 @@ export function initBot(
   });
   const taxonomy = meta.taxonomy || {};
   const byId = new Map(corpus.map((p) => [p.id, p]));
-  // Animated рушник card (GIF) shared via sendAnimation — same telegram-format design as the PNG.
-  const cardAnim = (id: string) => `https://${host}/card/${id}.gif?format=telegram&lang=uk&v=5`;
 
   bot.command("start", async (ctx) => {
     const welcome =
@@ -134,7 +132,7 @@ export function initBot(
     }
     const explanation = explanations[p.id] || null;
     const formatted = formatProverbHtml(p, explanation, meta.sources);
-    const animUrl = cardAnim(p.id);
+    const photoUrl = `https://${host}/card/${p.id}.png?format=telegram&lang=uk&v=5`;
 
     const keyboard = new InlineKeyboard()
       .text("🎲 Ще одне", "random_shuffle")
@@ -142,7 +140,7 @@ export function initBot(
       .row()
       .url("📣 @VerbaCorpus", CHANNEL_URL);
 
-    await ctx.replyWithAnimation(animUrl, {
+    await ctx.replyWithPhoto(photoUrl, {
       caption: formatted,
       parse_mode: "HTML",
       reply_markup: keyboard,
@@ -229,7 +227,7 @@ export function initBot(
 
     const explanation = explanations[p.id] || null;
     const formatted = formatProverbHtml(p, explanation, meta.sources);
-    const animUrl = cardAnim(p.id);
+    const photoUrl = `https://${host}/card/${p.id}.png?format=telegram&lang=uk&v=5`;
 
     const keyboard = new InlineKeyboard()
       .text("🎲 Ще одне", "random_shuffle")
@@ -239,8 +237,8 @@ export function initBot(
 
     await ctx.editMessageMedia(
       {
-        type: "animation",
-        media: animUrl,
+        type: "photo",
+        media: photoUrl,
         caption: formatted,
         parse_mode: "HTML",
       },
@@ -269,7 +267,7 @@ export function initBot(
 
     const explanation = explanations[p.id] || null;
     const formatted = formatProverbHtml(p, explanation, meta.sources);
-    const animUrl = cardAnim(p.id);
+    const photoUrl = `https://${host}/card/${p.id}.png?format=telegram&lang=uk&v=5`;
 
     const keyboard = new InlineKeyboard()
       .text("🎲 Ще з цієї теми", `cat:${categoryKey}`)
@@ -278,26 +276,26 @@ export function initBot(
       .row()
       .url("📣 @VerbaCorpus", CHANNEL_URL);
 
-    // Edit in place when the message already carries a media card (animation/photo);
-    // otherwise (e.g. the /categories text list) delete it and send a fresh animation.
-    const msg = ctx.callbackQuery.message;
-    if (msg && ("animation" in msg || "photo" in msg)) {
+    // If callback came from a text message (like /categories list) we need to reply with a photo message
+    // If it came from a photo message, we edit media
+    if (ctx.callbackQuery.message && "photo" in ctx.callbackQuery.message) {
       await ctx.editMessageMedia(
         {
-          type: "animation",
-          media: animUrl,
+          type: "photo",
+          media: photoUrl,
           caption: `📂 <b>Тема: ${escapeHtml(categoryName)}</b>\n\n${formatted}`,
           parse_mode: "HTML",
         },
         { reply_markup: keyboard }
       );
     } else {
-      if (msg) {
+      // Delete selection message and reply with photo
+      if (ctx.callbackQuery.message) {
         try {
           await ctx.deleteMessage();
         } catch {}
       }
-      await ctx.replyWithAnimation(animUrl, {
+      await ctx.replyWithPhoto(photoUrl, {
         caption: `📂 <b>Тема: ${escapeHtml(categoryName)}</b>\n\n${formatted}`,
         parse_mode: "HTML",
         reply_markup: keyboard,
