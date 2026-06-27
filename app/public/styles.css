@@ -183,12 +183,16 @@ body::after {
 .results-grid .entry > * { position: relative; z-index: 1; }   /* keep text above the reveal */
 .results-grid .entry::after {
   content: ""; position: absolute; inset: 0; z-index: 0; pointer-events: none;
-  background: var(--card-motif, var(--emb-a)) left top repeat;
+  /* Longhand (NOT the `background` shorthand): a var() that resolves to a long
+     %-encoded data-URI breaks shorthand parsing and drops the whole background. */
+  background-image: var(--card-motif, var(--emb-a));
+  background-repeat: repeat;            /* tile the motif in 2D */
+  background-position: 0 0;
   opacity: 0; transition: opacity .3s ease;
-  -webkit-mask-image: radial-gradient(circle 7rem at var(--mx, 50%) var(--my, 50%), #000, rgba(0,0,0,.35) 48%, transparent 72%);
-          mask-image: radial-gradient(circle 7rem at var(--mx, 50%) var(--my, 50%), #000, rgba(0,0,0,.35) 48%, transparent 72%);
+  -webkit-mask-image: radial-gradient(circle 7rem at var(--mx, 50%) var(--my, 50%), #000, rgba(0,0,0,.4) 50%, transparent 74%);
+          mask-image: radial-gradient(circle 7rem at var(--mx, 50%) var(--my, 50%), #000, rgba(0,0,0,.4) 50%, transparent 74%);
 }
-.results-grid .entry:hover::after { opacity: .5; }
+.results-grid .entry:hover::after { opacity: .6; }
 @media (prefers-reduced-motion: reduce) { .results-grid .entry::after { display: none; } }
 .entry {
   display: grid; grid-template-columns: 4.5rem minmax(0, 1fr); gap: 0 1.2rem; align-items: baseline;
