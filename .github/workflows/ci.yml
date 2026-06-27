@@ -11,6 +11,11 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: false
 
+# Least-privilege default — no job needs more than read (deploy authenticates
+# to Cloudflare with its own API token, not GITHUB_TOKEN).
+permissions:
+  contents: read
+
 jobs:
   test:
     name: Build & test
@@ -29,9 +34,24 @@ jobs:
       - run: node build.mjs
       - run: npx vitest run
 
+  pytest:
+    name: Data pipeline tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+      - run: pip install -r requirements.txt
+      - run: python -m pytest -q
+
   deploy:
     name: Deploy to Cloudflare
-    needs: test
+    needs: [test, pytest]
     # Only deploy real pushes to main — never PRs.
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
