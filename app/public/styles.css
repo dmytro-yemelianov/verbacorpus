@@ -757,3 +757,7 @@ body.swipe-open { overflow: hidden; }
 .entry-card-btn::before  { width: calc(9 * var(--emb-stitch)); height: calc(9 * var(--emb-stitch)); background-image: var(--ico-image); }
 .entry-save::before      { width: calc(7 * var(--emb-stitch)); height: calc(6 * var(--emb-stitch)); background-image: var(--ico-heart); opacity: .38; transition: opacity .12s; }
 .entry-save.on::before   { opacity: 1; }
+
+/* willow logo mark (pixel-art) */
+.topbar-brand .brandmark { width: auto; height: 1.55em; flex: none; }
+.wordmark .brandmark { width: auto; height: 1.15em; flex: none; vertical-align: -0.15em; }
