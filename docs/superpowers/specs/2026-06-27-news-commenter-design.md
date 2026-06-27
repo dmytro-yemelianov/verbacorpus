@@ -50,12 +50,12 @@ subjective "does this proverb fit" question — no sentiment model needed.
   - `fetchRss(url): Promise<NewsItem[]>` — fetch + parse RSS XML.
   - `fetchTgChannel(name): Promise<NewsItem[]>` — fetch `t.me/s/<name>`, parse posts.
   - `gatherNews(env): Promise<NewsItem[]>` — fan out all sources, normalize, sort newest-first, swallow per-source errors.
-  - `pickUnseen(items, kv)` — first item whose `id` is not in `NEWS_KV`.
+  - `pickUnseen(items, kv, n)` — up to `n` newest items whose `id` is not in `NEWS_KV` (batch; `NEWS_BATCH = 3`).
 - **Matcher** — a small helper (in `news.ts` or reused from the semantic handler) returning the top-5 proverb ids for a news title.
 - **Draft + approval** (in `telegram.ts`):
-  - On draft: store `Draft { newsTitle, link, source, proverbIds[5] }` in `NEWS_KV` under a short `draftId` (TTL 24h); DM the admin.
+  - On draft (for each item in the batch): mark the news `id` seen (TTL 7d) **at draft time** so later ticks don't re-DM it, store `Draft { newsTitle, link, source, proverbIds[5] }` in `NEWS_KV` under a short `draftId` (TTL 24h), and DM the admin one message per item.
   - Inline buttons carry callback data `news:<draftId>:<n>` (n = 1..5) and `news:<draftId>:skip`.
-  - Callback handler (admin-gated): on `n`, render proverb-n's animated card, post to the channel, mark the news `id` seen (TTL 7d), delete the draft, edit the DM to "✅ Опубліковано"; on `skip`, mark seen and edit to "⏭ Пропущено".
+  - Callback handler (admin-gated): on `n`, render proverb-n's animated card, post to the channel, delete the draft, edit the DM to "✅ Опубліковано"; on `skip`, delete the draft and edit to "⏭ Пропущено". (`seen` is already set from draft time.)
 - **Triggers** (in `index.ts`):
   - **Cron:** add news slots; `scheduled()` branches on `event.cron` (existing `0 9 * * *` daily-proverb vs the news slots).
   - **`/news` command:** admin-only; runs one draft cycle on demand.
@@ -64,23 +64,25 @@ subjective "does this proverb fit" question — no sentiment model needed.
 
 | Key | Value | TTL |
 |---|---|---|
-| `seen:<newsId>` | `"1"` | 7 days |
+| `seen:<newsId>` | `"1"` (set at draft time) | 7 days |
 | `draft:<draftId>` | JSON `Draft` | 24 hours |
 
 KV chosen over D1/DO: only need small TTL'd key lookups (dedup) and a transient draft
-payload. No-storage would re-draft the same news every tick.
+payload. No-storage would re-draft the same news every tick. `seen` is set when an item
+is drafted (not when approved) so a batch of pending DMs is never re-sent on the next tick.
 
 ## Data flow
 
 ```
 cron (every 3h, 08–22 Kyiv)  OR  /news (admin)
   → gatherNews()  [RSS + t.me/s previews]
-  → pickUnseen()  [skip seen:<id>]
+  → pickUnseen(n = NEWS_BATCH=3)  [skip seen:<id>, newest first]
   → none? → (cron: silent; /news: "немає свіжих новин") and stop
-  → embed title → Vectorize → top-5 proverbs
-  → store draft:<id>; DM admin: 📰 headline + link + numbered proverbs + [1..5][⏭]
-  → admin taps n → sendAnimation(channel, card) with caption (news-led) → seen:<id>; edit DM ✅
-  → admin taps skip → seen:<id>; edit DM ⏭
+  → for each of the (≤3) items:
+       embed title → Vectorize → top-5 proverbs
+       set seen:<id>; store draft:<id>; DM admin: 📰 headline + link + numbered proverbs + [1..5][⏭]
+  → admin taps n    → sendAnimation(channel, card) with caption (news-led); delete draft; edit DM ✅
+  → admin taps skip → delete draft; edit DM ⏭
 ```
 
 ## Channel post format (news-led)
@@ -132,7 +134,8 @@ is the post target (already a secret).
 - No unseen news → cron: silent; `/news`: "немає свіжих новин".
 - `AI`/`VECTORIZE` unavailable → skip the cycle with a logged warning (no DM).
 - Expired/missing draft on callback → answerCallbackQuery "draft застарів".
-- Channel send failure → edit DM to an error note; do **not** mark seen (allow retry).
+- Channel send failure → edit DM to an error note but **keep the draft** (don't delete) so the admin can re-tap to retry.
+- `/news` returns the count drafted (e.g. "надіслано 3 чернетки"); each draft is its own DM.
 
 ## Testing
 
