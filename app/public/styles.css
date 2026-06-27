@@ -759,5 +759,7 @@ body.swipe-open { overflow: hidden; }
 .entry-save.on::before   { opacity: 1; }
 
 /* willow logo mark (pixel-art) */
-.topbar-brand .brandmark { width: auto; height: 1.55em; flex: none; }
-.wordmark .brandmark { width: auto; height: 1.15em; flex: none; vertical-align: -0.15em; }
+/* willow mark renders from a tight (non-square) SVG, so square pixels match the
+   masthead/embroidery scale; topbar mark enlarged so its stitches read at site scale. */
+.topbar-brand .brandmark { width: auto; height: 3.4rem; flex: none; }
+.wordmark .brandmark { width: auto; height: 0.93em; flex: none; vertical-align: -0.08em; }
