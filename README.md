@@ -114,7 +114,6 @@ python -m pytest     # run the test suite
 ```
 
 ## Known limitations
-- `sources.csv` carries `Citationkey, Title, Year, Author` only — the upstream source files provide no BibTeX/Year/Author metadata, so BibTeX output (mentioned in the spec) is omitted for lack of source data; Year and Author were added by hand where known.
 - Variant groups are link-only (non-destructive): records are grouped by fuzzy similarity (rapidfuzz `token_set_ratio` ≥ 85), never merged; groups larger than 8 are dissolved to curb over-linking. Final: 5064 groups.
 - Categorization is best-effort, single-pass: a quality audit (n=40) found modern_text ~95% acceptable and category tags ~85% acceptable (~15% debatable/wrong, usually secondary tags or themes outside the 27-key vocabulary). The primary category tag is the most reliable.
 
