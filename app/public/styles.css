@@ -151,15 +151,17 @@ a { color: var(--willow); text-underline-offset: 2px; }
   font-size: .7rem; letter-spacing: .14em; text-transform: uppercase; color: var(--faint);
   border-bottom: 1px solid var(--rule); padding-bottom: .5rem; margin-bottom: .3rem; font-weight: 600;
 }
-/* Result cards flow into adaptive rows: as many columns as fit at ~21rem each,
-   collapsing to a single column on narrow viewports. */
+/* Result cards flow as a masonry of columns (CSS multi-column): each card stacks
+   directly below the one above it, so columns have no fixed row height / no gaps.
+   As many ~18.5rem columns as fit; a single column on narrow viewports. */
 .results-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 18.5rem), 1fr));
-  gap: clamp(.5rem, 1.4vw, .9rem);
-  align-items: start;
+  columns: 18.5rem;
+  column-gap: clamp(.5rem, 1.4vw, .9rem);
 }
-.results-grid .entry { margin-block: 0; }       /* gap controls spacing in the grid */
+.results-grid .entry {
+  break-inside: avoid;                       /* keep each card whole within its column */
+  margin: 0 0 clamp(.5rem, 1.4vw, .9rem);    /* vertical gap between stacked cards */
+}
 .entry {
   display: grid; grid-template-columns: 4.5rem minmax(0, 1fr); gap: 0 1.2rem; align-items: baseline;
   padding: 1.2rem 1.2rem; border: 1px solid var(--rule); cursor: pointer;
