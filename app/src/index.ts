@@ -6,7 +6,7 @@ import { buildProverbPage, cardModel, dailyIndex } from "./shared/meta";
 import { makeVyshyvankaGif, makeVyshyvankaPng } from "./card-gif";
 import { parseLang, t, hreflangLinks, DEFAULT_LANG } from "./shared/i18n";
 import { fromShort } from "./shared/shortlink";
-import { initBot, formatProverbHtml } from "./telegram";
+import { initBot, formatProverbHtml, draftNews } from "./telegram";
 import { webhookCallback, InlineKeyboard } from "grammy";
 import uk from "../public/i18n/uk.json";
 import en from "../public/i18n/en.json";
@@ -369,12 +369,22 @@ export default {
         if (!res.ok) throw new Error(`Failed to fetch ${p}: ${res.status}`);
         return res.json();
       };
-      
+
       const [proverbs, explanations, meta] = await Promise.all([
         get("/data/proverbs.json") as Promise<Proverb[]>,
         get("/data/explanations.json") as Promise<Record<string, string>>,
         get("/data/meta.json") as Promise<any>,
       ]);
+
+      const host = "verbacorpus.org";
+      const byId = new Map(proverbs.map((p) => [p.id, p]));
+      const bot = initBot(env as any, proverbs, explanations, meta, host);
+
+      if (event.cron !== "0 6 * * *") {
+        const n = await draftNews(bot.api, env, byId, host);
+        console.log(`news cron: drafted ${n}`);
+        return;
+      }
 
       const pool = proverbs.filter((p) => {
         const t = p.text.trim();
@@ -384,10 +394,8 @@ export default {
       const pick = pool[dailyIndex(new Date().toISOString().slice(0, 10), pool.length)] ?? proverbs[0];
       const explanation = explanations[pick.id] || null;
       const formatted = formatProverbHtml(pick, explanation, meta.sources);
-      const host = "verbacorpus.org";
       const photoUrl = `https://${host}/card/${pick.id}.png?format=telegram&lang=uk&v=5`;
 
-      const bot = initBot(env as any, proverbs, explanations, meta, host);
       const keyboard = new InlineKeyboard()
         .url("🔗 Читати на сайті", `https://${host}/p/${pick.id}`);
 
