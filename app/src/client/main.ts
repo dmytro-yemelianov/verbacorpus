@@ -511,7 +511,27 @@ function renderPage() {
     `</div>` +
     (more ? `<button id="moreBtn" class="more-btn" type="button">${esc(tr("more.btn", "Показати ще"))}</button>` : "");
   for (const el of Array.from(document.querySelectorAll<HTMLElement>(".entry"))) {
+    // Each card hides a random рушник motif, surfaced on hover by the cursor light.
+    el.style.setProperty("--card-motif", `var(--emb-${"abc"[(Math.random() * 3) | 0]})`);
     el.addEventListener("click", () => { const p = byId.get(el.dataset.id!); if (p) openDetail(p); });
+  }
+  // Cursor-following light: track the pointer over the results so the radial mask
+  // (--mx/--my) reveals each card's motif near the cursor. Wired once; #results persists.
+  const resultsEl = $("results");
+  if (resultsEl && !resultsEl.dataset.revealWired) {
+    resultsEl.dataset.revealWired = "1";
+    let raf = 0;
+    resultsEl.addEventListener("mousemove", (e) => {
+      const card = (e.target as HTMLElement).closest<HTMLElement>(".entry");
+      if (!card || raf) return;
+      const me = e as MouseEvent;
+      raf = requestAnimationFrame(() => {
+        raf = 0;
+        const r = card.getBoundingClientRect();
+        card.style.setProperty("--mx", `${me.clientX - r.left}px`);
+        card.style.setProperty("--my", `${me.clientY - r.top}px`);
+      });
+    });
   }
   for (const b of Array.from(document.querySelectorAll<HTMLElement>(".entry-share-btn"))) {
     b.addEventListener("click", (e) => {

@@ -167,6 +167,29 @@ a { color: var(--willow); text-underline-offset: 2px; }
    no translate, and don't transition transform. */
 .results-grid .entry { transition: background .18s ease, box-shadow .18s ease, border-color .18s ease; }
 .results-grid .entry:hover { transform: none; }
+
+/* ---- Fixed embroidery stripe pinned to the bottom edge, mirroring the top band ---- */
+body { padding-bottom: calc(var(--emb-a-rows) * var(--emb-stitch)); }
+body::after {
+  content: ""; position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; pointer-events: none;
+  height: calc(var(--emb-a-rows) * var(--emb-stitch));
+  background: var(--emb-a) repeat-x left center / auto 100%;
+}
+
+/* ---- Hover reveal: a hidden cross-stitch motif (random per card) surfaces under a
+   cursor-following pool of light. The radial mask IS the light — it reduces the
+   motif's visibility outward from the cursor. JS sets --card-motif, --mx, --my. ---- */
+.results-grid .entry { overflow: hidden; }
+.results-grid .entry > * { position: relative; z-index: 1; }   /* keep text above the reveal */
+.results-grid .entry::after {
+  content: ""; position: absolute; inset: 0; z-index: 0; pointer-events: none;
+  background: var(--card-motif, var(--emb-a)) left top repeat;
+  opacity: 0; transition: opacity .3s ease;
+  -webkit-mask-image: radial-gradient(circle 7rem at var(--mx, 50%) var(--my, 50%), #000, rgba(0,0,0,.35) 48%, transparent 72%);
+          mask-image: radial-gradient(circle 7rem at var(--mx, 50%) var(--my, 50%), #000, rgba(0,0,0,.35) 48%, transparent 72%);
+}
+.results-grid .entry:hover::after { opacity: .5; }
+@media (prefers-reduced-motion: reduce) { .results-grid .entry::after { display: none; } }
 .entry {
   display: grid; grid-template-columns: 4.5rem minmax(0, 1fr); gap: 0 1.2rem; align-items: baseline;
   padding: 1.2rem 1.2rem; border: 1px solid var(--rule); cursor: pointer;
