@@ -10,6 +10,20 @@ It is **enriched**: every entry carries a modern-spelling rendering and 1–3 th
 A Cloudflare Worker serves a searchable, offline-capable PWA and a JSON REST API over the corpus
 (in `app/`, mirroring the ua-bez-tabu stack). Live: **https://verbacorpus.org**
 
+### Verba Corpus: каталог проєктів
+
+Локально підготовлено спільний каталог `/corpora` і словник **«Українська без табу»**
+(`/bez-tabu/`) з проєкту [ua-bez-tabu](https://github.com/MurzikVasilyevich/ua-bez-tabu).
+Словниковий знімок зберігає 2 000 вихідних рядків, пошук і фільтри працюють у браузері.
+UPA позначений у каталозі як проєкт у підготовці. Стан інтеграції, джерела й перевірки:
+[docs/BEZ-TABU.md](docs/BEZ-TABU.md). Ці зміни ще не розгорнуті на публічному сайті.
+
+```sh
+cd app
+python3 sync_bez_tabu.py ../../ua-bez-tabu  # лише для оновлення знімка
+npm run build                            # звичайна збірка не потребує сусіднього репо
+```
+
 ### REST API (`/api/v1`, multi-format)
 
 Versioned, content-negotiated API — every data endpoint serves **JSON · JSONL · XML · CSV · TSV** via

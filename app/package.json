@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "sync-bez-tabu": "python3 sync_bez_tabu.py",
     "sync-data": ".venv/bin/python build_data.py ../corpus.csv ../enrich/taxonomy.csv ../sources.csv public/data ../corpus.xml",
     "build": "node build.mjs",
     "dev": "wrangler dev",

@@ -1,0 +1,48 @@
+{
+  "initialRows": 2000,
+  "namedTerms": 55,
+  "groups": 12,
+  "unlabelledTerms": 26,
+  "wordRows": 1457,
+  "phraseRows": 543,
+  "pagination": true,
+  "duplicateRowsPreserved": true,
+  "queryUrlReplay": true,
+  "groupFilter": true,
+  "emptyResult": true,
+  "mobile": {
+    "scrollWidth": 390,
+    "width": 390
+  },
+  "corporaCount": 3,
+  "upaPublicLink": false,
+  "englishNav": true,
+  "exports": [
+    {
+      "bytes": 246158,
+      "path": "/bez-tabu/data/synonyms.csv",
+      "status": 200
+    },
+    {
+      "bytes": 515928,
+      "path": "/bez-tabu/data/entries.json",
+      "status": 200
+    },
+    {
+      "bytes": 60793,
+      "path": "/bez-tabu/data/synonyms.json",
+      "status": 200
+    },
+    {
+      "bytes": 532237,
+      "path": "/bez-tabu/data/synonyms.xml",
+      "status": 200
+    },
+    {
+      "bytes": 918,
+      "path": "/bez-tabu/data/provenance.json",
+      "status": 200
+    }
+  ],
+  "consoleExceptions": []
+}

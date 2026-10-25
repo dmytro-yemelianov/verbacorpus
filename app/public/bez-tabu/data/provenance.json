@@ -1,0 +1,15 @@
+{
+  "repository": "https://github.com/MurzikVasilyevich/ua-bez-tabu",
+  "upstreamRevision": "a0955e25ce556c0b621692cf336b05eba8c80cd3",
+  "sourceRevision": "6e5f64a9415618dbe08df076a0899725115178f0",
+  "sourceSha256": "60e56c5e166aa0555a8ee0197a71e518193006ff1dc815756d496b7dcb7582ec",
+  "exporterSha256": "a3137cd63ca4d3b95be08aa57c2640d4aa184a59704b2bba2cd8533e6934e1f2",
+  "files": {
+    "entries.json": "a06aca4f0f71469352783f5227a095b1bc5ef70c282bb157d684a0f492a82600",
+    "synonyms.json": "e893c003bc316842525a59dd9910fbde4d4cd598ccd697e5d691ed4ec300d9c4",
+    "synonyms.csv": "60e56c5e166aa0555a8ee0197a71e518193006ff1dc815756d496b7dcb7582ec",
+    "synonyms.xml": "d42c7d2b91e5220a9427e05232bf299d29c494d8f1fb72a7498e1c5384ddc73b",
+    "audit.json": "af5fa825f9bf1c4189801b54df6bbb918be782262b91c33ffc279efcf09411e6",
+    "LICENSE.txt": "17b7a3040db2e5eb4f55180fdcfa6927eff000d32a93bfbb54444ffe2ab84e48"
+  }
+}

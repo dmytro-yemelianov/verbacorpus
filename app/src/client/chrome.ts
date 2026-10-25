@@ -77,7 +77,7 @@ function localizeNav(): void {
     const href = a.getAttribute("href") || "";
     const isAlreadyLocalized = LANGS.some((l) => href.startsWith("/" + l + "/") || href === "/" + l);
     // Only internal paths starting with / (excluding assets like fonts, css, files, or api)
-    if (href.startsWith("/") && 
+    if (href.startsWith("/") && !a.hasAttribute("data-no-localize") &&
         !isAlreadyLocalized && 
         !href.startsWith("/api/") && 
         !href.endsWith(".css") && 
@@ -137,6 +137,14 @@ function initChrome(): void {
   wireCopyLink();
   localizeNav();
   appendWebsiteVersion();
+  const nav = document.querySelector<HTMLElement>(".topbar-nav");
+  if (nav) {
+    const link = nav.querySelector<HTMLAnchorElement>('[href="/corpora.html"]') || document.createElement("a");
+    link.href = "/corpora.html";
+    link.className = "topbar-link";
+    link.textContent = document.documentElement.lang === "uk" ? "Корпуси" : "Corpora";
+    if (!link.parentNode) nav.insertBefore(link, nav.firstChild);
+  }
 }
 
 // Auto-render when present in the DOM (covers both the SPA and the static pages).
