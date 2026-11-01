@@ -12,6 +12,9 @@ A Cloudflare Worker serves a searchable, offline-capable PWA and a JSON REST API
 
 ### Verba Corpus: каталог проєктів
 
+Хендовер парасольки, стан публічних адрес і порядок завершення інтеграції:
+[docs/CORPORA-HANDOVER.md](docs/CORPORA-HANDOVER.md) (перевірено 2026-11-01).
+
 Локально підготовлено спільний каталог `/corpora` і словник **«Українська без табу»**
 (`/bez-tabu/`) з проєкту [ua-bez-tabu](https://github.com/MurzikVasilyevich/ua-bez-tabu).
 Словниковий знімок зберігає 2 000 вихідних рядків, пошук і фільтри працюють у браузері.
