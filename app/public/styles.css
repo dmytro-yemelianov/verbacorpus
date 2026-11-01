@@ -770,3 +770,9 @@ body.swipe-open { overflow: hidden; }
    masthead/embroidery scale; topbar mark enlarged so its stitches read at site scale. */
 .topbar-brand .brandmark { width: auto; height: 3.4rem; flex: none; }
 .wordmark .brandmark { width: auto; height: 0.93em; flex: none; vertical-align: -0.08em; }
+
+/* Compact links between Verba directions on corpus and documentation pages. */
+.direction-menu { position:relative; }
+.direction-menu summary { cursor:pointer; }
+.direction-menu>div { position:absolute; right:0; top:calc(100% + .8rem); z-index:60; min-width:11rem; display:grid; gap:.7rem; background:var(--paper); border:1px solid var(--rule); padding:1rem; box-shadow:0 8px 24px #0002; }
+.direction-menu:not([open])>div { display:none; }

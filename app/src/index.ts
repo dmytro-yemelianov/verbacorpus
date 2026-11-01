@@ -6,6 +6,7 @@ import { buildProverbPage, cardModel, dailyIndex } from "./shared/meta";
 import { makeVyshyvankaGif, makeVyshyvankaPng } from "./card-gif";
 import { parseLang, t, hreflangLinks, DEFAULT_LANG } from "./shared/i18n";
 import { fromShort } from "./shared/shortlink";
+import { directionRoute } from "./shared/directions";
 import { initBot, formatProverbHtml, draftNews } from "./telegram";
 import { webhookCallback, InlineKeyboard } from "grammy";
 import uk from "../public/i18n/uk.json";
@@ -102,7 +103,16 @@ export default {
       const { lang, rest } = parseLang(url.pathname);
       // /uk or /uk/... → 301 canonical (unprefixed)
       if (/^\/uk(\/|$)/.test(url.pathname)) {
-        return Response.redirect(`https://${url.host}${rest}${url.search}`, 301);
+        return Response.redirect(new URL(rest + url.search, url).href, 301);
+      }
+      const direction = directionRoute(url, lang, rest, request.method);
+      if (direction) {
+        if ("redirect" in direction) return Response.redirect(new URL(direction.redirect, url).href, 307);
+        const asset = new URL(direction.asset, url);
+        const response = await env.ASSETS.fetch(new Request(asset, request));
+        return direction.translateProverbs && lang !== DEFAULT_LANG && response.ok
+          ? translateHtml(response, lang, "/pro/", url.host)
+          : response;
       }
       const raw0 = url.pathname;
       // short-link route: /s/<n> → 301 /p/p000NNN
@@ -111,7 +121,7 @@ export default {
         const { meta } = await load(env);
         const id = fromShort(sMatch[1], meta.count);
         if (!id) return new Response("Not found", { status: 404 });
-        return Response.redirect(`https://${url.host}/p/${id}`, 301);
+        return Response.redirect(new URL(`/p/${id}`, url).href, 301);
       }
       // social-card routes (need the corpus) — match on rest for /p/, raw0 for /card/
       if (rest.startsWith("/p/") || raw0.startsWith("/card/")) {

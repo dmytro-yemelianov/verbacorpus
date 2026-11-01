@@ -139,11 +139,30 @@ function initChrome(): void {
   appendWebsiteVersion();
   const nav = document.querySelector<HTMLElement>(".topbar-nav");
   if (nav) {
-    const link = nav.querySelector<HTMLAnchorElement>('[href="/corpora.html"]') || document.createElement("a");
-    link.href = "/corpora.html";
+    const link = nav.querySelector<HTMLAnchorElement>('[href="/corpora.html"], [href="/corpora"]') || document.createElement("a");
+    link.href = "/corpora";
+    link.setAttribute("data-no-localize", "");
     link.className = "topbar-link";
     link.textContent = document.documentElement.lang === "uk" ? "Корпуси" : "Corpora";
     if (!link.parentNode) nav.insertBefore(link, nav.firstChild);
+    const menu = document.createElement("details");
+    menu.className = "direction-menu";
+    const summary = document.createElement("summary");
+    summary.className = "topbar-link";
+    summary.textContent = document.documentElement.lang === "uk" ? "Напрями" : "Directions";
+    menu.appendChild(summary);
+    const items = document.createElement("div");
+    menu.appendChild(items);
+    for (const prefix of ["pro", "contra", "re", "para", "non"]) {
+      const item = document.createElement("a");
+      item.href = prefix === "pro" ? `${(window as any).__LANG__ && (window as any).__LANG__ !== "uk" ? "/" + (window as any).__LANG__ : ""}/pro/` : `/${prefix}/`;
+      item.className = "topbar-link";
+      item.dataset.direction = prefix;
+      item.setAttribute("data-no-localize", "");
+      item.textContent = `${prefix}.verba`;
+      items.appendChild(item);
+    }
+    if (!nav.querySelector(".direction-menu")) nav.appendChild(menu);
   }
 }
 

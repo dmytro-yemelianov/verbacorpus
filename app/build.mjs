@@ -12,6 +12,10 @@ try {
 await mkdir("public/data", { recursive: true });
 await import("./build_corpora.mjs");
 await build({
+  entryPoints: ["src/client/umbrella.ts"], bundle: true, minify: true,
+  format: "esm", target: ["es2022"], outfile: "public/umbrella.js",
+});
+await build({
   entryPoints: ["src/client/bez-tabu.ts"],
   bundle: true, minify: true, sourcemap: true,
   format: "esm", target: ["es2022"],

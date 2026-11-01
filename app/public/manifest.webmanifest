@@ -1,7 +1,7 @@
 {
-  "name": "verba — українські прислів'я та приказки",
-  "short_name": "verba",
-  "start_url": "/",
+  "name": "pro.verba — українські прислів’я та приказки",
+  "short_name": "pro.verba",
+  "start_url": "/pro/",
   "display": "standalone",
   "background_color": "#f4f1e8",
   "theme_color": "#5e7355",

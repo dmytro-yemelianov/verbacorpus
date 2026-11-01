@@ -9,7 +9,9 @@
     "build": "node build.mjs",
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
-    "test": "vitest run"
+    "test": "npm run test:catalog && vitest run",
+    "sync-corpora": "python3 sync_corpora.py",
+    "test:catalog": "node --test test-catalog/*.test.mjs"
   },
   "dependencies": {
     "gifenc": "^1.0.3",
