@@ -13,12 +13,20 @@ focuses on interactions, source fidelity and avoiding repeated data/bitmap work.
 
 | Interaction or operation | Before | After |
 |---|---:|---:|
-| Eight specimen zoom input events | 8 glyph requests | 0 requests |
-| Five theme repaint events | 5 glyph requests | 0 requests |
+| Eight specimen zoom input events | 8 glyph fetch calls | 0 requests |
+| Five theme repaint events | 5 glyph fetch calls | 0 requests |
 | Four actual light/dark toggles | not separately measured | 0 requests |
-| Next/previous 32-glyph page within cached 128-glyph source page | requests for each page | 0 requests |
+| Next/previous 32-glyph page within cached 128-glyph source page | fetch calls for each page | 0 requests |
 | Seven rapid search edits ending in `ibm cga` | submit-only search; phrase had no matches | 1 debounced catalog request, 5 results |
 | Eight warm specimen zoom steps | pixel-by-pixel redraw | 0 pixel fill calls, 280 cached image draws |
+
+Fetch-call counts are not wire roundtrip counts. A follow-up check against the old
+pinned preview confirmed warm zoom responses with `transferSize: 0` (HTTP cache
+hits). The change removes fetch/abort/JSON-parse work and repaint decoding even
+when the browser would have served that data from cache; it does not claim eight
+saved network roundtrips. Loading immutable 128-glyph pages may transfer more
+cold glyph data than a small REST projection, in exchange for reuse during text
+editing, glyph navigation and later selections. No complete font raster is fetched.
 
 The client now separates selection, immutable data loading, specimen painting and
 glyph inspection. A four-slot queue deduplicates reads shared by the specimen and
