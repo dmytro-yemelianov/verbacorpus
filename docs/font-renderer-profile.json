@@ -1,0 +1,34 @@
+{
+  "baseline": "80f70b7",
+  "node": "v25.9.0",
+  "platform": "darwin",
+  "arch": "arm64",
+  "rounds": 9,
+  "iterations": 30,
+  "results": [
+    {
+      "id": "texted-bios_8x8",
+      "glyphs": 128,
+      "beforeMs": 0.17114446666666652,
+      "afterMs": 0.027323633333333913,
+      "speedup": 6.2636057430135414,
+      "identicalPixels": true
+    },
+    {
+      "id": "hoard-oberon-letterhead-300dpi",
+      "glyphs": 19,
+      "beforeMs": 8.547023599999996,
+      "afterMs": 1.750947233333333,
+      "speedup": 4.881371315644253,
+      "identicalPixels": true
+    },
+    {
+      "id": "hoard-nec-pc-nec-pc9821-kanji-16x16",
+      "glyphs": 128,
+      "beforeMs": 0.606348599999986,
+      "afterMs": 0.0900985999999951,
+      "speedup": 6.729833759903251,
+      "identicalPixels": true
+    }
+  ]
+}

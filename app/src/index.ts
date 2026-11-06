@@ -1,3 +1,4 @@
+import { paraRoute } from "./para/router";
 import { searchProverbs, randomProverb, queryProverbs, type Proverb } from "./shared/corpus";
 import { mapMatches, type Match } from "./shared/semantic";
 import { negotiate, serialize, type Format, type Rec } from "./shared/serialize";
@@ -99,6 +100,8 @@ function translateHtml(res: Response, lang: string, rest: string, host: string):
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     try {
+      const fontResponse = await paraRoute(request, env.ASSETS);
+      if (fontResponse) return fontResponse;
       const url = new URL(request.url);
       const { lang, rest } = parseLang(url.pathname);
       // /uk or /uk/... → 301 canonical (unprefixed)

@@ -1,0 +1,472 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "para.verba font corpus",
+    "version": "2.0.0"
+  },
+  "servers": [
+    {
+      "url": "/para/api/v2"
+    }
+  ],
+  "paths": {
+    "/": {
+      "get": {
+        "description": "API discovery and corpus manifest",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid argument"
+          },
+          "404": {
+            "description": "Unknown ID"
+          },
+          "409": {
+            "description": "Changed snapshot"
+          }
+        }
+      }
+    },
+    "/manifest": {
+      "get": {
+        "description": "Pinned snapshot, source revisions and counts",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid argument"
+          },
+          "404": {
+            "description": "Unknown ID"
+          },
+          "409": {
+            "description": "Changed snapshot"
+          }
+        }
+      }
+    },
+    "/schema.json": {
+      "get": {
+        "description": "Para Font Interchange JSON Schema",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid argument"
+          },
+          "404": {
+            "description": "Unknown ID"
+          },
+          "409": {
+            "description": "Changed snapshot"
+          }
+        }
+      }
+    },
+    "/licenses": {
+      "get": {
+        "description": "License IDs and corpus attribution notice",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid argument"
+          },
+          "404": {
+            "description": "Unknown ID"
+          },
+          "409": {
+            "description": "Changed snapshot"
+          }
+        }
+      }
+    },
+    "/fonts": {
+      "get": {
+        "description": "Paginated font summaries; glyphs are loaded separately",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid argument"
+          },
+          "404": {
+            "description": "Unknown ID"
+          },
+          "409": {
+            "description": "Changed snapshot"
+          }
+        },
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "availability",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "ukrainian",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "license",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "collection",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "snapshot",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 100000
+            }
+          },
+          {
+            "name": "spacing",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "monospace",
+                "proportional"
+              ]
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "id",
+                "name",
+                "width",
+                "height",
+                "glyphs",
+                "ukrainian"
+              ]
+            }
+          },
+          {
+            "name": "width",
+            "in": "query",
+            "description": "Exact native cell size in pixels",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 4096
+            }
+          },
+          {
+            "name": "height",
+            "in": "query",
+            "description": "Exact native cell size in pixels",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 4096
+            }
+          }
+        ]
+      }
+    },
+    "/fonts/{id}": {
+      "get": {
+        "description": "Complete canonical native font record",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "https://verbacorpus.org/para/api/v2/schema.json"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid argument"
+          },
+          "404": {
+            "description": "Unknown ID"
+          },
+          "409": {
+            "description": "Changed snapshot"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/fonts/{id}/glyphs": {
+      "get": {
+        "description": "Native glyph page or requested characters, without substitution",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid argument"
+          },
+          "404": {
+            "description": "Unknown ID"
+          },
+          "409": {
+            "description": "Changed snapshot"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "chars",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 256,
+              "default": 128
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 65536
+            }
+          }
+        ]
+      }
+    },
+    "/fonts/{id}/glyphs/{codepoint}": {
+      "get": {
+        "description": "One native glyph by Unicode scalar (U+0490) or stable ID (g000000). Unmapped glyphs are accessible by ID.",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid argument"
+          },
+          "404": {
+            "description": "Unknown ID"
+          },
+          "409": {
+            "description": "Changed snapshot"
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "codepoint",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ]
+      }
+    },
+    "/export": {
+      "get": {
+        "description": "Stream every canonical record as NDJSON",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/x-ndjson": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "One Para Font Interchange object per line"
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid argument"
+          },
+          "404": {
+            "description": "Unknown ID"
+          },
+          "409": {
+            "description": "Changed snapshot"
+          }
+        }
+      }
+    },
+    "/graphql": {
+      "post": {
+        "description": "Read-only GraphQL using the same records; schema at /para/graphql/schema.graphql",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "query"
+                ],
+                "properties": {
+                  "query": {
+                    "type": "string"
+                  },
+                  "variables": {
+                    "type": "object"
+                  },
+                  "operationName": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "GraphQL result, possibly with field errors"
+          },
+          "400": {
+            "description": "Invalid or excessive query"
+          },
+          "413": {
+            "description": "Body exceeds 32 KiB"
+          }
+        }
+      }
+    },
+    "/facets": {
+      "get": {
+        "description": "Collection, license and native cell dimension values with complete catalog counts",
+        "responses": {
+          "200": {
+            "description": "Facet counts and pinned snapshot"
+          }
+        }
+      }
+    }
+  }
+}

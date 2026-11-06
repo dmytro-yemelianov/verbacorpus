@@ -47,9 +47,9 @@
     "description": "Як виглядає українська мова. Растрові шрифти, точні гліфи й перевірка покриття української абетки.",
     "href": "/para/",
     "domain": "para.verbacorpus.org",
-    "status": "Зразок Nasinnia у перегляді",
+    "status": "Повний каталог · REST і GraphQL",
     "repository": null,
-    "stats": "321 растровий набір у Nasinnia · 1 з повною українською абеткою"
+    "stats": "2 266 записів · 2266 растрових · REST і GraphQL"
   },
   {
     "id": "upa",

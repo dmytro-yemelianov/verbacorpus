@@ -1,8 +1,23 @@
 {
   "compilerOptions": {
-    "target": "es2022", "module": "es2022", "moduleResolution": "bundler",
-    "lib": ["es2022", "dom", "dom.iterable"], "strict": true,
-    "skipLibCheck": true, "types": [], "noEmit": true
+    "target": "es2022",
+    "module": "es2022",
+    "moduleResolution": "bundler",
+    "lib": [
+      "es2022",
+      "dom",
+      "dom.iterable"
+    ],
+    "strict": true,
+    "skipLibCheck": true,
+    "types": [],
+    "noEmit": true
   },
-  "include": ["src/client/bez-tabu.ts", "src/shared/bez-tabu.ts", "src/client/umbrella.ts", "src/shared/directions.ts"]
+  "include": [
+    "src/client/bez-tabu.ts",
+    "src/shared/bez-tabu.ts",
+    "src/client/umbrella.ts",
+    "src/shared/directions.ts",
+    "src/client/para.ts"
+  ]
 }

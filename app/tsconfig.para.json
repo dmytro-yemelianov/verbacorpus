@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "resolveJsonModule": true,
+    "lib": [
+      "es2022"
+    ]
+  },
+  "include": [
+    "src/para/**/*.ts"
+  ]
+}

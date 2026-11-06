@@ -11,11 +11,14 @@
     "deploy": "wrangler deploy",
     "test": "npm run test:catalog && vitest run",
     "sync-corpora": "python3 sync_corpora.py",
-    "test:catalog": "node --test test-catalog/*.test.mjs"
+    "test:catalog": "node --test test-catalog/*.test.mjs",
+    "sync:fonts": "node sync_fonts.mjs",
+    "verify:fonts": "node verify_fonts.mjs"
   },
   "dependencies": {
     "gifenc": "^1.0.3",
     "grammy": "^1.44.0",
+    "graphql": "16.15.0",
     "minisearch": "^7.1.0",
     "qrcode-generator": "^1.5.2",
     "upng-js": "^2.1.0",
@@ -24,6 +27,7 @@
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "^0.9.6",
     "@cloudflare/workers-types": "^4.20260626.1",
+    "ajv": "8.20.0",
     "esbuild": "^0.25.10",
     "typescript": "^5.9.3",
     "vitest": "~3.2.4",

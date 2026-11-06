@@ -22,7 +22,7 @@ A Cloudflare Worker serves a searchable, offline-capable PWA and a JSON REST API
 | **pro.verba** | `/pro/` | 48 787 прислів’їв, пошук, наявний API і картки |
 | **contra.verba** | `/contra/` | «Українська без табу»: 2 000 рядків, пошук, фільтри й граф |
 | **re.verba** | `/re/` | Редакційний напрям із вже опублікованими статтями |
-| **para.verba** | `/para/` | Nasinnia: перевірений український растровий зразок Cozette |
+| **para.verba** | `/para/` | Nasinnia: повний каталог, формат обміну, REST і GraphQL |
 | **non.verba** | `/non/` | Метадані 167 орнаментів UPA і 12 авторських іконок 16×16 |
 
 Для іконок доступні SVG, PNG, JSON-матриці та SVG-спрайт. Шрифтовий зразок
@@ -167,3 +167,12 @@ verba is a non-commercial, open-data project — the site, API, and Telegram bot
 - Variant groups: 5064 (2638 contain Nomis variants linked to other sources)
 - Per source: Franko1901 30906, Nomis1864 9785, Bobkova 5613, Ilkevich1841 2702, Mlodzynskyi2009 2261
 - Top categories: emotion_mood, idiom_expressive, wisdom_folly, work_labor, animals
+
+### para.verba font corpus
+
+All 2,266 font records now have actual rasters: 583,824 glyphs in Para Font
+Interchange 2.0.0, available through `/para/api/v2`, GraphQL and a streamed,
+sharded NDJSON export. The corpus preserves native dimensions, bearings,
+advances, source labels and original notices. Unmapped glyphs remain accessible
+by stable native IDs. No metadata-only placeholders remain; license status is
+tracked separately. See the [corpus contract and verification](docs/PARA-FONT-CORPUS.md).
