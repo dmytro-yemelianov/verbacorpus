@@ -317,3 +317,14 @@ npm test
 - статистика і статус кожного корпусу відповідають його фактичній версії;
 - новинний cron вимкнений, а прислів’я дня не вимкнене випадково;
 - UPA має адресу, атрибуцію та посилання на походження після публікації.
+
+## Десктопний редактор гліфів — 6 листопада 2026
+
+`desktop/glyph-editor/` містить локальний AppKit/WKWebView-застосунок macOS 14+.
+Окремий native bridge читає pinned корпус і атомарно зберігає перешрифтові
+правки/прогрес у Application Support. Вихідні assets не перезаписуються.
+JS-модель підтримує пікселі, undo/redo, нові Unicode-гліфи, копіювання основи,
+перегляд і експорт похідних Para 2.0 JSON зі збереженням ліцензій/походження.
+Є native store self-test, справжній WKWebView smoke з close/save barrier,
+вісім модельних Node-тестів і desktop typecheck у CI. Докладно:
+[desktop/glyph-editor/README.md](../desktop/glyph-editor/README.md).

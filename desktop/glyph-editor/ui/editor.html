@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="uk">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Verba · редактор гліфів</title>
+    <link rel="stylesheet" href="editor.css" />
+    <script defer src="editor.js"></script>
+  </head>
+  <body>
+    <header class="top">
+      <strong
+        ><span class="brand">para.</span>verba
+        <small>редактор гліфів</small></strong
+      >
+      <div class="top-actions">
+        <span id="save-status" role="status">Відкриття корпусу…</span
+        ><button id="save">Зберегти <kbd>⌘S</kbd></button
+        ><button id="export">Експорт шрифту</button
+        ><button id="export-all">Експорт усіх правок</button
+        ><button id="project">Папка правок ↗</button>
+      </div>
+    </header>
+    <div id="error" role="alert" hidden></div>
+    <div class="workspace">
+      <aside class="library">
+        <h1>Бібліотека <span id="font-total"></span></h1>
+        <label
+          >Пошук шрифтів<input
+            id="search"
+            type="search"
+            placeholder="IBM CGA, Amiga…"
+            autocomplete="off"
+        /></label>
+        <div class="two">
+          <label
+            >Колекція<select id="collection">
+              <option value="">Усі</option>
+              <option>hoard</option>
+              <option>nasinnia</option>
+              <option>texted</option>
+            </select></label
+          ><label
+            >Черга<select id="font-filter">
+              <option value="all">Усі шрифти</option>
+              <option value="pending">Не переглянуті</option>
+              <option value="ua">Бракує українських</option>
+              <option value="changed">З правками</option>
+              <option value="done">Переглянуті</option>
+            </select></label
+          >
+        </div>
+        <p id="library-count" class="muted"></p>
+        <div
+          id="font-list"
+          class="font-list"
+          role="listbox"
+          aria-label="Шрифти"
+        >
+          <div id="font-list-inner"></div>
+        </div>
+        <div class="library-footer">
+          <div class="two">
+            <button id="font-prev">← Шрифт</button
+            ><button id="font-next">Шрифт →</button>
+          </div>
+          <button id="font-done" class="primary">
+            Шрифт переглянуто → <kbd>⌘↵</kbd></button
+          ><span id="overall" class="muted"></span>
+        </div>
+      </aside>
+      <main>
+        <section class="font-heading">
+          <div>
+            <p class="eyebrow" id="font-source">Локальний корпус</p>
+            <h2 id="font-name">Завантаження…</h2>
+            <p id="font-meta" class="muted"></p>
+          </div>
+          <label
+            >Черга гліфів<select id="mode">
+              <option value="ukrainian">Українська абетка · 66</option>
+              <option value="all" selected>Усі вихідні гліфи</option>
+              <option value="unmapped">Без Unicode</option>
+              <option value="changed">Змінені / додані</option>
+            </select></label
+          >
+        </section>
+        <div class="work-controls">
+          <div>
+            <button id="previous" aria-label="Попередній гліф">←</button
+            ><button id="next" aria-label="Наступний гліф">→</button
+            ><button id="review" class="primary">
+              Переглянуто → <kbd>↵</kbd></button
+            ><label class="inline"
+              ><input id="unreviewed" type="checkbox" />Лише
+              непереглянуті</label
+            >
+          </div>
+          <form id="jump">
+            <input
+              id="lookup"
+              aria-label="Перейти до гліфа"
+              placeholder="Ґ / U+0490 / g000123"
+              autocomplete="off"
+            /><button>Перейти</button>
+          </form>
+        </div>
+        <div class="editing">
+          <section class="drawing">
+            <div class="canvas-toolbar">
+              <div>
+                <button id="pencil" class="selected">
+                  Олівець <kbd>B</kbd></button
+                ><button id="eraser">Гумка <kbd>E</kbd></button
+                ><button id="undo">↶ <kbd>⌘Z</kbd></button
+                ><button id="redo">↷</button>
+              </div>
+              <div>
+                <label class="inline"
+                  >Вигляд
+                  <select id="view">
+                    <option value="edit">Правка</option>
+                    <option value="original">Оригінал</option>
+                    <option value="diff">Різниця</option>
+                  </select></label
+                ><label class="inline"
+                  ><input id="grid" type="checkbox" checked />Сітка</label
+                ><button id="fit">Умістити</button
+                ><label class="inline"
+                  >Масштаб
+                  <input
+                    id="zoom"
+                    type="range"
+                    min="1"
+                    max="64"
+                    value="32"
+                  /><output id="zoom-value">32×</output></label
+                >
+              </div>
+            </div>
+            <div
+              id="canvas-stage"
+              tabindex="0"
+              role="group"
+              aria-label="Піксельний редактор. Ліва кнопка малює, права стирає."
+            >
+              <canvas
+                id="canvas"
+                width="1"
+                height="1"
+                aria-label="Редагований гліф"
+              ></canvas>
+              <p id="empty">Виберіть гліф у черзі</p>
+            </div>
+            <div class="canvas-footer">
+              <span id="glyph-title"></span
+              ><span id="coordinates" class="muted"
+                >ЛКМ — малювати · ПКМ — стирати</span
+              >
+            </div>
+          </section>
+          <aside class="inspector">
+            <p class="eyebrow">Гліф</p>
+            <h3 id="character">—</h3>
+            <p id="glyph-meta" class="muted"></p>
+            <div class="previews">
+              <figure>
+                <canvas id="original-preview"></canvas>
+                <figcaption>Оригінал</figcaption>
+              </figure>
+              <figure>
+                <canvas id="edited-preview"></canvas>
+                <figcaption>Правка</figcaption>
+              </figure>
+            </div>
+            <label
+              >Взяти за основу<input
+                id="copy-from"
+                placeholder="Г / U+0413 / g000030" /></label
+            ><button id="copy">Скопіювати гліф</button>
+            <div class="transform">
+              <button
+                data-transform="left"
+                title="Зсув обрізає пікселі на краю"
+              >
+                ←</button
+              ><button data-transform="up" title="Зсув обрізає пікселі на краю">
+                ↑</button
+              ><button
+                data-transform="down"
+                title="Зсув обрізає пікселі на краю"
+              >
+                ↓</button
+              ><button
+                data-transform="right"
+                title="Зсув обрізає пікселі на краю"
+              >
+                →</button
+              ><button data-transform="flip-x">↔</button
+              ><button data-transform="flip-y">↕</button
+              ><button data-transform="invert">Інверсія</button
+              ><button data-transform="clear">Очистити</button>
+            </div>
+            <details>
+              <summary>Розмір і метрики</summary>
+              <div class="two">
+                <label
+                  >Ширина<input
+                    id="width"
+                    type="number"
+                    min="0"
+                    max="1024" /></label
+                ><label
+                  >Висота<input id="height" type="number" min="0" max="1024"
+                /></label>
+              </div>
+              <button id="resize">Застосувати розмір</button
+              ><label
+                >Крок по горизонталі<input
+                  id="advance"
+                  type="number"
+                  min="0"
+                  max="4096"
+                  step="0.5" /></label
+              ><button id="advance-apply">Застосувати крок</button>
+            </details>
+            <label
+              >Додати Unicode-мапу<input
+                id="mapping"
+                placeholder="Ґ або U+0490" /></label
+            ><button id="map">Додати відповідник</button
+            ><button id="new">Новий гліф для символу</button>
+            <p id="labels" class="muted"></p>
+            <button id="restore">Відновити оригінал</button
+            ><label
+              >Нотатки до шрифту<textarea
+                id="notes"
+                rows="2"
+                maxlength="4000"
+              ></textarea>
+            </label>
+          </aside>
+        </div>
+        <details id="proof-panel" open>
+          <summary>Текстовий зразок з урахуванням правок</summary>
+          <div class="proof-controls">
+            <input
+              id="proof-text"
+              aria-label="Текст для перевірки шрифту"
+              maxlength="120"
+              value="Ґава, їжак і єнот. Є Ґ І Ї"
+            /><span id="proof-status" class="muted"></span>
+          </div>
+          <div id="proof-stage">
+            <canvas
+              id="proof-canvas"
+              width="1"
+              height="1"
+              role="img"
+              aria-label="Зразок шрифту"
+            ></canvas>
+          </div>
+        </details>
+        <section class="queue">
+          <div class="queue-heading">
+            <p id="queue-count" role="status"></p>
+            <div>
+              <button id="page-prev">← Сторінка</button
+              ><button id="page-next">Сторінка →</button>
+            </div>
+          </div>
+          <div id="glyphs" role="group" aria-label="Черга гліфів"></div>
+        </section>
+        <footer>
+          <span id="progress"></span
+          ><span class="muted"
+            >[ / ] — гліфи · PageUp / PageDown — шрифти · ↵ — переглянути й далі
+            · B / E — інструмент · ⌘Z — скасувати</span
+          >
+        </footer>
+      </main>
+    </div>
+  </body>
+</html>
