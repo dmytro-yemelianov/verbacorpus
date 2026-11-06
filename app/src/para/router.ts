@@ -23,6 +23,18 @@ export async function paraRoute(
       path.startsWith("/graphql/"))
   )
     path = "/para" + path;
+  if (path === "/para/api/v1" || path.startsWith("/para/api/v1/")) {
+    const target = new URL(request.url);
+    target.pathname = path.replace("/para/api/v1", "/para/api/v2");
+    return new Response(null, {
+      status: 307,
+      headers: {
+        ...cors,
+        location: target.href,
+        link: '</para/api/v2>; rel="successor-version"',
+      },
+    });
+  }
   const isGraphql = path === "/para/graphql" || path === `${root}/graphql`;
   if (
     !isGraphql &&

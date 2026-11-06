@@ -20,65 +20,105 @@ export function coverage(glyphs) {
   if (glyphs === null)
     return {
       glyphCount: 0,
+      unicodeGlyphCount: 0,
+      unmappedGlyphCount: 0,
       ukrainian: { required: 66, present: null, missing: null, complete: null },
     };
-  const ink = new Set(
-    glyphs
-      .filter((g) => g.rows.some((r) => /[1-9A-F]/.test(r)))
-      .map((g) => g.character),
+  const mapped = glyphs.filter((g) =>
+    (g.labels ?? [{ kind: "unicode", value: g.character }]).some(
+      (l) => l.kind === "unicode",
+    ),
   );
-  const missing = UKRAINIAN.filter((char) => !ink.has(char));
+  const ink = new Set(
+    mapped
+      .filter((g) => g.rows.some((r) => /[1-9A-F]/.test(r)))
+      .flatMap((g) =>
+        (g.labels ?? [{ kind: "unicode", value: g.character }])
+          .filter((l) => l.kind === "unicode")
+          .map((l) => l.value),
+      ),
+  );
+  const missing = UKRAINIAN.filter((c) => !ink.has(c));
   return {
     glyphCount: glyphs.length,
+    unicodeGlyphCount: mapped.length,
+    unmappedGlyphCount: glyphs.length - mapped.length,
     ukrainian: {
       required: 66,
-      present: 66 - missing.length,
-      missing,
-      complete: missing.length === 0,
+      present: mapped.length ? 66 - missing.length : null,
+      missing: mapped.length ? missing : null,
+      complete: mapped.length ? missing.length === 0 : null,
     },
   };
+}
+
+export function upgrade(font) {
+  if (font.schemaVersion === "2.0.0") return font;
+  font.schemaVersion = "2.0.0";
+  font.bitmap = {
+    encoding: "hex-rows",
+    bitOrder: "msb-first",
+    bitsPerPixel: 1,
+  };
+  font.license.status =
+    font.license.redistributionAllowed === true ? "verified" : "unverified";
+  font.glyphs =
+    font.glyphs?.map((g, i) => ({
+      ...g,
+      id: "g" + String(i).padStart(6, "0"),
+      labels: [{ kind: "unicode", value: g.character }],
+      width: font.cell.width,
+      height: font.cell.height,
+      rowBytes: Math.ceil(font.cell.width / 8),
+      metrics: {
+        leftBearing: 0,
+        rightBearing: 0,
+        shiftUp: font.metrics.baseline - font.cell.height,
+      },
+    })) ?? null;
+  font.coverage = coverage(font.glyphs);
+  return font;
 }
 
 export function validateFont(font) {
   if (!validate(font))
     throw new Error(`${font.id}: ${JSON.stringify(validate.errors)}`);
-  const { width, height } = font.cell;
-  if (font.bitmap.rowBytes !== Math.ceil(width / 8))
-    throw new Error(`${font.id}: invalid rowBytes`);
-  const expected = coverage(font.glyphs);
-  if (
-    font.coverage.glyphCount !== expected.glyphCount ||
-    font.coverage.ukrainian.present !== expected.ukrainian.present ||
-    font.coverage.ukrainian.complete !== expected.ukrainian.complete ||
-    JSON.stringify(font.coverage.ukrainian.missing) !==
-      JSON.stringify(expected.ukrainian.missing)
-  )
-    throw new Error(`${font.id}: invalid coverage`);
   if (font.glyphs === null) return font;
-  let previous = -1;
-  for (const glyph of font.glyphs) {
-    const cp = parseInt(glyph.codepoint.slice(2), 16);
+  const expected = coverage(font.glyphs);
+  for (const key of ["glyphCount", "unicodeGlyphCount", "unmappedGlyphCount"])
+    if (font.coverage[key] !== expected[key])
+      throw new Error(`${font.id}: invalid coverage`);
+  for (const key of ["present", "missing", "complete"])
     if (
-      cp <= previous ||
-      cp > 0x10ffff ||
-      (cp >= 0xd800 && cp <= 0xdfff) ||
-      glyph.character !== String.fromCodePoint(cp)
+      JSON.stringify(font.coverage.ukrainian[key]) !==
+      JSON.stringify(expected.ukrainian[key])
     )
-      throw new Error(
-        `${font.id}: invalid/duplicate scalar ${glyph.codepoint}`,
-      );
-    previous = cp;
+      throw new Error(`${font.id}: invalid coverage`);
+  const ids = new Set();
+  for (let i = 0; i < font.glyphs.length; i++) {
+    const g = font.glyphs[i];
+    if (g.id !== "g" + String(i).padStart(6, "0") || ids.has(g.id))
+      throw new Error(`${font.id}: invalid glyph ID`);
+    ids.add(g.id);
+    if (g.codepoint !== null) {
+      const cp = parseInt(g.codepoint.slice(2), 16);
+      if (
+        cp > 0x10ffff ||
+        (cp >= 0xd800 && cp <= 0xdfff) ||
+        g.character !== String.fromCodePoint(cp)
+      )
+        throw new Error(`${font.id}: invalid Unicode scalar`);
+    }
     if (
-      glyph.rows.length !== height ||
-      glyph.rows.some((r) => r.length !== font.bitmap.rowBytes * 2)
+      g.rowBytes !== Math.ceil(g.width / 8) ||
+      g.rows.length !== g.height ||
+      g.rows.some((r) => r.length !== g.rowBytes * 2)
     )
       throw new Error(`${font.id}: invalid row dimensions`);
-    const unused = font.bitmap.rowBytes * 8 - width;
+    const unused = g.rowBytes * 8 - g.width;
     if (
       unused &&
-      glyph.rows.some(
-        (row) => parseInt(row.slice(-2), 16) & ((1 << unused) - 1),
-      )
+      g.rows.some((r) => parseInt(r.slice(-2), 16) & ((1 << unused) - 1))
     )
       throw new Error(`${font.id}: ink outside cell`);
   }
@@ -108,7 +148,7 @@ export function fromNasinnia(font, source) {
             parseInt(b.codepoint.slice(2), 16),
         )
     : null;
-  return validateFont({
+  return upgrade({
     format: "para-font",
     schemaVersion: "1.0.0",
     id: font.id,

@@ -7,11 +7,11 @@ const get = async (path, init) => {
   assert.ok(response.ok, `${path}: ${response.status}`);
   return response;
 };
-const manifest = await (await get("/para/api/v1/manifest")).json();
-const page = await (await get("/para/api/v1/fonts?ukrainian=complete")).json();
+const manifest = await (await get("/para/api/v2/manifest")).json();
+const page = await (await get("/para/api/v2/fonts?ukrainian=complete")).json();
 assert.equal(page.total, manifest.counts.ukrainianComplete);
 const id = "texted-bios_8x8",
-  path = `/para/api/v1/fonts/${id}`;
+  path = `/para/api/v2/fonts/${id}`;
 const detail = await get(path);
 assert.equal(detail.headers.get("access-control-allow-origin"), "*");
 const record = await detail.json();
@@ -27,7 +27,7 @@ assert.deepEqual(
 const query =
   'query Face($id:ID!){font(id:$id){id schemaVersion cell{width height} glyph(codepoint:"U+0490"){codepoint rows}} fonts(ukrainian:"complete"){total}}';
 const graph = await (
-  await get("/para/api/v1/graphql", {
+  await get("/para/api/v2/graphql", {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ query, variables: { id } }),
@@ -36,25 +36,32 @@ const graph = await (
 assert.equal(graph.errors, undefined);
 assert.deepEqual(graph.data.font.glyph.rows, glyph.rows);
 assert.equal(graph.data.fonts.total, page.total);
-const meta = await (
-  await get("/para/api/v1/fonts?availability=metadata-only&limit=1")
+const rawId = "hoard-oberon-letterhead-300dpi";
+const raw = await (
+  await get("/para/api/v2/fonts/" + rawId + "/glyphs/g000000")
 ).json();
-assert.equal(
-  (await (await get("/para/api/v1/fonts/" + meta.nodes[0].id)).json()).glyphs,
-  null,
-);
-assert.equal(
-  (
-    await fetch(
-      new URL("/para/api/v1/fonts/" + meta.nodes[0].id + "/glyphs", base),
-    )
-  ).status,
-  409,
-);
+assert.equal(raw.codepoint, null);
+assert.equal(raw.character, null);
+assert.ok(raw.labels.length > 0);
+assert.ok(raw.rows.length > 0);
+const rawGraph = await (
+  await get("/para/api/v2/graphql", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      query:
+        '{font(id:"' +
+        rawId +
+        '"){glyphById(id:"g000000"){id codepoint width rows}}}',
+    }),
+  })
+).json();
+assert.equal(rawGraph.errors, undefined);
+assert.deepEqual(rawGraph.data.font.glyphById.rows, raw.rows);
 const native = await get(page.nodes[0].url);
 assert.equal(native.headers.get("access-control-allow-origin"), "*");
 assert.ok(native.headers.get("cache-control").includes("immutable"));
-const exported = await get("/para/api/v1/export");
+const exported = await get("/para/api/v2/export");
 const hash = createHash("sha256");
 let bytes = 0,
   lines = 0;
@@ -67,12 +74,12 @@ assert.equal(hash.digest("hex"), manifest.export.sha256);
 assert.equal(bytes, manifest.export.bytes);
 assert.equal(lines, manifest.counts.records);
 assert.equal(
-  (await fetch(new URL("/para/api/v1/fonts?limit=99999", base))).status,
+  (await fetch(new URL("/para/api/v2/fonts?limit=99999", base))).status,
   400,
 );
 for (const path of [
-  "/para/api/v1/schema.json",
-  "/para/api/v1/openapi.json",
+  "/para/api/v2/schema.json",
+  "/para/api/v2/openapi.json",
   "/para/graphql/schema.graphql",
   "/para/",
   "/pro/",

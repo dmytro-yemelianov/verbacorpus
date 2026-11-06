@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://verbacorpus.org/para/api/v1/schema.json",
-  "title": "Para Font Interchange 1.0",
+  "$id": "https://verbacorpus.org/para/api/v2/schema.json",
+  "title": "Para Font Interchange 2.0",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -29,7 +29,7 @@
       "const": "para-font"
     },
     "schemaVersion": {
-      "const": "1.0.0"
+      "const": "2.0.0"
     },
     "id": {
       "type": "string",
@@ -113,6 +113,9 @@
         },
         "lineGap": {
           "type": "number"
+        },
+        "lineHeight": {
+          "type": "number"
         }
       }
     },
@@ -122,7 +125,7 @@
       "required": [
         "encoding",
         "bitOrder",
-        "rowBytes"
+        "bitsPerPixel"
       ],
       "properties": {
         "encoding": {
@@ -131,10 +134,8 @@
         "bitOrder": {
           "const": "msb-first"
         },
-        "rowBytes": {
-          "type": "integer",
-          "minimum": 1,
-          "maximum": 512
+        "bitsPerPixel": {
+          "const": 1
         }
       }
     },
@@ -156,13 +157,23 @@
           "type": "string"
         },
         "redistributionAllowed": {
-          "type": "boolean"
+          "type": [
+            "boolean",
+            "null"
+          ]
         },
         "attribution": {
           "type": "string"
         },
         "url": {
           "type": "string"
+        },
+        "status": {
+          "enum": [
+            "verified",
+            "unverified",
+            "restricted"
+          ]
         }
       }
     },
@@ -210,6 +221,8 @@
       "additionalProperties": false,
       "required": [
         "glyphCount",
+        "unicodeGlyphCount",
+        "unmappedGlyphCount",
         "ukrainian"
       ],
       "properties": {
@@ -254,6 +267,14 @@
               ]
             }
           }
+        },
+        "unicodeGlyphCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "unmappedGlyphCount": {
+          "type": "integer",
+          "minimum": 0
         }
       }
     },
@@ -267,21 +288,32 @@
         "type": "object",
         "additionalProperties": false,
         "required": [
+          "id",
           "codepoint",
           "character",
+          "labels",
+          "width",
+          "height",
+          "rowBytes",
           "advanceX",
+          "metrics",
           "rows",
           "sourceCode"
         ],
         "properties": {
           "codepoint": {
-            "type": "string",
+            "type": [
+              "string",
+              "null"
+            ],
             "pattern": "^U\\+[0-9A-F]{4,6}$"
           },
           "character": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 1
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
           },
           "advanceX": {
             "type": "number",
@@ -290,11 +322,11 @@
           },
           "rows": {
             "type": "array",
-            "minItems": 1,
+            "minItems": 0,
             "maxItems": 4096,
             "items": {
               "type": "string",
-              "pattern": "^(?:[0-9A-F]{2})+$"
+              "pattern": "^(?:[0-9A-F]{2})*$"
             }
           },
           "sourceCode": {
@@ -302,46 +334,63 @@
               "object",
               "null"
             ]
+          },
+          "id": {
+            "type": "string",
+            "pattern": "^g[0-9]{6}$"
+          },
+          "labels": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "kind",
+                "value"
+              ],
+              "properties": {
+                "kind": {
+                  "enum": [
+                    "unicode",
+                    "codepoint",
+                    "tag"
+                  ]
+                },
+                "value": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "width": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4096
+          },
+          "height": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4096
+          },
+          "rowBytes": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 512
+          },
+          "metrics": {
+            "type": "object",
+            "required": [
+              "leftBearing",
+              "rightBearing",
+              "shiftUp"
+            ]
+          },
+          "comment": {
+            "type": "string"
           }
         }
       },
       "minItems": 1
     }
-  },
-  "allOf": [
-    {
-      "if": {
-        "properties": {
-          "availability": {
-            "const": "metadata-only"
-          }
-        }
-      },
-      "then": {
-        "properties": {
-          "glyphs": {
-            "type": "null"
-          },
-          "kind": {
-            "const": "metadata-only"
-          }
-        }
-      },
-      "else": {
-        "properties": {
-          "glyphs": {
-            "type": "array"
-          },
-          "license": {
-            "type": "object",
-            "properties": {
-              "redistributionAllowed": {
-                "const": true
-              }
-            }
-          }
-        }
-      }
-    }
-  ]
+  }
 }

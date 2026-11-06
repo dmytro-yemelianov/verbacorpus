@@ -1,2 +1,2 @@
 # Preserve upstream legal notices byte-for-byte, including their original whitespace.
-app/public/para/licenses/*.txt -whitespace
+app/public/para/licenses/* -whitespace

@@ -37,6 +37,8 @@ export const limits = {
   graphqlDepth: 10,
   graphqlFontLoads: 8,
   graphqlGlyphs: 1024,
+  glyphBytes: 8 * 1024 * 1024,
+  glyphPageLoads: 128,
 };
 export function summary(id: string): FontSummary {
   const font = byId.get(id);
@@ -88,7 +90,10 @@ export function listFonts(filter: FontFilter = {}) {
       "INVALID_ARGUMENT",
       "Unknown Ukrainian coverage filter",
     );
-  if (filter.collection && !["nasinnia", "texted"].includes(filter.collection))
+  if (
+    filter.collection &&
+    !["nasinnia", "texted", "hoard"].includes(filter.collection)
+  )
     throw new CorpusError("INVALID_ARGUMENT", "Unknown source collection");
   const q = filter.q?.toLocaleLowerCase("uk") ?? "";
   const matches = fonts.filter((font) => {
@@ -100,9 +105,7 @@ export function listFonts(filter: FontFilter = {}) {
           .includes(q)) &&
       (!filter.availability || font.availability === filter.availability) &&
       (!filter.license || font.licenseId === filter.license) &&
-      (!filter.collection ||
-        (font.id.startsWith("texted-") ? "texted" : "nasinnia") ===
-          filter.collection) &&
+      (!filter.collection || font.collection === filter.collection) &&
       (!filter.ukrainian ||
         (ua.present === null
           ? "unknown"
@@ -124,50 +127,143 @@ export function listFonts(filter: FontFilter = {}) {
     nodes: matches.slice(offset, offset + limit),
   };
 }
+export interface ReadBudget {
+  bytes: number;
+  pages: number;
+}
+export const readBudget = (): ReadBudget => ({
+  bytes: limits.glyphBytes,
+  pages: limits.glyphPageLoads,
+});
+export interface FontHandle {
+  record: Omit<FontRecord, "glyphs">;
+  pages: {
+    file: string;
+    bytes: number;
+    sha256: string;
+    offset: number;
+    count: number;
+  }[];
+  unicodeIndex: Record<string, number[]>;
+  assets: Assets;
+  budget: ReadBudget;
+  cache: Map<number, Promise<Glyph[]>>;
+}
+function reserve(budget: ReadBudget, bytes: number) {
+  budget.bytes -= bytes;
+  if (budget.bytes < 0)
+    throw new CorpusError(
+      "QUERY_LIMIT",
+      "Native glyph data exceeds the request budget",
+      413,
+    );
+}
 export async function readFont(
   id: string,
   assets: Assets,
-): Promise<FontRecord> {
+  budget = readBudget(),
+): Promise<FontHandle> {
   const entry = summary(id);
-  const response = await assets.fetch(`https://assets.local${entry.url}`);
+  reserve(budget, entry.metaBytes);
+  const response = await assets.fetch("https://assets.local" + entry.metaUrl);
   if (!response.ok)
     throw new CorpusError(
       "CORPUS_UNAVAILABLE",
-      "The pinned font asset is unavailable",
+      "The native font index is unavailable",
       503,
     );
-  return response.json<FontRecord>();
+  const data = await response.json<{
+    font: Omit<FontRecord, "glyphs">;
+    pages: FontHandle["pages"];
+    unicodeIndex: Record<string, number[]>;
+  }>();
+  return {
+    record: data.font,
+    pages: data.pages,
+    unicodeIndex: data.unicodeIndex,
+    assets,
+    budget,
+    cache: new Map(),
+  };
 }
-export function glyphPage(font: FontRecord, filter: GlyphFilter = {}) {
-  if (font.glyphs === null)
+async function nativePage(font: FontHandle, index: number): Promise<Glyph[]> {
+  let pending = font.cache.get(index);
+  if (pending) return pending;
+  const page = font.pages[index];
+  if (!page)
     throw new CorpusError(
-      "RASTER_UNAVAILABLE",
-      "This record contains metadata only",
-      409,
+      "CORPUS_UNAVAILABLE",
+      "Missing native glyph page",
+      503,
     );
+  if (--font.budget.pages < 0)
+    throw new CorpusError(
+      "QUERY_LIMIT",
+      "Too many native glyph pages requested",
+      413,
+    );
+  reserve(font.budget, page.bytes);
+  pending = (async () => {
+    const response = await font.assets.fetch(
+      `https://assets.local/para/corpus/${catalog.snapshot}/${page.file}`,
+    );
+    if (!response.ok)
+      throw new CorpusError(
+        "CORPUS_UNAVAILABLE",
+        "The native glyph page is unavailable",
+        503,
+      );
+    return response.json<Glyph[]>();
+  })();
+  font.cache.set(index, pending);
+  return pending;
+}
+async function glyphsAt(font: FontHandle, indices: number[]): Promise<Glyph[]> {
+  const pages = [...new Set(indices.map((i) => Math.floor(i / 128)))];
+  // Bounded concurrent reads; aliases in one GraphQL request reuse page promises.
+  for (let start = 0; start < pages.length; start += 8)
+    await Promise.all(
+      pages.slice(start, start + 8).map((i) => nativePage(font, i)),
+    );
+  const results: Glyph[] = [];
+  for (const i of indices)
+    results.push((await nativePage(font, Math.floor(i / 128)))[i % 128]);
+  return results;
+}
+export async function glyphPage(font: FontHandle, filter: GlyphFilter = {}) {
   const requested =
     filter.chars === undefined ? null : [...new Set([...filter.chars])];
   if (requested && requested.length > limits.glyphs)
     throw new CorpusError("INVALID_ARGUMENT", "Too many requested characters");
-  const selection = requested ? new Set(requested) : null;
-  const matches = selection
-    ? font.glyphs.filter((g) => selection.has(g.character))
-    : font.glyphs;
-  const present = new Set(matches.map((g) => g.character));
+  const indices = requested
+    ? [...new Set(requested.flatMap((c) => font.unicodeIndex[c] ?? []))].sort(
+        (a, b) => a - b,
+      )
+    : null;
+  const total = indices?.length ?? font.record.coverage.glyphCount;
   const limit = integer(filter.limit, 128, limits.glyphs, 1),
     offset = integer(filter.offset, 0, 65536);
+  const selected = indices
+    ? indices.slice(offset, offset + limit)
+    : Array.from(
+        { length: Math.max(0, Math.min(limit, total - offset)) },
+        (_, i) => offset + i,
+      );
   return {
-    fontId: font.id,
+    fontId: font.record.id,
     snapshot: catalog.snapshot,
-    total: matches.length,
+    total,
     limit,
     offset,
-    nextOffset: offset + limit < matches.length ? offset + limit : null,
-    missing: requested?.filter((c) => !present.has(c)) ?? [],
-    nodes: matches.slice(offset, offset + limit),
+    nextOffset: offset + limit < total ? offset + limit : null,
+    missing: requested?.filter((c) => !font.unicodeIndex[c]) ?? [],
+    nodes: await glyphsAt(font, selected),
   };
 }
-export function oneGlyph(font: FontRecord, codepoint: string): Glyph {
+export async function oneGlyph(
+  font: FontHandle,
+  codepoint: string,
+): Promise<Glyph> {
   if (!/^U\+[0-9A-Fa-f]{4,6}$/.test(codepoint))
     throw new CorpusError(
       "INVALID_ARGUMENT",
@@ -176,20 +272,23 @@ export function oneGlyph(font: FontRecord, codepoint: string): Glyph {
   const cp = parseInt(codepoint.slice(2), 16);
   if (cp > 0x10ffff || (cp >= 0xd800 && cp <= 0xdfff))
     throw new CorpusError("INVALID_ARGUMENT", "Invalid Unicode scalar");
-  if (font.glyphs === null)
-    throw new CorpusError(
-      "RASTER_UNAVAILABLE",
-      "This record contains metadata only",
-      409,
-    );
-  const found = font.glyphs.find(
-    (g) => g.character === String.fromCodePoint(cp),
-  );
-  if (!found)
+  const index = font.unicodeIndex[String.fromCodePoint(cp)]?.[0];
+  if (index === undefined)
     throw new CorpusError(
       "GLYPH_NOT_FOUND",
-      "This font does not contain the requested scalar",
+      "No native glyph has this Unicode mapping",
       404,
     );
-  return found;
+  return (await glyphsAt(font, [index]))[0];
+}
+export async function glyphById(font: FontHandle, id: string): Promise<Glyph> {
+  if (!/^g[0-9]{6}$/.test(id))
+    throw new CorpusError(
+      "INVALID_ARGUMENT",
+      "Use a stable native glyph ID such as g000000",
+    );
+  const index = Number(id.slice(1));
+  if (index >= font.record.coverage.glyphCount)
+    throw new CorpusError("GLYPH_NOT_FOUND", "Unknown native glyph ID", 404);
+  return (await glyphsAt(font, [index]))[0];
 }

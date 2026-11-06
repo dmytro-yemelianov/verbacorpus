@@ -2,11 +2,11 @@
   "openapi": "3.1.0",
   "info": {
     "title": "para.verba font corpus",
-    "version": "1.0.0"
+    "version": "2.0.0"
   },
   "servers": [
     {
-      "url": "/para/api/v1"
+      "url": "/para/api/v2"
     }
   ],
   "paths": {
@@ -212,7 +212,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "https://verbacorpus.org/para/api/v1/schema.json"
+                  "$ref": "https://verbacorpus.org/para/api/v2/schema.json"
                 }
               }
             }
@@ -303,7 +303,7 @@
     },
     "/fonts/{id}/glyphs/{codepoint}": {
       "get": {
-        "description": "One native glyph by Unicode scalar, for example U+0490",
+        "description": "One native glyph by Unicode scalar (U+0490) or stable ID (g000000). Unmapped glyphs are accessible by ID.",
         "responses": {
           "200": {
             "description": "Success",

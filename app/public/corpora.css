@@ -97,3 +97,12 @@
 [data-font-corpus] pre { overflow:auto; }
 [data-font-corpus] button { font:inherit; padding:.55rem .8rem; cursor:pointer; }
 [data-font-corpus] button:disabled { opacity:.5; cursor:default; }
+
+.native-glyph-grid {display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:.75rem;}
+.native-glyph {display:flex;flex-direction:column;align-items:center;justify-content:space-between;gap:.5rem;min-height:110px;min-width:0;overflow:hidden;background:transparent;color:inherit;border:1px solid currentColor;}
+.native-glyph canvas {max-width:100%;max-height:160px;object-fit:contain;image-rendering:pixelated;}
+.native-glyph span {font-size:.75rem;overflow-wrap:anywhere;}
+#glyph-details {max-height:24rem;overflow:auto;}
+
+.glyph-detail-stage {overflow:auto;max-height:34rem;}
+.glyph-detail-stage canvas {display:block;image-rendering:pixelated;max-width:none;}

@@ -19,27 +19,29 @@ import {
   readFont,
   glyphPage,
   oneGlyph,
+  glyphById,
+  readBudget,
+  type FontHandle,
   CorpusError,
   type Assets,
   type FontFilter,
-  type FontRecord,
   type GlyphFilter,
 } from "./corpus";
 import { json, boundedText } from "./http";
 
 export const sdl = `
   scalar JSON
-  type Counts { records: Int!, raster: Int!, metadataOnly: Int!, fixtures: Int!, ukrainianComplete: Int! }
+  type Counts { records: Int!, raster: Int!, metadataOnly: Int!, fixtures: Int!, ukrainianComplete: Int!,glyphs:Int!,unmappedGlyphs:Int! }
   type Manifest { format: String!, schemaVersion: String!, snapshot: String!, counts: Counts!, sources: JSON!, export: JSON! }
   type Cell { width: Int!, height: Int!, monospace: Boolean!, pixelAspectRatio: JSON! }
-  type Bitmap { encoding: String!, bitOrder: String!, rowBytes: Int! }
+  type Bitmap { encoding: String!, bitOrder: String!, bitsPerPixel: Int! }
   type UkrainianCoverage { required: Int!, present: Int, missing: [String!], complete: Boolean }
-  type Coverage { glyphCount: Int!, ukrainian: UkrainianCoverage! }
-  type FontSummary { id: ID!, name: String!, family: String!, kind: String!, availability: String!, cell: Cell!, metrics: JSON!, bitmap: Bitmap!, coverage: Coverage!, licenseId: String!, sha256: String!, bytes: Int!, url: String! }
+  type Coverage { glyphCount: Int!, unicodeGlyphCount:Int!,unmappedGlyphCount:Int!, ukrainian: UkrainianCoverage! }
+  type FontSummary { id: ID!, name: String!, family: String!, kind: String!, availability: String!, cell: Cell!, metrics: JSON!, bitmap: Bitmap!, coverage: Coverage!, licenseId: String!,licenseStatus:String!,collection:String!, sha256: String!, bytes: Int!, url: String! }
   type FontPage { snapshot: String!, total: Int!, limit: Int!, offset: Int!, nextOffset: Int, nodes: [FontSummary!]! }
-  type Glyph { codepoint: String!, character: String!, advanceX: Float!, rows: [String!]!, sourceCode: JSON }
+  type Glyph { id:ID!,codepoint: String, character: String, labels:JSON!,width:Int!,height:Int!,rowBytes:Int!,metrics:JSON!, advanceX: Float!, comment:String, rows: [String!]!, sourceCode: JSON }
   type GlyphPage { fontId: ID!, snapshot: String!, total: Int!, limit: Int!, offset: Int!, nextOffset: Int, missing: [String!]!, nodes: [Glyph!]! }
-  type Font { format: String!, schemaVersion: String!, id: ID!, name: String!, family: String!, version: JSON!, kind: String!, availability: String!, cell: Cell!, metrics: JSON!, bitmap: Bitmap!, encodings: JSON!, license: JSON!, source: JSON!, provenance: JSON!, modifications: JSON!, coverage: Coverage!, glyphs(chars: String, limit: Int, offset: Int): GlyphPage, glyph(codepoint: String!): Glyph }
+  type Font { format: String!, schemaVersion: String!, id: ID!, name: String!, family: String!, version: JSON!, kind: String!, availability: String!, cell: Cell!, metrics: JSON!, bitmap: Bitmap!, encodings: JSON!, license: JSON!, source: JSON!, provenance: JSON!, modifications: JSON!, coverage: Coverage!, glyphs(chars: String, limit: Int, offset: Int): GlyphPage, glyph(codepoint: String!): Glyph, glyphById(id:ID!):Glyph }
   type Query {
     manifest: Manifest!
     fonts(q: String, availability: String, ukrainian: String, license: String, collection: String, limit: Int, offset: Int, snapshot: String): FontPage!
@@ -170,7 +172,8 @@ export async function graphql(
     let fontLoads = 0,
       glyphsReturned = 0,
       fontSummaries = 0;
-    const loaded = new Map<string, Promise<FontRecord>>();
+    const loaded = new Map<string, Promise<FontHandle>>();
+    const nativeBudget = readBudget();
     const getFont = (id: string) => {
       let pending = loaded.get(id);
       if (!pending) {
@@ -179,7 +182,7 @@ export async function graphql(
             "QUERY_LIMIT",
             "Too many font records requested",
           );
-        pending = readFont(id, assets);
+        pending = readFont(id, assets, nativeBudget);
         loaded.set(id, pending);
       }
       return pending;
@@ -204,17 +207,19 @@ export async function graphql(
       font: async ({ id }: { id: string }) => {
         const font = await getFont(id);
         return {
-          ...font,
-          glyphs: (args: GlyphFilter) => {
-            if (font.glyphs === null) return null;
-            const page = glyphPage(font, args);
+          ...font.record,
+          glyphs: async (args: GlyphFilter) => {
+            const page = await glyphPage(font, args);
             budget(page.nodes.length);
             return page;
           },
           glyph: ({ codepoint }: { codepoint: string }) => {
-            if (font.glyphs === null) return null;
             budget(1);
             return oneGlyph(font, codepoint);
+          },
+          glyphById: ({ id }: { id: string }) => {
+            budget(1);
+            return glyphById(font, id);
           },
         };
       },

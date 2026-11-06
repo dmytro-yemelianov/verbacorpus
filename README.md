@@ -170,9 +170,9 @@ verba is a non-commercial, open-data project — the site, API, and Telegram bot
 
 ### para.verba font corpus
 
-The font corpus exposes 2,266 unique records through Para Font Interchange 1.0.0,
-REST at `/para/api/v1`, GraphQL at `/para/api/v1/graphql`, and a streamed NDJSON
-export. Native pixels, glyph advances, licenses, provenance and actual Ukrainian
-coverage are retained. Of 319 raster records, six have the complete Ukrainian
-alphabet; 1,947 additional records are explicitly metadata-only. See the
-[corpus contract, examples and verification](docs/PARA-FONT-CORPUS.md).
+All 2,266 font records now have actual rasters: 583,824 glyphs in Para Font
+Interchange 2.0.0, available through `/para/api/v2`, GraphQL and a streamed,
+sharded NDJSON export. The corpus preserves native dimensions, bearings,
+advances, source labels and original notices. Unmapped glyphs remain accessible
+by stable native IDs. No metadata-only placeholders remain; license status is
+tracked separately. See the [corpus contract and verification](docs/PARA-FONT-CORPUS.md).

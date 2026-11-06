@@ -7,6 +7,7 @@ import {
   listFonts,
   glyphPage,
   oneGlyph,
+  glyphById,
   integer,
   limits,
   CorpusError,
@@ -15,7 +16,7 @@ import {
 } from "./corpus";
 import { cors, json, matchesEtag } from "./http";
 
-export const root = "/para/api/v1";
+export const root = "/para/api/v2";
 export function manifest() {
   return {
     format: catalog.format,
@@ -95,16 +96,69 @@ export async function rest(
         status: 304,
         headers: { ...cors, ...headers },
       });
-    const response = await assets.fetch(
-      `https://assets.local${catalog.export.url}`,
-    );
-    if (!response.ok)
-      throw new CorpusError(
-        "CORPUS_UNAVAILABLE",
-        "The pinned export is unavailable",
-        503,
-      );
-    return new Response(request.method === "HEAD" ? null : response.body, {
+    if (request.method === "HEAD")
+      return new Response(null, {
+        headers: {
+          ...cors,
+          ...headers,
+          "content-type": "application/x-ndjson; charset=utf-8",
+        },
+      });
+    let cancelled = false;
+    let cancelReason: unknown;
+    let shardIndex = 0,
+      reader: ReadableStreamDefaultReader<Uint8Array> | null = null;
+    const stream = new ReadableStream<Uint8Array>({
+      async pull(controller) {
+        try {
+          while (true) {
+            if (!reader) {
+              const shard = catalog.export.shards[shardIndex];
+              if (!shard) {
+                controller.close();
+                return;
+              }
+              const response = await assets.fetch(
+                "https://assets.local" + shard.url,
+              );
+              if (!response.ok || !response.body)
+                throw new Error("Export shard is unavailable");
+              if (cancelled) {
+                await response.body.cancel(cancelReason);
+                return;
+              }
+              reader = response.body.getReader();
+            }
+            const active = reader;
+            const chunk = await active.read();
+            if (cancelled) return;
+            if (chunk.done) {
+              active.releaseLock();
+              reader = null;
+              shardIndex++;
+              continue;
+            }
+            controller.enqueue(chunk.value);
+            return;
+          }
+        } catch (error) {
+          controller.error(error);
+        }
+      },
+      async cancel(reason) {
+        cancelled = true;
+        cancelReason = reason;
+        const active = reader;
+        reader = null;
+        if (active) {
+          await active.cancel(reason);
+          try {
+            active.releaseLock();
+          } catch {}
+        }
+      },
+    });
+    return new Response(request.method === "HEAD" ? null : stream, {
       headers: {
         ...cors,
         ...headers,
@@ -114,8 +168,9 @@ export async function rest(
       },
     });
   }
+
   const match = path.match(
-    /^\/fonts\/([a-z0-9][a-z0-9._-]{0,159})(?:\/(glyphs)(?:\/(U\+[0-9A-Fa-f]{4,6}))?)?$/,
+    /^\/fonts\/([a-z0-9][a-z0-9._-]{0,159})(?:\/(glyphs)(?:\/(U\+[0-9A-Fa-f]{4,6}|g[0-9]{6}))?)?$/,
   );
   if (!match) throw new CorpusError("NOT_FOUND", "Unknown font API route", 404);
   const entry = summary(match[1]),
@@ -148,9 +203,15 @@ export async function rest(
   }
   const font = await readFont(entry.id, assets);
   if (match[3])
-    return json(oneGlyph(font, match[3]), 200, { ...headers, etag: fontEtag });
+    return json(
+      await (match[3].startsWith("g")
+        ? glyphById(font, match[3])
+        : oneGlyph(font, match[3])),
+      200,
+      { ...headers, etag: fontEtag },
+    );
   return json(
-    glyphPage(font, {
+    await glyphPage(font, {
       chars: url.searchParams.has("chars")
         ? url.searchParams.get("chars")!
         : undefined,

@@ -1,138 +1,148 @@
-# para.verba font corpus and APIs
+# Complete native para.verba corpus
 
-The corpus now exposes the complete registered Nasinnia catalog and Texted's
-five Ukrainian bitmap adaptations through one interchange format. The approved
-scope is **catalog and actual coverage first**. This intake does not generate
-missing Ukrainian letters or turn unverified metadata into downloadable rasters.
+All **2,266 records now contain actual glyphs**. There are **583,824 native
+rasters**, including 490,940 glyphs imported from all 1,947 pinned Hoard YAFF
+files. No metadata-only placeholders remain. One four-glyph CC0 fixture remains
+explicitly marked as a fixture. Native Unicode mappings give 62 records the full
+Ukrainian alphabet; missing Ukrainian glyphs are not synthesized.
 
-The first snapshot contains **2,266 unique records**: 313 native Nasinnia raster
-records, one explicitly marked CC0 test fixture, five Texted derivatives, and
-1,947 metadata-only Hoard records. Eight older Nasinnia files repeat registered
-font IDs with identical glyph pixels. They are recorded as equivalent source
-inputs, rather than counted as extra fonts. Six records have all 66 Ukrainian
-letters: Cozette and the five Texted derivatives.
+The source audit decoded every file with monobit 0.52.0 and verified every
+exported pixel against its source matrix. It found 88,773 glyphs with no Unicode
+mapping and 152 multi-character mappings. These are retained by native glyph ID,
+without assigning invented Unicode or dropping symbols/ligatures. See
+[native-hoard-intake-audit.json](native-hoard-intake-audit.json).
 
-The source repositories remain unchanged. Nasinnia continues to own source
-intake; para.verba publishes a reproducible, versioned interchange snapshot.
-Model checkpoints and synthetic training atlases are not part of the corpus.
+## Para Font Interchange 2.0.0
 
-## Interchange contract
+The [JSON Schema](../app/font-corpus/schema.json) describes one canonical record.
+REST, GraphQL projections, full-font downloads and each NDJSON export line use
+this data model. Catalog summaries and paged glyph responses are projections.
 
-**Para Font Interchange 1.0.0** is a JSON object described by
-[`app/font-corpus/schema.json`](../app/font-corpus/schema.json). The same object
-is available as an individual REST resource and a line in the NDJSON export.
-GraphQL selects fields from those records; it does not introduce another bitmap
-encoding. Catalog list responses are lightweight projections, without glyph rows.
+Each glyph has a source-ordinal ID such as `g000123`, all original labels,
+optional Unicode `codepoint`/`character`, native width/height, per-glyph
+`rowBytes`, advance and bearing/shift metrics, plus exact MSB-first hexadecimal
+scanlines. Labels distinguish Unicode, source codepoints and tags. Unicode can
+be null, or a character label can be a multi-character sequence. Multiple glyphs
+may share a Unicode label; Unicode lookup returns the first source entry and
+ID lookup exposes every variant. IDs are stable within a pinned source revision.
 
-Each record includes:
+`rowBytes = ceil(glyph.width/8)`. Each row has exactly `rowBytes * 2` hex digits;
+unused right-hand bits are zero. Empty native whitespace glyphs retain their
+zero dimensions/empty rows. All current sources are one-bit; there is no
+thresholding, resizing, outline rasterization or padding into a universal cell.
+The corpus includes proportional fonts, negative bearings/shifts and a 770-pixel
+wide logo glyph. Font metrics and per-glyph advances are separate.
 
-- Stable source ID, name, family, source version, native/derived/fixture kind and
-  raster/metadata-only availability.
-- Native cell width/height, pixel aspect ratio, baseline, ascent/descent, line
-  gap, default advance and each glyph's own advance.
-- Explicit `hex-rows`, `msb-first` storage and `rowBytes = ceil(width/8)`.
-  Every scanline has exactly `rowBytes * 2` uppercase hexadecimal digits;
-  unused right-hand bits are zero. Wide fonts are never squeezed into eight bits.
-- Sorted Unicode scalar records with exact native rows, character and source
-  encoding labels. Unsupported characters are never substituted.
-- Source collection, record ID, git revision, source hash, upstream metadata,
-  provenance and exact modification recipes for derivatives.
-- Original per-record license and attribution. MIT/BSD notices travel inside
-  applicable records; full notices and the attribution inventory accompany the
-  corpus. Licenses do not become Verba's proverb-data license.
-- Ukrainian coverage calculated from nonempty glyphs, including all 33 letters
-  in both cases. Metadata-only records use `null` for present/missing/complete,
-  because missing raster data does not prove absent glyphs.
+`coverage` includes total, Unicode-mapped and unmapped glyph counts. Ukrainian
+coverage uses nonempty, explicitly mapped glyphs for all 66 letters. A font with
+no Unicode mappings has unknown Ukrainian coverage even though its native
+rasters are available. Unicode normalization and text shaping are not performed.
 
-The repertoire is scalar-based. No Unicode normalization, shaping, synthetic
-fallback, outline rasterization or resampling occurs during intake. Cozette's
-13×15 catalog cell and 6-pixel letter advances are both retained.
+Raster availability is independent of license status. Hoard records retain
+`NOASSERTION`, `status: unverified`, `redistributionAllowed: null`, source
+copyright and the original collection/directory notices. Importing their pixels
+does not relabel them CC0 or claim a verified grant. Existing MIT, BSD, CC0 and
+CC-BY-SA records retain their licenses; notices and derivative recipes travel
+with the data. Nasinnia, Hoard and Texted source checkouts remain unchanged.
 
-## REST
+## REST and GraphQL
 
-Base path: **`/para/api/v1`** on the main site or a version preview.
-On the future exact `para.verbacorpus.org` hostname, `/api/v1` aliases that base.
-The implementation does not configure DNS or move production traffic.
+Current base: **`/para/api/v2`**. On the exact future `para.verbacorpus.org`
+hostname, `/api/v2` aliases it. Existing font preview `/para/api/v1` URLs return
+307 redirects to corresponding v2 URLs, preserving methods, bodies and queries.
+The original content-addressed v1 snapshot remains available unchanged. The
+proverb `/api/v1` API remains separate.
 
-| Method and path | Response |
+| Method and path | Result |
 |---|---|
-| `GET /`, `/manifest` | Snapshot, counts, sources, export hash and documented limits |
-| `GET /schema.json` | JSON Schema 2020-12 for the interchange record |
-| `GET /openapi.json` | OpenAPI 3.1 REST contract |
-| `GET /fonts` | Filtered, paginated font summaries |
-| `GET /fonts/{id}` | Complete canonical record; add `?download=1` for attachment |
-| `GET /fonts/{id}/glyphs` | Native glyph page, optionally restricted by `chars` |
-| `GET /fonts/{id}/glyphs/U+0490` | One exact Unicode glyph |
-| `GET /export` | Streamed NDJSON, one complete interchange record per line |
-| `GET /licenses` | License IDs and attribution inventory link |
+| `GET /`, `/manifest` | Snapshot, sources, counts, limits and export shard descriptors |
+| `GET /schema.json`, `/openapi.json` | JSON Schema 2020-12 and OpenAPI 3.1 |
+| `GET /fonts` | Search and paginated font summaries |
+| `GET /fonts/{id}` | Complete canonical record, streamed from the immutable asset |
+| `GET /fonts/{id}/glyphs` | Page of every native glyph, including unmapped entries |
+| `GET /fonts/{id}/glyphs/U+0490` | Lookup by known Unicode mapping |
+| `GET /fonts/{id}/glyphs/g000000` | Lookup by native ID, including unencoded symbols |
+| `GET /export` | Complete NDJSON stream across all export shards |
+| `GET /licenses` | License identifiers and attribution inventory |
+| `POST /graphql` | Read-only GraphQL, also at `/para/graphql` |
 
-Font filters: `q`, `availability=raster|metadata-only`,
-`ukrainian=complete|partial|none|unknown`, `license`, `collection=nasinnia|texted`,
-`limit` (default 50, maximum 100) and `offset`. Responses return `total`,
-`nextOffset`, a ready-to-follow `next` URL and the corpus `snapshot`. Following
-that URL preserves filters and pins pagination; a changed snapshot returns 409.
-IDs are sorted deterministically.
+Fonts support `q`, `availability`, `ukrainian=complete|partial|none|unknown`,
+`license`, `collection=nasinnia|texted|hoard`, `limit` (default 50, max 100),
+`offset` and `snapshot`. `next` URLs preserve filters and snapshot; a changed
+snapshot returns 409. IDs sort deterministically.
 
-Glyph pages accept `chars`, `limit` (default 128, maximum 256) and `offset`.
-The `missing` list names requested scalars with no glyph. A metadata-only raster
-request returns 409 `RASTER_UNAVAILABLE`; an unknown font or glyph returns 404.
-An invalid argument returns 400. Errors use `{error: {code, message}}`.
-
-Read endpoints support HEAD and cross-origin requests. OPTIONS provides CORS
-preflight. Full-font and export responses support conditional ETag reads.
-Individual static records live under content-addressed snapshot URLs with
-immutable cache headers; mutable API URLs have short cache lifetimes.
+Glyph pages support `chars` (known Unicode mappings only), `limit` (default 128,
+max 256) and `offset`. Without `chars`, every source glyph is available. The
+`missing` list names requested scalars with no mapping. Unknown IDs return 404;
+invalid arguments return 400; native read-budget exhaustion returns 413. Errors
+are `{error: {code, message}}`. CORS, OPTIONS, HEAD and conditional full-font/export
+ETags are supported. `?download=1` makes a full record an attachment.
 
 ```sh
 BASE=http://localhost:8797
-curl "$BASE/para/api/v1/fonts?ukrainian=complete&limit=10"
-curl "$BASE/para/api/v1/fonts/cozette-13x15/glyphs?chars=%D2%90%D0%84%D0%86%D0%87"
-curl "$BASE/para/api/v1/fonts/texted-bios_8x8/glyphs/U+0490"
-curl "$BASE/para/api/v1/export" -o para-fonts.ndjson
+curl "$BASE/para/api/v2/fonts?collection=hoard&limit=50"
+curl "$BASE/para/api/v2/fonts/hoard-acorn-bbc-bbc-master/glyphs?limit=32"
+curl "$BASE/para/api/v2/fonts/hoard-oberon-letterhead-300dpi/glyphs/g000000"
+curl "$BASE/para/api/v2/fonts/texted-bios_8x8/glyphs/U+0490"
+curl "$BASE/para/api/v2/export" -o para-native-fonts.ndjson
 ```
 
-## GraphQL
-
-**`POST /para/api/v1/graphql`** (also `/para/graphql`), with
-`Content-Type: application/json`. Read-only GET queries are also supported.
-The SDL is available at `/para/graphql/schema.graphql`; standard parsing,
-validation, fragments, aliases, variables and operation names use GraphQL.js.
+The SDL is `/para/graphql/schema.graphql`. GraphQL.js handles parsing,
+validation, fragments, aliases, variables and operation names. Example:
 
 ```graphql
-query Face($id: ID!) {
-  manifest { snapshot counts { records raster metadataOnly ukrainianComplete } }
-  fonts(ukrainian: "complete", limit: 10) {
-    total
-    nodes { id name cell { width height } coverage { ukrainian { present complete } } }
-  }
-  font(id: $id) {
-    schemaVersion
+query {
+  manifest { snapshot counts { records raster glyphs unmappedGlyphs } }
+  font(id: "hoard-oberon-letterhead-300dpi") {
     license
     source
-    bitmap { encoding bitOrder rowBytes }
-    glyphs(chars: "ҐґЄєІіЇї", limit: 16) {
-      nodes { codepoint character advanceX rows }
-      missing
+    glyphById(id: "g000000") {
+      id codepoint character labels width height rowBytes advanceX metrics rows
     }
+    glyphs(limit: 32) { total nextOffset nodes { id codepoint width height } }
   }
 }
 ```
 
-Use variables `{"id":"texted-bios_8x8"}`. `font` returns the full record and
-paged glyph resolvers; `fonts` returns summaries to avoid implicit N+1 loading.
-Per request: 32 KiB body, 3,000 parser tokens/AST nodes, 500 expanded selections,
-10 levels of nesting, eight distinct full-font loads, 200 returned summaries and
-1,024 returned glyphs. Query expansion is checked before validation/execution;
-resolver budgets also bound variable-dependent work. No mutations or subscriptions
-are exposed. POST results use `no-store` and conventional GraphQL field errors.
+Queries are limited to 32 KiB input, 3,000 parser tokens/AST nodes, 500 expanded
+selections, 10 nesting levels, eight distinct full-font metadata loads, 200
+summaries and 1,024 returned glyphs. Native metadata/page reads share an 8 MiB,
+128-page request budget. Page requests run at bounded concurrency and repeated
+aliases reuse request-local page promises. No mutations or subscriptions exist.
 
-## Intake, integrity and runtime
+## Storage and browser
 
-Run explicit intake from the Verba `app/` directory:
+The complete deterministic NDJSON is 274,608,351 bytes. Its SHA-256 snapshot is
+`14207bd33f178d91ea4c18dd1f3f4ae5a83427c0c87b3bc332899baf2c214fed`.
+It is stored as 34 immutable shards of at most 8 MiB. The endpoint reads them
+sequentially with backpressure and cancellation; HEAD reads no shard bodies.
+Individual records and export shards remain below the static asset size limit.
+
+The Worker bundles only lightweight catalog summaries. Full-font downloads pass
+through ASSETS streams. Glyph lookups load small native metadata/index sidecars
+and 128-glyph pages, never the entire multi-megabyte font. Build verification
+checks every record, lookup, glyph page, shard, source notice and checksum. No
+new database, bucket, secret, cron or domain binding is required.
+
+`/para/` defaults to all fonts and provides search, coverage filters, a paginated
+native glyph grid, ID-based JSON inspection and a scrollable zoomable glyph
+viewer. Unmapped fonts show their actual symbols in the grid. Text previews use
+known mappings and native bearings; canvas sizes are bounded for large logo and
+print fonts. Missing mappings are explicit, with no substitute font.
+
+## Reproduction and checks
+
+Offline authoring requires `monobit==0.52.0`. Ordinary builds/tests use the
+checked-in snapshot and require neither monobit nor neighboring repositories.
 
 ```sh
-npm ci
-node sync_fonts.mjs --nasinnia /path/to/nasinnia --texted /path/to/texted
+cd app
+python3 scripts/import_hoard_fonts.py \
+  --source /path/to/hoard-of-bitfonts \
+  --metadata /path/to/nasinnia/data/hoard-of-bitfonts-metadata.json \
+  --output /tmp/para-hoard-native-v2
+node sync_fonts.mjs --nasinnia /path/to/nasinnia --texted /path/to/texted \
+  --hoard-intake /tmp/para-hoard-native-v2
 npm run verify:fonts
 npm run build
 npm test
@@ -142,33 +152,9 @@ npx wrangler dev --local --port 8797 --inspector-port 9241
 node scripts/check-font-api.mjs http://localhost:8797
 ```
 
-Ordinary builds work offline from the checked-in corpus. They validate source
-lineage, each canonical record and bitmap dimensions, all record/index/export
-hashes, aliases, coverage, notices and summary consistency. Snapshot identity is
-SHA-256 of the complete deterministic NDJSON bytes. Repeating intake with the
-same sources yields the same snapshot.
-
-Only the lightweight catalog is bundled into the Worker. Full font records are
-fetched on demand through the static ASSETS binding. The 22,367,859-byte export
-passes through as a response stream. It is never parsed into Worker memory.
-No new D1/R2/KV resources, secrets, production domains or cron changes are needed.
-The build rejects an export beyond 25 MiB; a larger future intake must split
-exports or use object storage before publication.
-
-The browser at `/para/` uses these public APIs for search, paginated selection,
-coverage filters, missing-glyph reporting and native pixel previews. The former
-`/para/font.json` Cozette specimen remains available for compatibility.
-
-Validation: 179 Worker/Vitest tests and seven Node corpus/catalog tests passed;
-focused server and browser-client typechecks, offline corpus verification,
-repeated deterministic intake, build and Wrangler dry run passed. HTTP acceptance
-verified actual REST/GraphQL parity, every exported byte/hash, immutable CORS
-assets, metadata-only behavior and existing proverb routes. Visual browser
-acceptance remains unverified: the session's browser inventory was empty and
-native computer control reported `Sky Computer Use native pipe startup failed`.
-
-Cloudflare's [ASSETS binding](https://developers.cloudflare.com/workers/static-assets/binding/)
-provides the on-demand resource path. A
-[Worker version URL](https://developers.cloudflare.com/workers/versions-and-deployments/version-urls/)
-can review a candidate without promoting it to production; version URLs still
-use the Worker's existing configured bindings.
+Local validation passes 181 Worker/Vitest tests, seven Node corpus tests, both
+focused typechecks and the build. The source import round-trips all 490,940
+Hoard native glyphs; tests verify all published source raster digests, 88,773
+unmapped glyphs, 152 sequence mappings, lookup/page equivalence, wide/empty
+rasters, export limits and stream cancellation. Browser visual acceptance remains
+unverified because the session has no working browser/computer-control surface.
