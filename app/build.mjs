@@ -11,6 +11,7 @@ try {
 
 await mkdir("public/data", { recursive: true });
 await import("./build_corpora.mjs");
+await build({entryPoints: ["src/client/para.ts"], bundle:true, minify:true, format:"esm", target:["es2022"], outfile:"public/para.js"});
 await build({
   entryPoints: ["src/client/umbrella.ts"], bundle: true, minify: true,
   format: "esm", target: ["es2022"], outfile: "public/umbrella.js",

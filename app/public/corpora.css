@@ -87,3 +87,13 @@
  .pixel-card { padding:1rem; }
  .pixel-stage { padding:.7rem; }
 }
+
+.font-filters { display:flex; flex-wrap:wrap; align-items:end; gap:1rem; margin-block:1.5rem; }
+.font-filters label, .specimen-controls label { display:grid; gap:.35rem; flex:1 1 12rem; }
+.font-filters input, .font-filters select, #font-select, #font-text { width:100%; max-width:100%; padding:.6rem; font:inherit; color:inherit; background:var(--paper,transparent); border:1px solid currentColor; border-radius:0; }
+#font-select { margin-block:.5rem; }
+.font-preview { overflow:auto; padding:1rem 0; }
+#font-canvas { display:block; max-width:100%; image-rendering:pixelated; }
+[data-font-corpus] pre { overflow:auto; }
+[data-font-corpus] button { font:inherit; padding:.55rem .8rem; cursor:pointer; }
+[data-font-corpus] button:disabled { opacity:.5; cursor:default; }

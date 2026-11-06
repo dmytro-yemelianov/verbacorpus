@@ -1,0 +1,347 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://verbacorpus.org/para/api/v1/schema.json",
+  "title": "Para Font Interchange 1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "format",
+    "schemaVersion",
+    "id",
+    "name",
+    "family",
+    "version",
+    "kind",
+    "availability",
+    "cell",
+    "metrics",
+    "bitmap",
+    "encodings",
+    "license",
+    "source",
+    "provenance",
+    "modifications",
+    "coverage",
+    "glyphs"
+  ],
+  "properties": {
+    "format": {
+      "const": "para-font"
+    },
+    "schemaVersion": {
+      "const": "1.0.0"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._-]{0,159}$"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "family": {
+      "type": "string",
+      "minLength": 1
+    },
+    "version": {
+      "type": [
+        "string",
+        "integer"
+      ]
+    },
+    "kind": {
+      "enum": [
+        "native",
+        "derived",
+        "fixture",
+        "metadata-only"
+      ]
+    },
+    "availability": {
+      "enum": [
+        "raster",
+        "metadata-only"
+      ]
+    },
+    "cell": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "width",
+        "height",
+        "monospace",
+        "pixelAspectRatio"
+      ],
+      "properties": {
+        "width": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4096
+        },
+        "height": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 4096
+        },
+        "monospace": {
+          "type": "boolean"
+        },
+        "pixelAspectRatio": {
+          "type": "object"
+        }
+      }
+    },
+    "metrics": {
+      "type": "object",
+      "required": [
+        "baseline",
+        "advanceX"
+      ],
+      "properties": {
+        "baseline": {
+          "type": "number"
+        },
+        "advanceX": {
+          "type": "number",
+          "minimum": 0
+        },
+        "ascent": {
+          "type": "number"
+        },
+        "descent": {
+          "type": "number"
+        },
+        "lineGap": {
+          "type": "number"
+        }
+      }
+    },
+    "bitmap": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "encoding",
+        "bitOrder",
+        "rowBytes"
+      ],
+      "properties": {
+        "encoding": {
+          "const": "hex-rows"
+        },
+        "bitOrder": {
+          "const": "msb-first"
+        },
+        "rowBytes": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 512
+        }
+      }
+    },
+    "encodings": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "license": {
+      "type": "object",
+      "required": [
+        "id",
+        "redistributionAllowed",
+        "attribution"
+      ],
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "redistributionAllowed": {
+          "type": "boolean"
+        },
+        "attribution": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string"
+        }
+      }
+    },
+    "source": {
+      "type": "object",
+      "required": [
+        "collection",
+        "recordId",
+        "revision",
+        "sha256",
+        "upstream"
+      ],
+      "properties": {
+        "collection": {
+          "type": "string",
+          "minLength": 1
+        },
+        "recordId": {
+          "type": "string"
+        },
+        "revision": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "upstream": {
+          "type": "object"
+        }
+      }
+    },
+    "provenance": {
+      "type": "object"
+    },
+    "modifications": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "glyphCount",
+        "ukrainian"
+      ],
+      "properties": {
+        "glyphCount": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "ukrainian": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "required",
+            "present",
+            "missing",
+            "complete"
+          ],
+          "properties": {
+            "required": {
+              "const": 66
+            },
+            "present": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0,
+              "maximum": 66
+            },
+            "missing": {
+              "type": [
+                "array",
+                "null"
+              ],
+              "items": {
+                "type": "string"
+              }
+            },
+            "complete": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "glyphs": {
+      "type": [
+        "array",
+        "null"
+      ],
+      "maxItems": 65536,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "codepoint",
+          "character",
+          "advanceX",
+          "rows",
+          "sourceCode"
+        ],
+        "properties": {
+          "codepoint": {
+            "type": "string",
+            "pattern": "^U\\+[0-9A-F]{4,6}$"
+          },
+          "character": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1
+          },
+          "advanceX": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 4096
+          },
+          "rows": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 4096,
+            "items": {
+              "type": "string",
+              "pattern": "^(?:[0-9A-F]{2})+$"
+            }
+          },
+          "sourceCode": {
+            "type": [
+              "object",
+              "null"
+            ]
+          }
+        }
+      },
+      "minItems": 1
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "availability": {
+            "const": "metadata-only"
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "glyphs": {
+            "type": "null"
+          },
+          "kind": {
+            "const": "metadata-only"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "glyphs": {
+            "type": "array"
+          },
+          "license": {
+            "type": "object",
+            "properties": {
+              "redistributionAllowed": {
+                "const": true
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

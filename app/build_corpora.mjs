@@ -1,3 +1,5 @@
+import { verifyCorpus } from "./verify_fonts.mjs";
+import { paraBody } from "./para-page.mjs";
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { escape as esc, sha256, validateRegistry, validateIcon, iconSvg, iconPng } from "./catalog.mjs";
 const readJson = async path => JSON.parse(await readFile(path, "utf8"));
@@ -11,6 +13,7 @@ async function verify(directory, manifest) {
 }
 await verify("public/bez-tabu/data", await readJson("public/bez-tabu/data/provenance.json"));
 await verify("content/snapshots", await readJson("content/snapshots/manifest.json"));
+const fontCorpus = await verifyCorpus();
 const directions = validateRegistry(await readJson("content/corpora.json"));
 const proverbs = await readJson("public/data/meta.json");
 const tabu = await readJson("public/bez-tabu/data/entries.json");
@@ -28,7 +31,7 @@ const stats = {
   pro: `${num(proverbs.count)} записів · ${proverbs.sources.length} джерел`,
   contra: `${num(tabu.stats.rows)} рядків · ${tabu.stats.terms} термінів · ${tabu.stats.groups} груп`,
   re: `${articles.length} опубліковані історії`,
-  para: `${num(projects.nasinnia.rasterRecords)} растровий набір у Nasinnia · ${projects.nasinnia.ukrainianRedistributableRecords} з повною українською абеткою`,
+  para: `${num(fontCorpus.counts.records)} записів · ${fontCorpus.counts.raster} растрових · REST і GraphQL`,
   non: `${projects.upa.patterns} орнаментів UPA · ${icons.length} авторських іконок`,
 };
 const registry = directions.map(c => ({ ...c, stats: stats[c.prefix] }));
@@ -66,7 +69,8 @@ await writeFile("public/non/index.html", layout("non", "non.verba — орнам
   masthead("non", "Зміст поза словами", non.title, non.description) + `<section class="project-note"><div><p class="eyebrow">UPA Archive</p><h2>${projects.upa.patterns} орнаментів у підготовці</h2><p>Оцифровані вишивальні взори з геометрією заливок і стібків, повторами та походженням від сторінок джерела. Окремий архів готується до публікації.</p><p>Helen Hough, <cite>Ukrainian Folk Embroidery Patterns</cite>, 2025; взори, зібрані K. B. Habdank-Rohozynskyj.</p><a href="/data/projects.json">Метадані джерела</a></div><p class="large-figure" aria-hidden="true">${projects.upa.patterns}<span>орнаментів</span></p></section><section><div class="section-heading"><div><p class="eyebrow">Авторська колекція · v${esc(iconCollection.version)}</p><h2>Піксельні знаки</h2></div><p>${icons.length} іконок · сітка 16×16 · два кольори</p></div><p>Сучасні авторські знаки в піксельній естетиці. Це окрема колекція для карток, інтерфейсів та ігор; вона не відтворює історичні взори UPA.</p><div class="pixel-grid">${iconCards}</div><div class="corpus-actions"><a href="/non/icons.json" download>JSON-матриці колекції</a><a href="/non/icons.svg" download>SVG-спрайт</a></div><p class="corpus-meta">Авторство: Verba Corpus · <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>. Зберігайте атрибуцію під час використання.</p></section>`));
 const para = directions.find(c => c.prefix === "para");
 await writeFile("public/para/index.html", layout("para", "para.verba — шрифти та літери", para.description,
-  masthead("para", "Nasinnia · форма слова", para.title, para.description) + `<section class="project-note"><div><h2>Nasinnia</h2><p>${num(projects.nasinnia.rasterRecords)} растровий набір у локальному каталозі. Перевірка знайшла ${projects.nasinnia.ukrainianRedistributableRecords} дозволений до поширення набір з усіма 33 великими та 33 малими українськими літерами.</p><p>Тут доступний перевірений зразок. Повний каталог, API та шрифтова лабораторія розвиваються в проєкті Nasinnia.</p></div><p class="large-figure" aria-hidden="true">Її<span>Єє Іі Ґґ</span></p></section><section class="font-lab" data-font-specimen><p class="eyebrow">Точний растровий зразок</p><h2>${esc(font.displayName)}</h2><label for="font-text">Спробуйте український текст</label><input id="font-text" type="text" maxlength="80" value="Їжак, ґанок і піксельна Україна" autocomplete="off"><label for="font-scale">Масштаб <input id="font-scale" type="range" min="2" max="6" step="2" value="4" aria-label="Масштаб шрифту від 2 до 6"></label><div class="font-preview"><canvas id="font-canvas" role="img" aria-label="Растровий зразок шрифту"></canvas></div><p id="font-status" role="status" aria-live="polite">Завантаження растрових гліфів…</p><noscript>Завантажте JSON-зразок для перегляду точних растрових даних.</noscript><p class="alphabet">АБВГҐДЕЄЖЗИІЇЙКЛМНОПРСТУФХЦЧШЩЬЮЯ<br>абвгґдеєжзиіїйклмнопрстуфхцчшщьюя</p><p>Є Ґґ, Єє, Іі, Її, апостроф ʼ та знак гривні ₴. Символи поза зразком явно позначаються.</p><div class="corpus-actions"><a href="/para/font.json" download>JSON растрового зразка</a><a href="${esc(font.source.url)}">Джерельний реліз Cozette</a><a href="/data/projects.json">Походження знімка</a></div><p class="corpus-meta">${esc(font.license.attribution)} · ${esc(font.license.id)} · <a href="/para/LICENSE.txt">Текст ліцензії</a>. Гліфи показані з вихідних рядків без згладжування.</p></section>`));
+  masthead("para", "Nasinnia · форма слова", para.title, para.description) + paraBody(fontCorpus)));
+
 const articleCards = articles.map(a => `<article class="story-card"><p class="eyebrow">${esc(a.date)}</p><h2><a href="/blog/${a.slug}">${esc(a.title)}</a></h2><p>${esc(a.lede)}</p><a href="/blog/${a.slug}">Читати історію ↗</a></article>`).join("");
 await writeFile("public/re/index.html", layout("re", "re.verba — історії та переосмислення", "Редакція Verba Corpus: історії про джерела, слова, літери та знаки.", masthead("re", "Редакція Verba Corpus", "Історії та переосмислення", "Придивляємось до знайомого. Читаємо джерела, пояснюємо знахідки й показуємо, як культурна спадщина стає даними.") + `<p class="section-intro">Редакційний напрям об’єднує історії з корпусів. Нижче — вже опубліковані матеріали; нові історії про Nasinnia та UPA додаватимуться разом із розвитком проєктів.</p><div class="story-grid">${articleCards}</div><div class="corpus-actions"><a href="/blog">Увесь блог</a><a href="https://t.me/verbacorpus">Verba у Telegram</a></div>`));
 const contra = (await readFile("public/bez-tabu/index.html", "utf8")).replace("Українська без табу — Verba Corpus", "contra.verba — Українська без табу").replace("Verba Corpus <span", "contra.verba <span").replaceAll('href="/corpora.html"', 'href="/corpora"');

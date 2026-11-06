@@ -32,7 +32,9 @@ jobs:
           cache-dependency-path: app/package-lock.json
       - run: npm ci
       - run: node build.mjs
-      - run: npx vitest run
+      - run: npx tsc -p tsconfig.para.json
+      - run: npx tsc -p tsconfig.corpora.json
+      - run: npm test
 
   pytest:
     name: Data pipeline tests
