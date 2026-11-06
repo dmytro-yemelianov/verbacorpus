@@ -176,6 +176,48 @@ describe("complete native font APIs", () => {
     ))!.json<{ next: null }>();
     expect(last.next).toBeNull();
   });
+  it("combines native dimensions, spacing, multi-word search and stable sorting in REST and GraphQL", async () => {
+    const data = await (await request(
+      "/para/api/v2/fonts?q=ibm%20cga&width=8&height=8&spacing=monospace&sort=name&limit=100",
+    ))!.json<{ total: number; nodes: typeof catalog.fonts }>();
+    expect(data.total).toBeGreaterThan(0);
+    expect(
+      data.nodes.every(
+        (f) => f.cell.width === 8 && f.cell.height === 8 && f.cell.monospace,
+      ),
+    ).toBe(true);
+    const result = await (await graph(
+      '{fonts(q:"ibm cga",width:8,height:8,spacing:"monospace",sort:"name",limit:100){total nodes{id}} facets}',
+    ))!.json<{
+      data: {
+        fonts: { total: number; nodes: { id: string }[] };
+        facets: unknown;
+      };
+      errors?: unknown;
+    }>();
+    expect(result.errors).toBeUndefined();
+    expect(result.data.fonts.total).toBe(data.total);
+    expect(result.data.fonts.nodes.map((f) => f.id)).toEqual(
+      data.nodes.map((f) => f.id),
+    );
+    expect(await (await request("/para/api/v2/facets"))!.json()).toEqual(
+      result.data.facets,
+    );
+    for (const query of [
+      "width=0",
+      "height=-1",
+      "height=4097",
+      "spacing=anything",
+      "sort=anything",
+    ])
+      expect((await request("/para/api/v2/fonts?" + query))!.status).toBe(400);
+    const sorted = await (await request(
+      "/para/api/v2/fonts?sort=glyphs&limit=3",
+    ))!.json<{ nodes: typeof catalog.fonts }>();
+    expect(sorted.nodes[0].coverage.glyphCount).toBeGreaterThanOrEqual(
+      sorted.nodes[1].coverage.glyphCount,
+    );
+  });
   it("returns mapped and unmapped native glyphs with no fabricated Unicode", async () => {
     const path = "/para/api/v2/fonts/" + entry.id;
     const page = await (await request(

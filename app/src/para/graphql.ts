@@ -14,6 +14,7 @@ import {
 } from "graphql";
 import {
   catalog,
+  filterFacets,
   limits,
   listFonts,
   readFont,
@@ -44,7 +45,8 @@ export const sdl = `
   type Font { format: String!, schemaVersion: String!, id: ID!, name: String!, family: String!, version: JSON!, kind: String!, availability: String!, cell: Cell!, metrics: JSON!, bitmap: Bitmap!, encodings: JSON!, license: JSON!, source: JSON!, provenance: JSON!, modifications: JSON!, coverage: Coverage!, glyphs(chars: String, limit: Int, offset: Int): GlyphPage, glyph(codepoint: String!): Glyph, glyphById(id:ID!):Glyph }
   type Query {
     manifest: Manifest!
-    fonts(q: String, availability: String, ukrainian: String, license: String, collection: String, limit: Int, offset: Int, snapshot: String): FontPage!
+    facets: JSON!
+    fonts(q: String, availability: String, ukrainian: String, license: String, collection: String, spacing: String, width: Int, height: Int, sort: String, limit: Int, offset: Int, snapshot: String): FontPage!
     font(id: ID!): Font
   }
 `;
@@ -194,6 +196,7 @@ export async function graphql(
     };
     const root = {
       manifest: () => catalog,
+      facets: () => filterFacets,
       fonts: (args: FontFilter) => {
         const page = listFonts(args);
         fontSummaries += page.nodes.length;

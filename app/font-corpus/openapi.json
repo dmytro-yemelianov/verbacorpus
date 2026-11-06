@@ -31,7 +31,7 @@
             "description": "Unknown ID"
           },
           "409": {
-            "description": "Metadata-only raster or changed snapshot"
+            "description": "Changed snapshot"
           }
         }
       }
@@ -57,7 +57,7 @@
             "description": "Unknown ID"
           },
           "409": {
-            "description": "Metadata-only raster or changed snapshot"
+            "description": "Changed snapshot"
           }
         }
       }
@@ -83,7 +83,7 @@
             "description": "Unknown ID"
           },
           "409": {
-            "description": "Metadata-only raster or changed snapshot"
+            "description": "Changed snapshot"
           }
         }
       }
@@ -109,7 +109,7 @@
             "description": "Unknown ID"
           },
           "409": {
-            "description": "Metadata-only raster or changed snapshot"
+            "description": "Changed snapshot"
           }
         }
       }
@@ -135,7 +135,7 @@
             "description": "Unknown ID"
           },
           "409": {
-            "description": "Metadata-only raster or changed snapshot"
+            "description": "Changed snapshot"
           }
         },
         "parameters": [
@@ -199,13 +199,59 @@
               "minimum": 0,
               "maximum": 100000
             }
+          },
+          {
+            "name": "spacing",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "monospace",
+                "proportional"
+              ]
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "id",
+                "name",
+                "width",
+                "height",
+                "glyphs",
+                "ukrainian"
+              ]
+            }
+          },
+          {
+            "name": "width",
+            "in": "query",
+            "description": "Exact native cell size in pixels",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 4096
+            }
+          },
+          {
+            "name": "height",
+            "in": "query",
+            "description": "Exact native cell size in pixels",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 4096
+            }
           }
         ]
       }
     },
     "/fonts/{id}": {
       "get": {
-        "description": "Complete canonical font record; metadata-only glyphs are null",
+        "description": "Complete canonical native font record",
         "responses": {
           "200": {
             "description": "Success",
@@ -224,7 +270,7 @@
             "description": "Unknown ID"
           },
           "409": {
-            "description": "Metadata-only raster or changed snapshot"
+            "description": "Changed snapshot"
           }
         },
         "parameters": [
@@ -260,7 +306,7 @@
             "description": "Unknown ID"
           },
           "409": {
-            "description": "Metadata-only raster or changed snapshot"
+            "description": "Changed snapshot"
           }
         },
         "parameters": [
@@ -322,7 +368,7 @@
             "description": "Unknown ID"
           },
           "409": {
-            "description": "Metadata-only raster or changed snapshot"
+            "description": "Changed snapshot"
           }
         },
         "parameters": [
@@ -367,7 +413,7 @@
             "description": "Unknown ID"
           },
           "409": {
-            "description": "Metadata-only raster or changed snapshot"
+            "description": "Changed snapshot"
           }
         }
       }
@@ -408,6 +454,16 @@
           },
           "413": {
             "description": "Body exceeds 32 KiB"
+          }
+        }
+      }
+    },
+    "/facets": {
+      "get": {
+        "description": "Collection, license and native cell dimension values with complete catalog counts",
+        "responses": {
+          "200": {
+            "description": "Facet counts and pinned snapshot"
           }
         }
       }

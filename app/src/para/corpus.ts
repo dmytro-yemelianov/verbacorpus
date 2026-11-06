@@ -40,6 +40,51 @@ export const limits = {
   glyphBytes: 8 * 1024 * 1024,
   glyphPageLoads: 128,
 };
+// Immutable lookup/sort data is prepared once, never rebuilt per search request.
+const searchable = new Map(
+  fonts.map((f) => [
+    f.id,
+    `${f.id} ${f.name} ${f.family}`.normalize("NFKC").toLocaleLowerCase("uk"),
+  ]),
+);
+const orders = new Map<string, readonly FontSummary[]>([["id", fonts]]);
+const collator = new Intl.Collator("uk", { numeric: true });
+for (const key of ["name", "width", "height", "glyphs", "ukrainian"]) {
+  orders.set(
+    key,
+    [...fonts].sort((a, b) => {
+      const delta =
+        key === "name"
+          ? collator.compare(a.name, b.name)
+          : key === "glyphs"
+            ? b.coverage.glyphCount - a.coverage.glyphCount
+            : key === "ukrainian"
+              ? (b.coverage.ukrainian.present ?? -1) -
+                (a.coverage.ukrainian.present ?? -1)
+              : a.cell[key as "width" | "height"] -
+                b.cell[key as "width" | "height"];
+      return delta || a.id.localeCompare(b.id);
+    }),
+  );
+}
+function facet(values: (string | number)[]) {
+  const counts = new Map<string | number, number>();
+  for (const value of values) counts.set(value, (counts.get(value) ?? 0) + 1);
+  return [...counts]
+    .sort(([a], [b]) =>
+      typeof a === "number" && typeof b === "number"
+        ? a - b
+        : String(a).localeCompare(String(b)),
+    )
+    .map(([value, count]) => ({ value, count }));
+}
+export const filterFacets = {
+  snapshot: catalog.snapshot,
+  collections: facet(fonts.map((f) => f.collection)),
+  licenses: facet(fonts.map((f) => f.licenseId)),
+  widths: facet(fonts.map((f) => f.cell.width)),
+  heights: facet(fonts.map((f) => f.cell.height)),
+};
 export function summary(id: string): FontSummary {
   const font = byId.get(id);
   if (!font) throw new CorpusError("FONT_NOT_FOUND", "Unknown font ID", 404);
@@ -95,14 +140,27 @@ export function listFonts(filter: FontFilter = {}) {
     !["nasinnia", "texted", "hoard"].includes(filter.collection)
   )
     throw new CorpusError("INVALID_ARGUMENT", "Unknown source collection");
-  const q = filter.q?.toLocaleLowerCase("uk") ?? "";
-  const matches = fonts.filter((font) => {
+  if (filter.spacing && !["monospace", "proportional"].includes(filter.spacing))
+    throw new CorpusError("INVALID_ARGUMENT", "Unknown spacing");
+  const ordered = orders.get(filter.sort || "id");
+  if (!ordered) throw new CorpusError("INVALID_ARGUMENT", "Unknown sort order");
+  const width = filter.width == null ? null : integer(filter.width, 0, 4096, 1);
+  const height =
+    filter.height == null ? null : integer(filter.height, 0, 4096, 1);
+  const terms = (filter.q ?? "")
+    .normalize("NFKC")
+    .toLocaleLowerCase("uk")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  const matches = ordered.filter((font) => {
     const ua = font.coverage.ukrainian;
     return (
-      (!q ||
-        `${font.id} ${font.name} ${font.family}`
-          .toLocaleLowerCase("uk")
-          .includes(q)) &&
+      terms.every((term) => searchable.get(font.id)!.includes(term)) &&
+      (width === null || font.cell.width === width) &&
+      (height === null || font.cell.height === height) &&
+      (!filter.spacing ||
+        font.cell.monospace === (filter.spacing === "monospace")) &&
       (!filter.availability || font.availability === filter.availability) &&
       (!filter.license || font.licenseId === filter.license) &&
       (!filter.collection || font.collection === filter.collection) &&

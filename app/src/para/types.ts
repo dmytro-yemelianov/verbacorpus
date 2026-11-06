@@ -86,6 +86,10 @@ export interface FontFilter {
   limit?: number;
   offset?: number;
   snapshot?: string;
+  spacing?: string;
+  width?: number;
+  height?: number;
+  sort?: string;
 }
 export interface GlyphFilter {
   chars?: string;

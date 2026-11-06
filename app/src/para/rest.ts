@@ -1,6 +1,7 @@
 import schema from "../../font-corpus/schema.json";
 import {
   catalog,
+  filterFacets,
   fonts,
   summary,
   readFont,
@@ -41,6 +42,10 @@ function filter(url: URL): FontFilter {
     license: p.get("license") ?? undefined,
     collection: p.get("collection") ?? undefined,
     snapshot: p.get("snapshot") ?? undefined,
+    spacing: p.get("spacing") ?? undefined,
+    sort: p.get("sort") ?? undefined,
+    width: p.has("width") ? integer(p.get("width"), 0, 4096, 1) : undefined,
+    height: p.has("height") ? integer(p.get("height"), 0, 4096, 1) : undefined,
     limit: integer(p.get("limit"), 50, limits.fonts, 1),
     offset: integer(p.get("offset"), 0, 100000),
   };
@@ -61,6 +66,7 @@ export async function rest(
   const headers = { etag, "x-corpus-snapshot": catalog.snapshot };
   if (path === "" || path === "/manifest")
     return json(manifest(), 200, headers);
+  if (path === "/facets") return json(filterFacets, 200, headers);
   if (path === "/schema.json") return json(schema, 200, headers);
   if (path === "/licenses")
     return json(

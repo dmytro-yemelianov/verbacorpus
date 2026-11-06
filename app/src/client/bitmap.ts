@@ -4,12 +4,18 @@ export function visitGlyphPixels(
   glyph: Glyph,
   paint: (x: number, y: number) => void,
 ) {
-  for (let y = 0; y < glyph.height; y++)
-    for (let x = 0; x < glyph.width; x++) {
-      const offset = Math.floor(x / 8) * 2,
-        byte = parseInt(glyph.rows[y].slice(offset, offset + 2), 16);
-      if (byte & (128 >> (x % 8))) paint(x, y);
+  for (let y = 0; y < glyph.height; y++) {
+    const row = glyph.rows[y];
+    for (let byteIndex = 0; byteIndex < glyph.rowBytes; byteIndex++) {
+      const offset = byteIndex * 2;
+      const byte = parseInt(row.slice(offset, offset + 2), 16);
+      if (!byte) continue;
+      const base = byteIndex * 8,
+        end = Math.min(8, glyph.width - base);
+      for (let bit = 0; bit < end; bit++)
+        if (byte & (128 >> bit)) paint(base + bit, y);
     }
+  }
 }
 
 export function boundedBitmapScale(

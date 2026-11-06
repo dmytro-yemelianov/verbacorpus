@@ -23,8 +23,9 @@ REST: `/para/api/v2`, GraphQL: `/para/api/v2/graphql`. Старі шрифтов
 Ліцензійний статус відділено від наявності растра: для Hoard збережено
 NOASSERTION, unverified, null у redistributionAllowed і всі вихідні повідомлення.
 Джерельні репозиторії не змінено. Деталі, команди та перевірки —
-[PARA-FONT-CORPUS.md](PARA-FONT-CORPUS.md). Поточні перевірки: 181 Vitest,
-сім Node-тестів, два цільові typecheck та збірка. Cron, секрети та домени без змін.
+[PARA-FONT-CORPUS.md](PARA-FONT-CORPUS.md). Поточні перевірки: 186 Vitest,
+сім Node-тестів, два цільові typecheck та збірка. Оновлений переглядач і профілювання:
+[FONT-VIEWER-PERFORMANCE.md](FONT-VIEWER-PERFORMANCE.md). Cron, секрети та домени без змін.
 
 ## Реалізація парасольки
 

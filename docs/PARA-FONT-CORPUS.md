@@ -58,6 +58,7 @@ proverb `/api/v1` API remains separate.
 | `GET /`, `/manifest` | Snapshot, sources, counts, limits and export shard descriptors |
 | `GET /schema.json`, `/openapi.json` | JSON Schema 2020-12 and OpenAPI 3.1 |
 | `GET /fonts` | Search and paginated font summaries |
+| `GET /facets` | Available collections, licenses, widths and heights with full-catalog counts |
 | `GET /fonts/{id}` | Complete canonical record, streamed from the immutable asset |
 | `GET /fonts/{id}/glyphs` | Page of every native glyph, including unmapped entries |
 | `GET /fonts/{id}/glyphs/U+0490` | Lookup by known Unicode mapping |
@@ -67,9 +68,13 @@ proverb `/api/v1` API remains separate.
 | `POST /graphql` | Read-only GraphQL, also at `/para/graphql` |
 
 Fonts support `q`, `availability`, `ukrainian=complete|partial|none|unknown`,
-`license`, `collection=nasinnia|texted|hoard`, `limit` (default 50, max 100),
+`license`, `collection=nasinnia|texted|hoard`, `spacing=monospace|proportional`,
+exact native cell `width`/`height` (1–4096), `sort=id|name|width|height|glyphs|ukrainian`,
+`limit` (default 50, max 100),
 `offset` and `snapshot`. `next` URLs preserve filters and snapshot; a changed
-snapshot returns 409. IDs sort deterministically.
+snapshot returns 409. The default sort remains ID; each alternate order breaks ties by ID.
+Search matches every whitespace-separated term against the normalized ID, name and family.
+GraphQL exposes the same filters and `facets: JSON`. Facet counts describe the full catalog.
 
 Glyph pages support `chars` (known Unicode mappings only), `limit` (default 128,
 max 256) and `offset`. Without `chars`, every source glyph is available. The
@@ -126,7 +131,14 @@ new database, bucket, secret, cron or domain binding is required.
 
 `/para/` defaults to all fonts and provides search, coverage filters, a paginated
 native glyph grid, ID-based JSON inspection and a scrollable zoomable glyph
-viewer. Unmapped fonts show their actual symbols in the grid. Text previews use
+viewer. Filters update after a 180 ms search debounce, can be reset, and preserve font/filter
+selection in shareable URLs. Glyphs support mapped/unmapped views, 32/64/128-entry pages,
+ID/Unicode jumps, keyboard navigation, integer fit/zoom and an optional pixel grid.
+The browser reads pinned metadata/page assets through a deduplicated four-request queue
+and an 8 MiB LRU (UTF-16 JSON text accounting, not a whole-heap guarantee). Decoded
+bitmap masks/tints have a separate two-million-source-pixel budget. Zoom, themes and
+resizing repaint cached glyphs without network access. Unmapped fonts show their actual
+symbols in the grid. Text previews use
 known mappings and native bearings; canvas sizes are bounded for large logo and
 print fonts. Missing mappings are explicit, with no substitute font.
 
@@ -152,9 +164,10 @@ npx wrangler dev --local --port 8797 --inspector-port 9241
 node scripts/check-font-api.mjs http://localhost:8797
 ```
 
-Local validation passes 181 Worker/Vitest tests, seven Node corpus tests, both
+Local validation passes 186 Worker/Vitest tests, seven Node corpus tests, both
 focused typechecks and the build. The source import round-trips all 490,940
 Hoard native glyphs; tests verify all published source raster digests, 88,773
 unmapped glyphs, 152 sequence mappings, lookup/page equivalence, wide/empty
-rasters, export limits and stream cancellation. Browser visual acceptance remains
-unverified because the session has no working browser/computer-control surface.
+rasters, export limits and stream cancellation. Chrome DevTools browser checks now cover
+filters, native glyph navigation, real theme changes, exact canvas pixels, empty results
+and a 390 px mobile viewport. See [viewer profiling](FONT-VIEWER-PERFORMANCE.md).

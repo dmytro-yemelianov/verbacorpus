@@ -1,350 +1,352 @@
-import { visitGlyphPixels, boundedBitmapScale } from "./bitmap";
-/** Thin browser client of the public corpus API; native pixels never use web fonts. */
+/** Public corpus browser: selection, data loading and painting have separate lifetimes. */
 import type { FontSummary, Glyph } from "../para/types";
-const container = document.querySelector<HTMLElement>("[data-font-corpus]");
-if (container) void start();
+import { FontAssetCache, NativeFont } from "./font-data";
+import { GlyphPainter, paintSpecimen } from "./font-painter";
+import { GlyphViewer } from "./glyph-viewer";
+const field = <T extends HTMLElement>(id: string) =>
+  document.getElementById(id) as T;
+if (document.querySelector("[data-font-corpus]")) void start();
 async function start() {
-  const field = <T extends HTMLElement>(id: string) =>
-    document.getElementById(id) as T;
-  const search = field<HTMLInputElement>("font-search"),
-    availability = field<HTMLSelectElement>("font-availability"),
-    coverage = field<HTMLSelectElement>("font-coverage");
-  const select = field<HTMLSelectElement>("font-select"),
-    text = field<HTMLInputElement>("font-text"),
-    scale = field<HTMLInputElement>("font-scale");
-  const status = field<HTMLElement>("font-status"),
-    count = field<HTMLElement>("font-count"),
-    details = field<HTMLElement>("font-details"),
-    canvas = field<HTMLCanvasElement>("font-canvas");
-  const prev = field<HTMLButtonElement>("font-prev"),
+  const form = field<HTMLFormElement>("font-filter"),
+    select = field<HTMLSelectElement>("font-select");
+  const controls = {
+    q: field<HTMLInputElement>("font-search"),
+    collection: field<HTMLSelectElement>("font-collection"),
+    ukrainian: field<HTMLSelectElement>("font-coverage"),
+    license: field<HTMLSelectElement>("font-license"),
+    spacing: field<HTMLSelectElement>("font-spacing"),
+    width: field<HTMLSelectElement>("font-width"),
+    height: field<HTMLSelectElement>("font-height"),
+    sort: field<HTMLSelectElement>("font-sort"),
+  };
+  const pageSize = field<HTMLSelectElement>("font-page-size"),
+    count = field<HTMLElement>("font-count");
+  const previous = field<HTMLButtonElement>("font-prev"),
     next = field<HTMLButtonElement>("font-next"),
-    download = field<HTMLAnchorElement>("font-download");
+    first = field<HTMLButtonElement>("font-first"),
+    last = field<HTMLButtonElement>("font-last");
+  const text = field<HTMLTextAreaElement>("font-text"),
+    scale = field<HTMLInputElement>("font-scale"),
+    canvas = field<HTMLCanvasElement>("font-canvas"),
+    stage = field<HTMLElement>("font-preview-stage"),
+    status = field<HTMLElement>("font-status");
+  const cache = new FontAssetCache(),
+    painter = new GlyphPainter();
+  const ink = () => getComputedStyle(document.body).color;
+  const viewer = new GlyphViewer(painter, ink);
   let offset = 0,
-    nextOffset: number | null = null,
-    current: FontSummary | undefined;
-  let gridController: AbortController | undefined;
-  let gridOffset = 0,
-    gridNext: number | null = null,
-    gridNodes: Glyph[] = [];
+    total = 0,
+    page: FontSummary[] = [],
+    current: FontSummary | undefined,
+    native: NativeFont | undefined;
   let listController: AbortController | undefined,
-    glyphController: AbortController | undefined;
-  async function get<T>(url: string, signal: AbortSignal): Promise<T> {
-    const response = await fetch(url, { signal });
-    if (!response.ok) throw new Error("API " + response.status);
-    return response.json() as Promise<T>;
+    fontController: AbortController | undefined;
+  let byChar = new Map<string, Glyph>(),
+    missing: string[] = [],
+    textVersion = 0;
+  let searchTimer: ReturnType<typeof setTimeout> | undefined,
+    textTimer: ReturnType<typeof setTimeout> | undefined;
+  let frame = 0,
+    repaintGrid = false;
+  const presets: Record<string, string> = {
+    ukrainian: "Ґава, їжак і єнот. Україна — 123 ₴.",
+    latin: "The quick brown fox jumps over the lazy dog. ABC abc 123.",
+    numbers: "0123456789 +−×÷ =<> % @#$ ₴ € &!? ()[]{}",
+  };
+  function readURL() {
+    const params = new URL(location.href).searchParams;
+    for (const [key, control] of Object.entries(controls)) {
+      const fallback = key === "sort" ? "ukrainian" : "",
+        value = params.get(key) ?? fallback;
+      control.value =
+        control instanceof HTMLSelectElement &&
+        ![...control.options].some((option) => option.value === value)
+          ? fallback
+          : value.slice(0, 200);
+    }
+    pageSize.value = ["25", "50", "100"].includes(params.get("limit") ?? "")
+      ? params.get("limit")!
+      : "50";
+    const value = Number(params.get("offset") ?? 0);
+    offset =
+      Number.isSafeInteger(value) && value >= 0 && value <= 100000 ? value : 0;
+    return params.get("font") ?? undefined;
   }
-  async function draw() {
-    glyphController?.abort();
-    glyphController = new AbortController();
-    const signal = glyphController.signal;
-    if (!current) return;
+  function updateURL() {
+    const url = new URL(location.href);
+    for (const [key, control] of Object.entries(controls)) {
+      if (control.value && !(key === "sort" && control.value === "ukrainian"))
+        url.searchParams.set(key, control.value);
+      else url.searchParams.delete(key);
+    }
+    for (const [key, value] of [
+      ["offset", offset ? String(offset) : ""],
+      ["limit", pageSize.value !== "50" ? pageSize.value : ""],
+      ["font", current?.id ?? ""],
+    ] as const)
+      if (value) url.searchParams.set(key, value);
+      else url.searchParams.delete(key);
+    history.replaceState(null, "", url);
+    field<HTMLAnchorElement>("font-share").href = url.href;
+    const active = Object.entries(controls).filter(
+      ([key, control]) => key !== "sort" && control.value,
+    ).length;
+    field<HTMLElement>("font-active-filters").textContent = active
+      ? `Активних фільтрів: ${active}`
+      : "Увесь каталог";
+  }
+  function paint() {
+    frame = 0;
     const font = current;
-    download.href =
-      "/para/api/v2/fonts/" + encodeURIComponent(font.id) + "?download=1";
+    if (font && native && font.coverage.unicodeGlyphCount) {
+      const result = paintSpecimen(
+        canvas,
+        font,
+        byChar,
+        text.value,
+        Number(scale.value),
+        Math.max(100, stage.clientWidth),
+        ink(),
+        painter,
+      );
+      field<HTMLOutputElement>("font-scale-value").value = `${result.zoom}×`;
+      status.textContent = missing.length
+        ? `Немає відповідників: ${missing.join(" ")}. Позначено рамками.`
+        : "Точні вихідні пікселі. Без згладжування.";
+      if (result.shown < result.total)
+        status.textContent += ` Показано ${result.shown} із ${result.total} символів; зменште масштаб.`;
+    }
+    if (repaintGrid) {
+      viewer.redraw();
+      repaintGrid = false;
+    }
+  }
+  function schedulePaint(grid = false) {
+    repaintGrid ||= grid;
+    if (!frame) frame = requestAnimationFrame(paint);
+  }
+  async function updateText() {
+    const font = native,
+      version = ++textVersion;
+    if (!font) return;
+    if (!font.summary.coverage.unicodeGlyphCount) {
+      stage.hidden = true;
+      status.textContent =
+        "Цей шрифт не має Unicode-мапи. Усі його вихідні знаки доступні в сітці нижче.";
+      return;
+    }
+    stage.hidden = false;
+    try {
+      const result = await font.text(text.value.slice(0, 160));
+      if (native !== font || version !== textVersion) return;
+      byChar = result.byChar;
+      missing = result.missing;
+      schedulePaint();
+    } catch (error) {
+      if (native === font && !fontController?.signal.aborted)
+        status.textContent =
+          "Не вдалося завантажити зразок. Повторіть вибір шрифту.";
+    }
+  }
+  async function choose(font?: FontSummary) {
+    if (font?.id === current?.id && native) {
+      updateURL();
+      return;
+    }
+    fontController?.abort();
+    fontController = new AbortController();
+    const signal = fontController.signal;
+    current = font;
+    native = undefined;
+    textVersion++;
+    byChar = new Map();
+    missing = [];
+    canvas.width = canvas.height = 1;
+    void viewer.setFont();
+    field<HTMLElement>("font-name").textContent =
+      font?.name ?? "Виберіть шрифт";
+    field<HTMLElement>("font-details").textContent = "";
+    field<HTMLElement>("font-missing").textContent = "";
+    const download = field<HTMLAnchorElement>("font-download");
+    if (!font) {
+      download.removeAttribute("href");
+      status.textContent = "Спробуйте інші фільтри.";
+      updateURL();
+      return;
+    }
+    select.value = font.id;
+    updateURL();
+    download.href = `/para/api/v2/fonts/${encodeURIComponent(font.id)}?download=1`;
     const ua = font.coverage.ukrainian;
-    details.textContent = `${font.name} · ${font.cell.width}×${font.cell.height} · ${font.licenseId} · ${ua.present === null ? "покриття невідоме" : `українська ${ua.present}/66`}`;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    if (font.availability !== "raster") {
-      status.textContent = "Растрові дані недоступні.";
-      return;
-    }
+    field<HTMLElement>("font-details").textContent =
+      `${font.cell.width}×${font.cell.height} px · ${font.cell.monospace ? "моноширинний" : "пропорційний"} · ${font.coverage.glyphCount.toLocaleString("uk")} гліфів · ${font.collection} · ${font.licenseId} (${font.licenseStatus === "verified" ? "умови підтверджено" : "умови не підтверджено"})`;
+    field<HTMLElement>("font-missing").textContent =
+      ua.present === null
+        ? "Українське покриття невідоме: немає Unicode-мапи."
+        : ua.complete
+          ? "Українська абетка: усі 66 літер."
+          : `Українська абетка: ${ua.present}/66. Відсутні: ${(ua.missing ?? []).join(" ")}`;
+    status.textContent = "Завантаження зразка…";
     try {
-      const chars = [...text.value].slice(0, 80);
-      const page = await get<{ nodes: Glyph[]; missing: string[] }>(
-        "/para/api/v2/fonts/" +
-          encodeURIComponent(font.id) +
-          "/glyphs?chars=" +
-          encodeURIComponent(chars.join("")),
-        signal,
-      );
+      const loaded = await NativeFont.open(font, cache, signal);
       if (signal.aborted) return;
-      const glyphs = new Map<string, Glyph>();
-      for (const glyph of page.nodes)
-        for (const label of glyph.labels)
-          if (label.kind === "unicode" && !glyphs.has(label.value))
-            glyphs.set(label.value, glyph);
-      const lineHeight =
-        Math.max(
-          font.cell.height,
-          Number(font.metrics.lineHeight ?? font.cell.height),
-        ) + 5;
-      const width = Math.max(480, font.cell.width + 8),
-        zoom = boundedBitmapScale(width, lineHeight + 4, Number(scale.value));
-      const maxHeight = Math.floor(2_000_000 / (width * zoom * zoom));
-      let left = 2,
-        top = 2;
-      const positions: {
-        char: string;
-        glyph: Glyph | undefined;
-        left: number;
-        top: number;
-      }[] = [];
-      for (const char of chars) {
-        const glyph = glyphs.get(char),
-          advance =
-            glyph?.advanceX ?? Math.round(Number(font.metrics.advanceX));
-        if (left + Math.max(advance, font.cell.width) > width) {
-          left = 2;
-          top += lineHeight;
-        }
-        if (top + lineHeight > maxHeight) break;
-        positions.push({ char, glyph, left, top });
-        left += advance;
-      }
-      canvas.width = width * zoom;
-      canvas.height = (top + lineHeight) * zoom;
-      ctx.imageSmoothingEnabled = false;
-      const ink = getComputedStyle(document.body).color;
-      for (const { glyph, left, top } of positions) {
-        if (!glyph) {
-          ctx.strokeStyle = "#b4232a";
-          ctx.lineWidth = zoom;
-          ctx.strokeRect(
-            (left + 1) * zoom,
-            (top + 1) * zoom,
-            (font.cell.width - 2) * zoom,
-            (font.cell.height - 2) * zoom,
-          );
-          continue;
-        }
-        ctx.fillStyle = ink;
-        const gx = Math.round(left + glyph.metrics.leftBearing);
-        const gy = Math.round(
-          top +
-            Number(font.metrics.baseline) -
-            glyph.metrics.shiftUp -
-            glyph.height,
-        );
-        visitGlyphPixels(glyph, (x, y) =>
-          ctx.fillRect((gx + x) * zoom, (gy + y) * zoom, zoom, zoom),
-        );
-      }
-      canvas.setAttribute("aria-label", font.name + ": " + chars.join(""));
-      status.textContent = page.missing.length
-        ? "Відсутні символи: " +
-          page.missing.join(" ") +
-          " — позначено рамками."
-        : "Усі символи є у шрифті. Оригінальні пікселі без згладжування.";
-      if (positions.length < chars.length)
-        status.textContent += ` Показано перші ${positions.length} символів; повні гліфи доступні нижче.`;
+      native = loaded;
+      await Promise.all([updateText(), viewer.setFont(loaded)]);
     } catch (error) {
       if (!signal.aborted)
-        status.textContent = "Не вдалося завантажити гліфи. Спробуйте ще раз.";
+        status.textContent = "Не вдалося завантажити шрифт. Повторіть вибір.";
     }
   }
-  const grid = field<HTMLElement>("glyph-grid"),
-    gridCount = field<HTMLElement>("glyph-count");
-  const glyphPrev = field<HTMLButtonElement>("glyph-prev"),
-    glyphNext = field<HTMLButtonElement>("glyph-next");
-  let selectedGlyph: Glyph | undefined;
-  const glyphZoom = field<HTMLInputElement>("glyph-zoom"),
-    glyphCanvas = field<HTMLCanvasElement>("glyph-detail-canvas");
-  function paintDetail() {
-    const glyph = selectedGlyph;
-    if (!glyph) {
-      glyphCanvas.width = glyphCanvas.height = 1;
-      return;
-    }
-    const zoom = boundedBitmapScale(
-      glyph.width,
-      glyph.height,
-      Number(glyphZoom.value),
-    );
-    glyphCanvas.width = Math.max(1, glyph.width * zoom);
-    glyphCanvas.height = Math.max(1, glyph.height * zoom);
-    const context = glyphCanvas.getContext("2d");
-    if (!context) return;
-    context.imageSmoothingEnabled = false;
-    context.fillStyle = getComputedStyle(document.body).color;
-    visitGlyphPixels(glyph, (x, y) =>
-      context.fillRect(x * zoom, y * zoom, zoom, zoom),
-    );
+  async function getPage(params: URLSearchParams, signal: AbortSignal) {
+    const response = await fetch("/para/api/v2/fonts?" + params, { signal });
+    if (!response.ok) throw new Error("Каталог недоступний");
+    return response.json() as Promise<{ nodes: FontSummary[]; total: number }>;
   }
-  glyphZoom.oninput = paintDetail;
-  function renderGrid() {
-    grid.replaceChildren();
-    for (const glyph of gridNodes) {
-      const button = document.createElement("button"),
-        thumb = document.createElement("canvas"),
-        label = document.createElement("span");
-      button.type = "button";
-      button.className = "native-glyph";
-      const zoom = glyph.width <= 32 && glyph.height <= 32 ? 3 : 1;
-      thumb.width = Math.max(1, glyph.width * zoom);
-      thumb.height = Math.max(1, glyph.height * zoom);
-      const context = thumb.getContext("2d");
-      if (context) {
-        context.imageSmoothingEnabled = false;
-        context.fillStyle = getComputedStyle(document.body).color;
-        visitGlyphPixels(glyph, (x, y) =>
-          context.fillRect(x * zoom, y * zoom, zoom, zoom),
-        );
-      }
-      const name =
-        glyph.codepoint ?? String(glyph.sourceCode?.value ?? glyph.id);
-      label.textContent = name;
-      button.setAttribute("aria-label", glyph.id + " " + name);
-      button.append(thumb, label);
-      button.onclick = () => {
-        selectedGlyph = glyph;
-        paintDetail();
-        field<HTMLElement>("glyph-details").textContent = JSON.stringify(
-          glyph,
-          null,
-          2,
-        );
-        const link = field<HTMLAnchorElement>("glyph-download");
-        link.href =
-          "/para/api/v2/fonts/" +
-          encodeURIComponent(current!.id) +
-          "/glyphs/" +
-          glyph.id;
-        link.textContent = "JSON: " + glyph.id;
-      };
-      grid.append(button);
-    }
-  }
-  async function loadGrid() {
-    gridController?.abort();
-    gridController = new AbortController();
-    const signal = gridController.signal;
-    glyphPrev.disabled = glyphNext.disabled = true;
-    grid.replaceChildren();
-    selectedGlyph = undefined;
-    paintDetail();
-    field<HTMLElement>("glyph-details").textContent = "";
-    field<HTMLAnchorElement>("glyph-download").removeAttribute("href");
-    if (!current) return;
-    try {
-      const page = await get<{
-        nodes: Glyph[];
-        total: number;
-        nextOffset: number | null;
-      }>(
-        "/para/api/v2/fonts/" +
-          encodeURIComponent(current.id) +
-          "/glyphs?limit=32&offset=" +
-          gridOffset,
-        signal,
-      );
-      if (signal.aborted) return;
-      gridNodes = page.nodes;
-      gridNext = page.nextOffset;
-      gridCount.textContent = `${gridOffset + 1}–${gridOffset + page.nodes.length} із ${page.total} вихідних гліфів`;
-      glyphPrev.disabled = gridOffset === 0;
-      glyphNext.disabled = gridNext === null;
-      renderGrid();
-    } catch (error) {
-      if (!signal.aborted)
-        gridCount.textContent = "Не вдалося завантажити гліфи.";
-    }
-  }
-  glyphPrev.onclick = () => {
-    gridOffset = Math.max(0, gridOffset - 32);
-    void loadGrid();
-  };
-  glyphNext.onclick = () => {
-    if (gridNext !== null) {
-      gridOffset = gridNext;
-      void loadGrid();
-    }
-  };
-  async function list() {
+  async function list(requested?: string) {
+    clearTimeout(searchTimer);
     listController?.abort();
     listController = new AbortController();
     const signal = listController.signal;
-    glyphController?.abort();
-    gridController?.abort();
-    select.disabled = true;
-    prev.disabled = true;
-    next.disabled = true;
-    const params = new URLSearchParams({ limit: "50", offset: String(offset) });
-    if (search.value.trim()) params.set("q", search.value.trim());
-    if (availability.value) params.set("availability", availability.value);
-    if (coverage.value) params.set("ukrainian", coverage.value);
+    select.disabled =
+      previous.disabled =
+      next.disabled =
+      first.disabled =
+      last.disabled =
+        true;
+    count.textContent = "Пошук…";
+    form.setAttribute("aria-busy", "true");
+    const params = new URLSearchParams({
+      limit: pageSize.value,
+      offset: String(offset),
+    });
+    for (const [key, control] of Object.entries(controls))
+      if (control.value.trim()) params.set(key, control.value.trim());
     try {
-      const page = await get<{
-        nodes: FontSummary[];
-        total: number;
-        nextOffset: number | null;
-      }>("/para/api/v2/fonts?" + params, signal);
+      let result = await getPage(params, signal);
       if (signal.aborted) return;
-      const selected = current?.id;
+      if (result.total && offset >= result.total) {
+        offset =
+          Math.floor((result.total - 1) / Number(pageSize.value)) *
+          Number(pageSize.value);
+        params.set("offset", String(offset));
+        result = await getPage(params, signal);
+      }
+      if (signal.aborted) return;
+      page = result.nodes;
+      total = result.total;
+      if (!total) offset = 0;
+      let chosen =
+        page.find((f) => f.id === (requested ?? current?.id)) ?? page[0];
+      let pinned: FontSummary | undefined;
+      if (
+        requested &&
+        !page.some((f) => f.id === requested) &&
+        /^[a-z0-9][a-z0-9._-]{0,159}$/.test(requested)
+      ) {
+        const lookup = await getPage(
+          new URLSearchParams({ q: requested, limit: "100" }),
+          signal,
+        );
+        if (signal.aborted) return;
+        pinned = lookup.nodes.find((f) => f.id === requested);
+        if (pinned) chosen = pinned;
+      }
       select.replaceChildren();
-      for (const font of page.nodes) {
-        const option = document.createElement("option");
-        option.value = font.id;
-        option.textContent = `${font.name} (${font.cell.width}×${font.cell.height})`;
-        select.append(option);
+      if (pinned) {
+        const group = document.createElement("optgroup");
+        group.label = "Шрифт із посилання";
+        group.append(new Option(pinned.name, pinned.id));
+        select.append(group);
+        page = [pinned, ...page];
       }
-      current =
-        page.nodes.find((f) => f.id === selected) ??
-        page.nodes.find((f) => f.id === "cozette-13x15") ??
-        page.nodes[0];
-      if (current) select.value = current.id;
-      select.disabled = !current;
-      prev.disabled = offset === 0;
-      nextOffset = page.nextOffset;
-      next.disabled = nextOffset === null;
-      count.textContent = page.total
-        ? `${offset + 1}–${offset + page.nodes.length} із ${page.total} записів`
-        : "Нічого не знайдено";
-      select.onchange = () => {
-        current = page.nodes.find((f) => f.id === select.value);
-        gridOffset = 0;
-        void draw();
-        void loadGrid();
-      };
-      if (current) {
-        gridOffset = 0;
-        await Promise.all([draw(), loadGrid()]);
-      } else {
-        details.textContent = "";
-        status.textContent = "Спробуйте інші фільтри.";
-        canvas.width = 1;
-        canvas.height = 1;
-        download.removeAttribute("href");
-      }
+      for (const font of result.nodes)
+        select.append(
+          new Option(
+            `${font.name} · ${font.cell.width}×${font.cell.height} · UA ${font.coverage.ukrainian.present ?? "?"}/66`,
+            font.id,
+          ),
+        );
+      select.disabled = !chosen;
+      previous.disabled = first.disabled = offset === 0;
+      next.disabled = last.disabled = offset + Number(pageSize.value) >= total;
+      count.textContent = total
+        ? `${offset + 1}–${offset + result.nodes.length} із ${total.toLocaleString("uk")} шрифтів`
+        : "Нічого не знайдено. Скиньте один або кілька фільтрів.";
+      await choose(chosen);
     } catch (error) {
       if (!signal.aborted) {
-        count.textContent = "Не вдалося завантажити каталог.";
-        status.textContent = "Спробуйте оновити сторінку.";
+        count.textContent = "Не вдалося завантажити каталог. Повторіть пошук.";
+        select.disabled = !page.length;
       }
+    } finally {
+      if (!signal.aborted) form.removeAttribute("aria-busy");
     }
   }
-  field<HTMLFormElement>("font-filter").onsubmit = (event) => {
+  const apply = () => {
+    offset = 0;
+    void list();
+  };
+  form.onsubmit = (event) => {
     event.preventDefault();
-    offset = 0;
-    void list();
+    apply();
   };
-  availability.onchange = coverage.onchange = () => {
-    offset = 0;
-    void list();
+  for (const [key, control] of Object.entries(controls))
+    if (key !== "q") control.onchange = apply;
+  controls.q.oninput = (event) => {
+    if ((event as InputEvent).isComposing) return;
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(apply, 180);
   };
-  prev.onclick = () => {
-    offset = Math.max(0, offset - 50);
+  field<HTMLButtonElement>("font-reset").onclick = () => {
+    form.reset();
+    apply();
+  };
+  pageSize.onchange = apply;
+  select.onchange = () => void choose(page.find((f) => f.id === select.value));
+  previous.onclick = () => {
+    offset = Math.max(0, offset - Number(pageSize.value));
     void list();
   };
   next.onclick = () => {
-    if (nextOffset !== null) {
-      offset = nextOffset;
-      void list();
+    offset += Number(pageSize.value);
+    void list();
+  };
+  first.onclick = () => {
+    offset = 0;
+    void list();
+  };
+  last.onclick = () => {
+    offset = Math.max(
+      0,
+      Math.floor((total - 1) / Number(pageSize.value)) * Number(pageSize.value),
+    );
+    void list();
+  };
+  text.oninput = () => {
+    clearTimeout(textTimer);
+    textTimer = setTimeout(() => void updateText(), 100);
+  };
+  scale.oninput = () => schedulePaint();
+  for (const button of document.querySelectorAll<HTMLButtonElement>(
+    "[data-specimen]",
+  ))
+    button.onclick = () => {
+      text.value = presets[button.dataset.specimen!];
+      clearTimeout(textTimer);
+      void updateText();
+    };
+  document.addEventListener("verba-theme", () => schedulePaint(true));
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () =>
+    schedulePaint(true),
+  );
+  let lastWidth = 0;
+  new ResizeObserver((entries) => {
+    const width = Math.round(entries[0].contentRect.width);
+    if (width !== lastWidth) {
+      lastWidth = width;
+      schedulePaint();
     }
-  };
-  text.oninput = scale.oninput = () => {
-    void draw();
-  };
-  document.addEventListener("verba-theme", () => {
-    void draw();
-    renderGrid();
-    paintDetail();
-  });
-  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
-    void draw();
-    renderGrid();
-    paintDetail();
-  });
-  await list();
+  }).observe(stage);
+  addEventListener("popstate", () => void list(readURL()));
+  await list(readURL());
 }
