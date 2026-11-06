@@ -394,3 +394,205 @@ test("export remaps created glyph IDs in recipes after deletion leaves an ID gap
   );
   assert.notEqual(record.glyphs.at(-1).id, id);
 });
+
+function raster(char, id, rows) {
+  const width = rows[0].length,
+    height = rows.length;
+  const g = m.blankGlyph(summary, id, char);
+  Object.assign(g, {
+    width,
+    height,
+    rowBytes: Math.ceil(width / 8),
+    advanceX: width,
+    rows: m.pack(
+      Uint8Array.from(rows.join(""), (c) => (c === "#" ? 1 : 0)),
+      width,
+      height,
+    ),
+    metrics: { leftBearing: 0, rightBearing: 0, shiftUp: -1 },
+  });
+  return g;
+}
+test("V/Л, U/П and h/ч suggest the requested flips/rotations in both directions", async () => {
+  const state = m.newDraft(summary, catalog.snapshot),
+    glyphs = [letter("V"), letter("U"), letter("h")];
+  const plans = await m.propose(
+    "geometry",
+    unicodeIndex(glyphs),
+    state,
+    load(glyphs),
+  );
+  for (const [from, to] of [
+    ["V", "Л"],
+    ["U", "П"],
+    ["h", "ч"],
+  ]) {
+    const p = plans.find(
+      (p) => p.from === from && p.to === to && p.transform === "rotate180",
+    );
+    assert.ok(p);
+    assert.deepEqual(p.image.rows, m.transformed(p.source, "rotate180").rows);
+    const [edit] = m.materialize([p], state, source.glyphs.length);
+    const reverse = await m.propose(
+      "geometry",
+      unicodeIndex([edit.glyph]),
+      state,
+      load([edit.glyph]),
+    );
+    assert.ok(
+      reverse.some((p) => p.to === from && p.transform === "rotate180"),
+    );
+  }
+  assert.ok(
+    plans.some(
+      (p) => p.from === "V" && p.to === "Л" && p.transform === "flip-y",
+    ),
+  );
+  assert.ok(
+    plans.some(
+      (p) => p.from === "U" && p.to === "П" && p.transform === "flip-y",
+    ),
+  );
+});
+test("ж shares a stem between k and its mirror, trims the ascender and preserves cell/advance", async () => {
+  const k = raster("к", "g999900", [
+    ".#.......",
+    ".#..#....",
+    ".#.#.....",
+    ".##......",
+    ".#.#.....",
+    ".#..#....",
+    ".........",
+  ]);
+  const state = m.newDraft(summary, catalog.snapshot),
+    before = structuredClone(k);
+  const plans = await m.propose(
+    "geometry",
+    unicodeIndex([k]),
+    state,
+    load([k]),
+  );
+  const p = plans.find((p) => p.to === "ж");
+  assert.ok(p);
+  assert.equal(p.transform, "compose-zhe");
+  const [edit] = m.materialize([p], state, source.glyphs.length);
+  assert.deepEqual(edit.glyph.rows, p.image.rows);
+  assert.deepEqual(
+    [edit.glyph.width, edit.glyph.height, edit.glyph.advanceX],
+    [9, 7, 9],
+  );
+  const pixels = m.unpack(edit.glyph);
+  assert.ok(!pixels.slice(0, 9).some(Boolean));
+  for (let y = 0; y < 7; y++)
+    for (let x = 0; x < 9; x++)
+      assert.equal(pixels[y * 9 + x], pixels[y * 9 + 8 - x]);
+  assert.ok(pixels[1 * 9 + 4]);
+  assert.deepEqual(
+    edit.derivation.components.map((c) => c.transform),
+    ["identity", "flip-x"],
+  );
+  assert.deepEqual(k, before);
+});
+test("ю uses н's stem/crossbar and о's bowl aligned to the same baseline", async () => {
+  const n = raster("н", "g999900", [
+    ".#....#.",
+    ".#....#.",
+    ".######.",
+    ".#....#.",
+    ".#....#.",
+    "........",
+  ]);
+  const o = raster("о", "g999901", [
+    ".###...",
+    "#...#..",
+    "#...#..",
+    "#...#..",
+    ".###...",
+  ]);
+  const state = m.newDraft(summary, catalog.snapshot),
+    before = JSON.stringify([n, o]);
+  const plans = await m.propose(
+    "geometry",
+    unicodeIndex([n, o]),
+    state,
+    load([n, o]),
+  );
+  const p = plans.find((p) => p.to === "ю");
+  assert.ok(p);
+  const [edit] = m.materialize([p], state, source.glyphs.length);
+  const g = edit.glyph,
+    pixels = m.unpack(g),
+    pixel = (x, y) => pixels[y * g.width + x];
+  assert.equal(g.width, n.width);
+  assert.equal(g.advanceX, n.advanceX);
+  assert.equal(g.height + g.metrics.shiftUp, n.height + n.metrics.shiftUp);
+  assert.equal(pixel(1, 0), 1); // left stem
+  assert.equal(pixel(2, 2), 1); // original crossbar row
+  assert.equal(pixel(2, 1), 0);
+  assert.equal(pixel(3, 2), 1); // bowl side
+  assert.equal(pixel(7, 2), 1);
+  assert.equal(pixel(4, 5), 1); // bowl's last row: baseline-aligned rather than top-aligned
+  assert.deepEqual(g.rows, p.image.rows);
+  assert.deepEqual(
+    edit.derivation.components.map((c) => c.sourceGlyphId),
+    [n.id, o.id],
+  );
+  assert.equal(JSON.stringify([n, o]), before);
+});
+test("compositions require all known nonempty sources and protect existing/manual targets", async () => {
+  const state = m.newDraft(summary, catalog.snapshot);
+  const n = raster("н", "g999900", ["#...#..", "#####..", "#...#.."]);
+  const o = raster("о", "g999901", [".###...", "#...#..", ".###..."]);
+  const available = async (glyphs) =>
+    (
+      await m.propose("geometry", unicodeIndex(glyphs), state, load(glyphs))
+    ).filter((p) => p.to === "ю");
+  assert.equal((await available([n])).length, 0);
+  assert.equal((await available([o])).length, 0);
+  assert.equal((await available([n, o])).length, 1);
+  const target = raster("ю", "g999902", ["#......", ".......", "......."]);
+  assert.equal((await available([n, o, target])).length, 0);
+  target.rows = target.rows.map(() => "00");
+  state.edits[target.id] = target;
+  assert.equal((await available([n, o, target])).length, 0);
+  const unmapped = structuredClone(o);
+  unmapped.labels = [{ kind: "codepoint", value: "1086" }];
+  assert.equal((await available([n, unmapped])).length, 0);
+});
+test("composite drafts undo as one batch and export remaps every source component ID", async () => {
+  const state = m.newDraft(summary, catalog.snapshot),
+    doc = new m.Document(state);
+  const n = raster("н", "g000300", ["#...#...", "#####...", "#...#..."]);
+  const o = raster("о", "g000310", [".###....", "#...#...", ".###...."]);
+  doc.commitBatch([
+    { id: n.id, glyph: n },
+    { id: o.id, glyph: o },
+  ]);
+  const plans = await m.propose(
+    "geometry",
+    unicodeIndex([n, o]),
+    state,
+    load([n, o]),
+  );
+  const p = plans.find((p) => p.to === "ю");
+  const edits = m.materialize([p], state, source.glyphs.length);
+  doc.commitBatch(edits);
+  assert.equal(state.created.length, 3);
+  doc.undo();
+  assert.equal(state.created.length, 2);
+  assert.equal(state.edits[edits[0].id], undefined);
+  doc.redo();
+  const exported = m.exportRecord(source, state);
+  validateFont(exported);
+  const recipe = exported.modifications.at(-1).derivations[0];
+  assert.equal(recipe.recipeVersion, 1);
+  assert.equal(recipe.transform, "compose-yu");
+  assert.equal(recipe.sourceGlyphId, exported.glyphs.at(-3).id);
+  assert.deepEqual(
+    recipe.components.map((p) => p.sourceGlyphId),
+    exported.glyphs.slice(-3, -1).map((g) => g.id),
+  );
+  assert.equal(recipe.glyphId, exported.glyphs.at(-1).id);
+  const restored = JSON.parse(JSON.stringify(state));
+  assert.deepEqual(restored.derivations, state.derivations);
+});

@@ -1,3 +1,4 @@
+import { compose, type Composition } from "./composition";
 import {
   codepoint,
   transformed,
@@ -12,11 +13,13 @@ export type Transform =
   | "flip-y"
   | "rotate90"
   | "rotate180"
-  | "rotate270";
+  | "rotate270"
+  | Composition;
 interface Rule {
   from: string;
   to: string;
   transform: Transform;
+  components?: string[];
 }
 const pairs = (values: string[], transform: Transform): Rule[] =>
   values.flatMap((pair) => {
@@ -61,9 +64,33 @@ export const HOMOGRAPHS = pairs(
 );
 export const GEOMETRY = [
   ...pairs(["RЯ", "NИ", "ЭЄ", "эє", "bd", "pq"], "flip-x"),
-  ...pairs(["PЬ", "pь", "LГ"], "flip-y"),
-  ...pairs(["bq", "dp", "nu"], "rotate180"),
+  ...pairs(["PЬ", "pь", "LГ", "VЛ", "UП", "vл", "uп"], "flip-y"),
+  ...pairs(["bq", "dp", "nu", "VЛ", "UП", "vл", "uп", "hч"], "rotate180"),
   ...pairs(["LГ", "HI", "НІ"], "rotate90"),
+];
+const COMPOSITIONS: Rule[] = [
+  ...[
+    ["к", "ж"],
+    ["k", "ж"],
+    ["К", "Ж"],
+    ["K", "Ж"],
+  ].map(([from, to]) => ({
+    from: `${from} + дзеркало(${from})`,
+    to,
+    transform: "compose-zhe" as const,
+    components: [from, from],
+  })),
+  ...[
+    ["н", "о", "ю"],
+    ["н", "o", "ю"],
+    ["Н", "О", "Ю"],
+    ["H", "O", "Ю"],
+  ].map(([left, right, to]) => ({
+    from: `${left} + ${right}`,
+    to,
+    transform: "compose-yu" as const,
+    components: [left, right],
+  })),
 ];
 export const transformName: Record<Transform, string> = {
   identity: "Копія",
@@ -72,6 +99,8 @@ export const transformName: Record<Transform, string> = {
   rotate90: "Поворот 90° ↻",
   rotate180: "Поворот 180°",
   rotate270: "Поворот 270° ↻",
+  "compose-zhe": "Складання · спільна ніжка",
+  "compose-yu": "Складання · ніжка, перемичка й овал",
 };
 export interface Proposal {
   key: string;
@@ -79,6 +108,8 @@ export interface Proposal {
   to: string;
   transform: Transform;
   source: Glyph;
+  image: Glyph;
+  components?: { char: string; glyph: Glyph }[];
   target?: Glyph;
 }
 const nonempty = (g: Glyph) => g.rows.some((row) => /[1-9a-f]/i.test(row));
@@ -89,12 +120,13 @@ export async function propose(
   draft: Draft,
   load: (id: string) => Promise<Glyph | undefined>,
 ): Promise<Proposal[]> {
-  const rules = kind === "homograph" ? HOMOGRAPHS : GEOMETRY;
+  const rules =
+    kind === "homograph" ? HOMOGRAPHS : [...GEOMETRY, ...COMPOSITIONS];
   // Load only glyphs referenced by rules. One page request per asset through the existing cache.
   const ids = [
     ...new Set(
       rules.flatMap((r) => [
-        ...(index.get(r.from) ?? []),
+        ...(r.components ?? [r.from]).flatMap((char) => index.get(char) ?? []),
         ...(index.get(r.to) ?? []),
       ]),
     ),
@@ -103,7 +135,7 @@ export async function propose(
     await Promise.all(ids.map(async (id) => [id, await load(id)] as const)),
   );
   const result: Proposal[] = [];
-  for (const { from, to, transform } of rules) {
+  for (const { from, to, transform, components } of rules) {
     const targets = (index.get(to) ?? []).map((id) => loaded.get(id));
     // A missing/failed asset is never permission to replace an existing glyph.
     if (targets.some((g) => !g || nonempty(g) || draft.edits[g.id])) continue;
@@ -114,10 +146,25 @@ export async function propose(
       target?.labels.some((l) => l.kind === "unicode" && l.value !== to)
     )
       continue;
-    const source = (index.get(from) ?? [])
-      .map((id) => loaded.get(id))
-      .find((g) => g && nonempty(g));
-    if (!source) continue;
+    const inputs = (components ?? [from]).map((char) => ({
+      char,
+      glyph: (index.get(char) ?? [])
+        .map((id) => loaded.get(id))
+        .find((g) => g && nonempty(g)),
+    }));
+    if (inputs.some((input) => !input.glyph)) continue;
+    const resolved = inputs as { char: string; glyph: Glyph }[];
+    const source = resolved[0].glyph;
+    const image =
+      transform === "compose-zhe" || transform === "compose-yu"
+        ? compose(
+            transform,
+            resolved.map((input) => input.glyph),
+          )
+        : transform === "identity"
+          ? structuredClone(source)
+          : transformed(source, transform);
+    if (!image) continue;
     // Quarter turns are still offered for rectangular rasters, with swapped dimensions in preview.
     result.push({
       key: `${from}:${to}:${transform}`,
@@ -125,6 +172,8 @@ export async function propose(
       to,
       transform,
       source: structuredClone(source),
+      image,
+      ...(components ? { components: structuredClone(resolved) } : {}),
       target: target && structuredClone(target),
     });
   }
@@ -145,10 +194,7 @@ export function materialize(
   return proposals.map((p) => {
     if (targets.has(p.to)) throw new Error(`Оберіть один варіант для ${p.to}`);
     targets.add(p.to);
-    const image =
-      p.transform === "identity"
-        ? structuredClone(p.source)
-        : transformed(p.source, p.transform);
+    const image = structuredClone(p.image);
     const id = p.target?.id ?? "g" + String(next++).padStart(6, "0");
     const glyph: Glyph = {
       ...image,
@@ -170,6 +216,19 @@ export function materialize(
         targetChar: p.to,
         transform: p.transform,
         kind: p.transform === "identity" ? "homograph" : "geometry",
+        ...(p.components
+          ? {
+              recipeVersion: 1,
+              components: p.components.map((part, i) => ({
+                sourceGlyphId: part.glyph.id,
+                sourceChar: part.char,
+                transform:
+                  p.transform === "compose-zhe" && i === 1
+                    ? "flip-x"
+                    : "identity",
+              })),
+            }
+          : {}),
       },
     };
   });

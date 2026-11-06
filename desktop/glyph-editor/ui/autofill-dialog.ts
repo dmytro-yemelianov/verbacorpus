@@ -44,29 +44,33 @@ export function chooseGeometry(proposals: Proposal[]): Promise<Proposal[]> {
         `${p.from} → ${p.to} · ${transformName[p.transform]}`,
         p,
       );
-      const after = transformed(p.source, p.transform);
+      const after = p.image;
       const previews = document.createElement("div");
       previews.className = "geometry-previews";
+      const inputs: [Glyph, string][] = p.components
+        ? p.components.map((part, i) => [
+            p.transform === "compose-zhe" && i === 1
+              ? transformed(part.glyph, "flip-x")
+              : part.glyph,
+            p.transform === "compose-zhe" && i === 1
+              ? `Дзеркало ${part.char}`
+              : `Основа ${part.char}`,
+          ])
+        : [[p.source, `Основа ${p.from}`]];
+      const figures: [Glyph, string][] = [
+        ...inputs,
+        [after, `Результат ${p.to}`],
+      ];
       const z = Math.max(
         1,
         Math.min(
           12,
           Math.floor(
-            120 /
-              Math.max(
-                p.source.width,
-                p.source.height,
-                after.width,
-                after.height,
-                1,
-              ),
+            120 / Math.max(1, ...figures.flatMap(([g]) => [g.width, g.height])),
           ),
         ),
       );
-      for (const [g, caption] of [
-        [p.source, `Основа ${p.from}`],
-        [after, `Результат ${p.to}`],
-      ] as const) {
+      for (const [g, caption] of figures) {
         const figure = document.createElement("figure"),
           text = document.createElement("figcaption");
         text.textContent = `${caption} · ${g.width}×${g.height} · shiftUp ${g.metrics.shiftUp}`;

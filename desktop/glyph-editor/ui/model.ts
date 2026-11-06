@@ -15,6 +15,12 @@ export interface Derivation {
   targetChar: string;
   transform: string;
   kind: "homograph" | "geometry";
+  recipeVersion?: number;
+  components?: {
+    sourceGlyphId: string;
+    sourceChar: string;
+    transform: string;
+  }[];
 }
 export interface Draft {
   format: "para-glyph-edits";
@@ -438,7 +444,7 @@ export function exportRecord(base: FontRecord, state: Draft): FontRecord {
       ...base.modifications,
       {
         type: "manual-glyph-edit",
-        tool: "Verba Glyph Editor 0.2",
+        tool: "Verba Glyph Editor 0.3",
         baseFontId: base.id,
         baseSha256: state.baseSha256,
         sourceSnapshot: state.snapshot,
@@ -452,6 +458,15 @@ export function exportRecord(base: FontRecord, state: Draft): FontRecord {
             glyphId: exportedIDs.get(id) ?? id,
             sourceGlyphId:
               exportedIDs.get(recipe.sourceGlyphId) ?? recipe.sourceGlyphId,
+            ...(recipe.components
+              ? {
+                  components: recipe.components.map((part) => ({
+                    ...part,
+                    sourceGlyphId:
+                      exportedIDs.get(part.sourceGlyphId) ?? part.sourceGlyphId,
+                  })),
+                }
+              : {}),
           }),
         ),
       },
