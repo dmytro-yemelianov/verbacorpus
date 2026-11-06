@@ -160,10 +160,11 @@ export class NativeFont {
     ];
     const glyphs = await this.glyphs(indices),
       byChar = new Map<string, Glyph>();
-    for (const glyph of glyphs)
-      for (const label of glyph.labels)
-        if (label.kind === "unicode" && !byChar.has(label.value))
-          byChar.set(label.value, glyph);
+    const byIndex = new Map(indices.map((index, i) => [index, glyphs[i]]));
+    for (const char of chars) {
+      const first = this.index.unicodeIndex[char]?.[0];
+      if (first !== undefined) byChar.set(char, byIndex.get(first)!);
+    }
     return {
       byChar,
       missing: chars.filter((c) => c !== "\n" && !byChar.has(c)),

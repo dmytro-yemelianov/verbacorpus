@@ -93,7 +93,20 @@ describe("font viewer bounded native data", () => {
     const summary = catalog.fonts.find((f) => f.id === "texted-bios_8x8")!;
     const glyphs = [
       { id: "g000000", labels: [{ kind: "codepoint", value: "0x00" }] },
-      { id: "g000001", labels: [{ kind: "unicode", value: "Ґ" }] },
+      {
+        id: "g000001",
+        labels: [
+          { kind: "unicode", value: "Ґ" },
+          { kind: "unicode", value: "B" },
+        ],
+      },
+      {
+        id: "g000002",
+        labels: [
+          { kind: "unicode", value: "A" },
+          { kind: "unicode", value: "B" },
+        ],
+      },
     ] as Glyph[];
     let reads = 0;
     const fetcher: typeof fetch = async (input) => {
@@ -103,8 +116,8 @@ describe("font viewer bounded native data", () => {
           String(input).includes("/meta/")
             ? {
                 font: { id: summary.id },
-                unicodeIndex: { Ґ: [1] },
-                pages: [{ file: "glyphs/test-0.json", offset: 0, count: 2 }],
+                unicodeIndex: { Ґ: [1], B: [1, 2], A: [2] },
+                pages: [{ file: "glyphs/test-0.json", offset: 0, count: 3 }],
               }
             : glyphs,
         ),
@@ -112,7 +125,7 @@ describe("font viewer bounded native data", () => {
     };
     const cache = new FontAssetCache(1_000_000, fetcher),
       font = await NativeFont.open(
-        { ...summary, coverage: { ...summary.coverage, glyphCount: 2 } },
+        { ...summary, coverage: { ...summary.coverage, glyphCount: 3 } },
         cache,
         new AbortController().signal,
       );
@@ -121,11 +134,15 @@ describe("font viewer bounded native data", () => {
       font.text("ҐҐ🦔"),
     ]);
     expect(reads).toBe(2);
-    expect(grid).toEqual(glyphs);
+    expect(grid).toEqual(glyphs.slice(0, 2));
     expect(text.byChar.get("Ґ")).toBe(grid[1]);
     expect(text.missing).toEqual(["🦔"]);
     expect(font.indices("unmapped")).toEqual([0]);
-    expect(font.indices("mapped")).toEqual([1]);
+    expect(font.indices("mapped")).toEqual([1, 2]);
+    const aliases = await font.text("AB");
+    expect(aliases.byChar.get("B")).toBe(grid[1]);
+    expect(aliases.byChar.get("A")).toEqual(glyphs[2]);
+    expect(reads).toBe(2);
     expect(font.lookup("g000000")).toBe(0);
     expect(font.lookup("g999999")).toBeUndefined();
     expect(font.lookup("U+0490")).toBe(1);
