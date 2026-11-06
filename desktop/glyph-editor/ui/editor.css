@@ -590,3 +590,71 @@ textarea:focus-visible,
 main {
   overflow: auto;
 }
+
+#geometry-dialog {
+  width: min(820px, 92vw);
+  max-height: 88vh;
+  padding: 22px;
+  border: 1px solid var(--rule);
+  border-radius: 9px;
+  background: var(--paper);
+  color: var(--ink);
+}
+#geometry-dialog::backdrop {
+  background: #0009;
+}
+#geometry-dialog h2 {
+  margin: 0;
+  font-size: 19px;
+}
+#geometry-dialog p {
+  color: var(--muted);
+}
+#geometry-list {
+  display: grid;
+  gap: 14px;
+}
+#geometry-list fieldset {
+  border: 1px solid var(--rule);
+  border-radius: 6px;
+  min-width: 0;
+}
+.geometry-option {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  padding: 8px;
+  gap: 8px;
+  cursor: pointer;
+}
+.geometry-option:has(input:checked) {
+  background: var(--panel);
+}
+.geometry-option input {
+  width: auto;
+  accent-color: var(--accent);
+}
+.geometry-previews {
+  grid-column: 2;
+  display: flex;
+  gap: 20px;
+  overflow: auto;
+}
+.geometry-previews figure {
+  margin: 4px 0;
+  flex: none;
+}
+.geometry-previews canvas {
+  display: block;
+  image-rendering: pixelated;
+  background: #ffffff06;
+}
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  position: sticky;
+  bottom: -22px;
+  padding: 14px 0;
+  background: var(--paper);
+}

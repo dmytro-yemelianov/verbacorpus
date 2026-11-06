@@ -328,3 +328,18 @@ JS-модель підтримує пікселі, undo/redo, нові Unicode-�
 Є native store self-test, справжній WKWebView smoke з close/save barrier,
 вісім модельних Node-тестів і desktop typecheck у CI. Докладно:
 [desktop/glyph-editor/README.md](../desktop/glyph-editor/README.md).
+
+### Двійники й геометричні заготовки — 6 листопада 2026
+
+Desktop 0.2 додає `ui/autofill.ts` (чистий планувальник) і
+`ui/autofill-dialog.ts` (явний вибір геометричних варіантів). Поточний шрифт:
+20 пар Latin/Cyrillic, дзеркала `R/Я`, `p/ь` тощо, повороти 90/180/270°,
+редагування bearings/shiftUp. Наявні непорожні й усі редаговані цілі захищені;
+лише справжні Unicode-мапи використовуються як основи. `Document.commitBatch`
+дає одну undo-операцію, початкові рецепти зберігаються в необов’язковому
+`Draft.derivations`, export remap враховує прогалини створених ID. Старі drafts v1
+читаються без міграції. 15 Node-тестів, strict tsc, build, native self-test і
+WKWebView smoke пройшли. Browser QA в окремому тимчасовому проєкті:
+Acer 8×8 отримав 20 двійників, undo/redo всього пакета, повтор без дублів,
+перегляд і вибір R→Я/p→ь/L→Г, експорт проходить `validateFont`;
+SHA джерела незмінний. Робочий корпус/знімок/API не змінювалися.

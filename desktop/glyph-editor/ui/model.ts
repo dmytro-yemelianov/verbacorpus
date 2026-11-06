@@ -9,6 +9,13 @@ export const UKRAINIAN = [
 ];
 export const codepoint = (char: string) =>
   `U+${char.codePointAt(0)!.toString(16).toUpperCase().padStart(4, "0")}`;
+export interface Derivation {
+  sourceGlyphId: string;
+  sourceChar: string;
+  targetChar: string;
+  transform: string;
+  kind: "homograph" | "geometry";
+}
 export interface Draft {
   format: "para-glyph-edits";
   schemaVersion: 1;
@@ -18,6 +25,7 @@ export interface Draft {
   revision: number;
   updatedAt: string;
   edits: Record<string, Glyph>;
+  derivations?: Record<string, Derivation>;
   created: string[];
   reviewed: string[];
   done: boolean;
@@ -112,17 +120,28 @@ export function blankGlyph(font: FontSummary, id: string, char: string): Glyph {
     sourceCode: null,
   };
 }
+export interface GlyphEdit {
+  id: string;
+  glyph?: Glyph;
+  source?: Glyph;
+  derivation?: Derivation;
+}
 interface Change {
   id: string;
   before?: Glyph;
   after?: Glyph;
+  derivationBefore?: Derivation;
+  derivationAfter?: Derivation;
+}
+interface Transaction {
+  changes: Change[];
   createdBefore: string[];
   createdAfter: string[];
   bytes: number;
 }
 export class Document {
-  private undoStack: Change[] = [];
-  private redoStack: Change[] = [];
+  private undoStack: Transaction[] = [];
+  private redoStack: Transaction[] = [];
   private historyBytes = 0;
   constructor(readonly state: Draft) {}
   get canUndo() {
@@ -136,49 +155,87 @@ export class Document {
     this.state.updatedAt = new Date().toISOString();
   }
   commit(id: string, glyph: Glyph | undefined, source: Glyph | undefined) {
-    const before = this.state.edits[id];
-    const after =
-      glyph && JSON.stringify(glyph) !== JSON.stringify(source)
-        ? structuredClone(glyph)
-        : undefined;
-    if (JSON.stringify(before) === JSON.stringify(after)) return false;
+    return this.commitBatch([{ id, glyph, source }]);
+  }
+  commitBatch(edits: GlyphEdit[]) {
+    const ids = new Set<string>(),
+      changes: Change[] = [];
     const createdBefore = [...this.state.created],
-      createdAfter = source
-        ? createdBefore
-        : after
-          ? [...new Set([...createdBefore, id])]
-          : createdBefore.filter((value) => value !== id);
-    const change: Change = {
-      id,
-      before: before ? structuredClone(before) : undefined,
-      after,
+      created = new Set(createdBefore);
+    for (const edit of edits) {
+      const { id, glyph, source } = edit;
+      if (ids.has(id)) throw new Error(`Повторний гліф у пакеті: ${id}`);
+      ids.add(id);
+      if (glyph && glyph.id !== id) throw new Error("Невідповідний ID гліфа");
+      const before = this.state.edits[id];
+      const after =
+        glyph && JSON.stringify(glyph) !== JSON.stringify(source)
+          ? structuredClone(glyph)
+          : undefined;
+      const derivationBefore = this.state.derivations?.[id];
+      const derivationAfter = after
+        ? (edit.derivation ?? derivationBefore)
+        : undefined;
+      if (
+        JSON.stringify(before) === JSON.stringify(after) &&
+        JSON.stringify(derivationBefore) === JSON.stringify(derivationAfter)
+      )
+        continue;
+      changes.push(
+        structuredClone({
+          id,
+          before,
+          after,
+          derivationBefore,
+          derivationAfter,
+        }),
+      );
+      if (!source) {
+        if (after) created.add(id);
+        else created.delete(id);
+      }
+    }
+    if (!changes.length) return false;
+    const change: Transaction = {
+      changes,
       createdBefore,
-      createdAfter,
+      createdAfter: [...created],
       bytes: 0,
     };
     change.bytes = JSON.stringify(change).length * 2;
+    // Never apply an un-undoable large batch.
+    if (change.bytes > 8 * 1024 * 1024)
+      throw new Error("Пакет перевищує 8 MiB історії undo");
     this.undoStack.push(change);
     this.historyBytes += change.bytes;
     this.redoStack = [];
-    while (this.undoStack.length > 128 || this.historyBytes > 8 * 1024 * 1024) {
+    while (this.undoStack.length > 128 || this.historyBytes > 8 * 1024 * 1024)
       this.historyBytes -= this.undoStack.shift()!.bytes;
-    }
     this.apply(change, true);
-    this.state.done = false;
     return true;
   }
-  private apply(change: Change, forward: boolean) {
-    const value = forward ? change.after : change.before;
-    if (value) this.state.edits[change.id] = structuredClone(value);
-    else delete this.state.edits[change.id];
+  private apply(transaction: Transaction, forward: boolean) {
+    const invalid = new Set<string>();
+    for (const change of transaction.changes) {
+      const value = forward ? change.after : change.before;
+      if (value) this.state.edits[change.id] = structuredClone(value);
+      else delete this.state.edits[change.id];
+      const derivation = forward
+        ? change.derivationAfter
+        : change.derivationBefore;
+      if (derivation)
+        (this.state.derivations ??= {})[change.id] =
+          structuredClone(derivation);
+      else if (this.state.derivations) delete this.state.derivations[change.id];
+      invalid.add(change.id);
+      for (const glyph of [change.before, change.after])
+        for (const label of glyph?.labels ?? [])
+          if (label.kind === "unicode" && [...label.value].length === 1)
+            invalid.add(codepoint(label.value));
+    }
     this.state.created = [
-      ...(forward ? change.createdAfter : change.createdBefore),
+      ...(forward ? transaction.createdAfter : transaction.createdBefore),
     ];
-    const invalid = new Set([change.id]);
-    for (const glyph of [change.before, change.after])
-      for (const label of glyph?.labels ?? [])
-        if (label.kind === "unicode" && [...label.value].length === 1)
-          invalid.add(codepoint(label.value));
     this.state.reviewed = this.state.reviewed.filter(
       (key) => !invalid.has(key),
     );
@@ -191,7 +248,7 @@ export class Document {
     this.historyBytes -= c.bytes;
     this.redoStack.push(c);
     this.apply(c, false);
-    return c.id;
+    return c.changes[0].id;
   }
   redo() {
     const c = this.redoStack.pop();
@@ -199,7 +256,7 @@ export class Document {
     this.undoStack.push(c);
     this.historyBytes += c.bytes;
     this.apply(c, true);
-    return c.id;
+    return c.changes[0].id;
   }
   review(key: string, value = true) {
     const set = new Set(this.state.reviewed);
@@ -250,6 +307,46 @@ export function resized(glyph: Glyph, width: number, height: number) {
   };
 }
 export function transformed(glyph: Glyph, operation: string) {
+  if (["rotate90", "rotate180", "rotate270"].includes(operation)) {
+    const quarter = operation !== "rotate180";
+    const width = quarter ? glyph.height : glyph.width;
+    const height = quarter ? glyph.width : glyph.height;
+    const source = unpack(glyph),
+      pixels = new Uint8Array(source.length);
+    for (let y = 0; y < glyph.height; y++)
+      for (let x = 0; x < glyph.width; x++) {
+        const nx =
+          operation === "rotate90"
+            ? glyph.height - 1 - y
+            : operation === "rotate270"
+              ? y
+              : glyph.width - 1 - x;
+        const ny =
+          operation === "rotate90"
+            ? x
+            : operation === "rotate270"
+              ? glyph.width - 1 - x
+              : glyph.height - 1 - y;
+        pixels[ny * width + nx] = source[y * glyph.width + x];
+      }
+    // Keep the raster centered in its advance cell; inverse turns restore metrics.
+    const dx = quarter ? (glyph.width - width) / 2 : 0;
+    const dy = quarter ? (glyph.height - height) / 2 : 0;
+    const leftBearing = glyph.metrics.leftBearing + dx;
+    return {
+      ...structuredClone(glyph),
+      width,
+      height,
+      rowBytes: Math.ceil(width / 8),
+      rows: pack(pixels, width, height),
+      metrics: {
+        ...glyph.metrics,
+        leftBearing,
+        rightBearing: glyph.metrics.rightBearing + glyph.width - width - dx,
+        shiftUp: glyph.metrics.shiftUp + dy,
+      },
+    };
+  }
   const { width: w, height: h } = glyph,
     source = unpack(glyph),
     out = new Uint8Array(source.length);
@@ -314,7 +411,9 @@ export function exportRecord(base: FontRecord, state: Draft): FontRecord {
   const glyphs = (base.glyphs ?? []).map((g) =>
     structuredClone(state.edits[g.id] ?? g),
   );
+  const exportedIDs = new Map(glyphs.map((g) => [g.id, g.id]));
   for (const id of state.created) {
+    exportedIDs.set(id, "g" + String(glyphs.length).padStart(6, "0"));
     const glyph = state.edits[id];
     if (glyph)
       glyphs.push({
@@ -339,7 +438,7 @@ export function exportRecord(base: FontRecord, state: Draft): FontRecord {
       ...base.modifications,
       {
         type: "manual-glyph-edit",
-        tool: "Verba Glyph Editor 0.1",
+        tool: "Verba Glyph Editor 0.2",
         baseFontId: base.id,
         baseSha256: state.baseSha256,
         sourceSnapshot: state.snapshot,
@@ -347,6 +446,14 @@ export function exportRecord(base: FontRecord, state: Draft): FontRecord {
         modifiedGlyphIds: Object.keys(state.edits),
         addedDraftGlyphIds: state.created,
         notes: state.notes,
+        derivations: Object.entries(state.derivations ?? {}).map(
+          ([id, recipe]) => ({
+            ...recipe,
+            glyphId: exportedIDs.get(id) ?? id,
+            sourceGlyphId:
+              exportedIDs.get(recipe.sourceGlyphId) ?? recipe.sourceGlyphId,
+          }),
+        ),
       },
     ],
   };

@@ -1,3 +1,5 @@
+import { propose, materialize } from "./autofill";
+import { chooseGeometry, choosingGeometry } from "./autofill-dialog";
 import { native } from "./bridge";
 import { createCanvas } from "./canvas";
 import { FontAssetCache, NativeFont } from "../../../app/src/client/font-data";
@@ -65,6 +67,7 @@ let controller: AbortController | undefined,
   index = new Map<string, string[]>();
 let current: Glyph | undefined, original: Glyph | undefined;
 let editingBusy = true;
+let autofilling = false;
 let queueRevision = 0,
   saveTimer: ReturnType<typeof setTimeout> | undefined,
   sessionTimer: ReturnType<typeof setTimeout> | undefined;
@@ -86,6 +89,9 @@ function busy(value: boolean) {
   editingBusy = value;
   (document.querySelector(".inspector") as HTMLElement).inert = value;
   for (const id of [
+    "autofill",
+    "geometry",
+    "placement-apply",
     "previous",
     "next",
     "review",
@@ -236,6 +242,7 @@ async function openFont(id: string, resume?: string) {
   if (font?.id === id && face) return;
   await flush();
   clearError();
+  $("autofill-status").textContent = "";
   const revision = ++fontRevision;
   selectionRevision++;
   queueRevision++;
@@ -453,6 +460,8 @@ function inspect() {
   $<HTMLInputElement>("width").value = String(current.width);
   $<HTMLInputElement>("height").value = String(current.height);
   $<HTMLInputElement>("advance").value = String(current.advanceX);
+  $<HTMLInputElement>("bearing").value = String(current.metrics.leftBearing);
+  $<HTMLInputElement>("shift-up").value = String(current.metrics.shiftUp);
   $<HTMLInputElement>("mapping").value = slot?.char ?? current.character ?? "";
   $("labels").textContent =
     current.labels
@@ -664,6 +673,53 @@ async function jump(value: string) {
   if (i < 0) throw new Error("Невідомий ID");
   await select(i);
 }
+async function autofill(kind: "homograph" | "geometry") {
+  if (!doc || !face || !font || editingBusy || exporting || autofilling) return;
+  autofilling = true;
+  try {
+    finishStroke();
+    const targetDoc = doc,
+      targetFace = face,
+      count = font.coverage.glyphCount;
+    const revision = targetDoc.state.revision;
+    $("autofill-status").textContent = "Пошук відповідників…";
+    const proposals = await propose(
+      kind,
+      effectiveIndex(targetFace.index.unicodeIndex, targetDoc.state),
+      targetDoc.state,
+      async (id) =>
+        targetDoc.state.edits[id] ??
+        (Number(id.slice(1)) < count
+          ? (await targetFace.glyphs([Number(id.slice(1))]))[0]
+          : undefined),
+    );
+    if (doc !== targetDoc || targetDoc.state.revision !== revision) return;
+    if (!proposals.length) {
+      $("autofill-status").textContent =
+        "Немає відповідників для заповнення. Потрібні непорожні основи з Unicode; наявні гліфи захищені.";
+      return;
+    }
+    const accepted =
+      kind === "geometry" ? await chooseGeometry(proposals) : proposals;
+    if (!accepted.length) {
+      $("autofill-status").textContent = "Правки не застосовано";
+      return;
+    }
+    // Native menu actions / async font changes must never apply a stale plan.
+    if (doc !== targetDoc || targetDoc.state.revision !== revision)
+      throw new Error("Шрифт змінився. Повторіть пошук відповідників.");
+    const edits = materialize(accepted, targetDoc.state, count);
+    if (!targetDoc.commitBatch(edits)) return;
+    scheduleSave();
+    rebuildSlots();
+    await select(selected);
+    await draftCoverage();
+    $("autofill-status").textContent =
+      `Додано: ${accepted.map((p) => p.from + "→" + p.to).join(", ")}. ⌘Z скасує весь пакет.`;
+  } finally {
+    autofilling = false;
+  }
+}
 async function copy() {
   if (!current || !face) return;
   const revision = selectionRevision,
@@ -748,6 +804,7 @@ async function exportAll() {
 }
 async function action(value: string) {
   clearError();
+  if (choosingGeometry() && value !== "save") return;
   switch (value) {
     case "save":
       await flush();
@@ -759,6 +816,12 @@ async function action(value: string) {
       if (result) $("save-status").title = result.path;
       break;
     }
+    case "autofill":
+      await autofill("homograph");
+      break;
+    case "geometry":
+      await autofill("geometry");
+      break;
     case "undo":
       await history();
       break;
@@ -794,7 +857,7 @@ window.glyphEditorAction = async (value) => {
 };
 function on(id: string, handler: () => void | Promise<void>) {
   $(id).onclick = () => {
-    if (exporting) return;
+    if (exporting || (choosingGeometry() && id !== "save")) return;
     clearError();
     Promise.resolve().then(handler).catch(error);
   };
@@ -820,6 +883,8 @@ on("undo", () => history());
 on("redo", () => history(true));
 on("fit", () => action("fit"));
 on("copy", copy);
+on("autofill", () => autofill("homograph"));
+on("geometry", () => autofill("geometry"));
 on("map", () => mapping());
 on("new", () => mapping(true));
 on("restore", () => {
@@ -848,6 +913,26 @@ on("advance-apply", () => {
     metrics: {
       ...current.metrics,
       rightBearing: advance - current.metrics.leftBearing - current.width,
+    },
+  });
+});
+on("placement-apply", () => {
+  if (!current) return;
+  const leftBearing = Number($<HTMLInputElement>("bearing").value);
+  const shiftUp = Number($<HTMLInputElement>("shift-up").value);
+  if (
+    ![leftBearing, shiftUp].every(
+      (n) => Number.isFinite(n) && Math.abs(n) <= 4096,
+    )
+  )
+    throw new Error("Відступ і зсув: від −4096 до 4096");
+  commit({
+    ...structuredClone(current),
+    metrics: {
+      ...current.metrics,
+      leftBearing,
+      shiftUp,
+      rightBearing: current.advanceX - leftBearing - current.width,
     },
   });
 });
@@ -907,6 +992,7 @@ on("page-next", () =>
   select(Math.min(slots.length - 1, Math.floor(selected / 64) * 64 + 64)),
 );
 document.addEventListener("keydown", (event) => {
+  if (choosingGeometry()) return;
   const editing = (event.target as HTMLElement).matches(
     "input,textarea,select",
   );

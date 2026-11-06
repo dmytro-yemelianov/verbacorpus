@@ -173,6 +173,14 @@
                 <figcaption>Правка</figcaption>
               </figure>
             </div>
+            <button
+              id="autofill"
+              title="Заповнити відсутні латинські й кириличні двійники в поточному шрифті"
+            >
+              Автозаповнити А ↔ A
+            </button>
+            <button id="geometry">Дзеркала й повороти…</button>
+            <p id="autofill-status" class="muted" role="status"></p>
             <label
               >Взяти за основу<input
                 id="copy-from"
@@ -198,6 +206,13 @@
                 →</button
               ><button data-transform="flip-x">↔</button
               ><button data-transform="flip-y">↕</button
+              ><button
+                data-transform="rotate90"
+                title="За годинниковою стрілкою; ширина й висота міняються місцями"
+              >
+                90° ↻</button
+              ><button data-transform="rotate180">180°</button
+              ><button data-transform="rotate270">270° ↻</button
               ><button data-transform="invert">Інверсія</button
               ><button data-transform="clear">Очистити</button>
             </div>
@@ -223,6 +238,15 @@
                   max="4096"
                   step="0.5" /></label
               ><button id="advance-apply">Застосувати крок</button>
+              <div class="two">
+                <label
+                  >Лівий відступ<input id="bearing" type="number" step="0.5"
+                /></label>
+                <label
+                  >Зсув угору<input id="shift-up" type="number" step="0.5"
+                /></label>
+              </div>
+              <button id="placement-apply">Застосувати розміщення</button>
             </details>
             <label
               >Додати Unicode-мапу<input
@@ -280,5 +304,22 @@
         </footer>
       </main>
     </div>
+    <dialog id="geometry-dialog" aria-labelledby="geometry-title">
+      <form method="dialog">
+        <h2 id="geometry-title">Дзеркала й повороти · поточний шрифт</h2>
+        <p>
+          Оберіть варіанти для відсутніх символів. Це заготовки для ручного
+          перегляду; форма й базова лінія можуть потребувати правки. Золота
+          риска — базова лінія.
+        </p>
+        <div id="geometry-list"></div>
+        <div class="dialog-actions">
+          <button value="cancel">Скасувати</button>
+          <button id="geometry-apply" class="primary" value="apply" disabled>
+            Застосувати (0)
+          </button>
+        </div>
+      </form>
+    </dialog>
   </body>
 </html>

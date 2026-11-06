@@ -36,7 +36,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
         }
         group("Verba Glyph Editor", [("Про редактор","","about"),("Завершити","q","quit")])
         group("Файл", [("Зберегти правки","s","save"),("Експортувати шрифт","e","export"),("Відкрити папку правок","","project")])
-        group("Редагування", [("Скасувати","z","undo"),("Повторити","Z","redo")])
+        group("Редагування", [("Скасувати","z","undo"),("Повторити","Z","redo"),("Автозаповнити двійники (А ↔ A)","","autofill"),("Дзеркала й повороти…","","geometry")])
         group("Перегляд", [("Наступний гліф", "]", "next"),("Попередній гліф","[","previous"),("Умістити гліф","0","fit")])
 
         if let edit = main.item(at: 2)?.submenu {
