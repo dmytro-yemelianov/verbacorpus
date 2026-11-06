@@ -118,6 +118,7 @@ export class GlyphViewer {
     return Number(this.size.value);
   }
   async setFont(font?: NativeFont) {
+    field<HTMLInputElement>("glyph-lookup").setCustomValidity("");
     this.font = font;
     this.indices = font?.indices(this.mode.value as GlyphMode) ?? [];
     await this.load(0);
