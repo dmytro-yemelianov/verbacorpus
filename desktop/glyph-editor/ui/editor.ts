@@ -277,6 +277,12 @@ async function openFont(id: string, resume?: string) {
       if (firstInk >= 0) selected = firstInk;
     }
     progressUpdate();
+    const listPosition = visibleFonts.findIndex((item) => item.id === id);
+    if (listPosition >= 0) {
+      const list = $("font-list");
+      list.scrollTop = Math.max(0, listPosition * 52 - list.clientHeight / 2);
+      renderFonts();
+    }
     await select(selected, true);
     void draftCoverage().catch(error);
     $("save-status").textContent = "Збереження правок — автоматично";
@@ -441,7 +447,7 @@ function inspect() {
   const slot = slots[selected];
   $("character").textContent = slot?.char ?? current.character ?? current.id;
   $("glyph-meta").textContent =
-    `${current.id} · ${original ? "джерельний" : "новий"} · ${current.width}×${current.height}`;
+    `${current.id} · ${original ? "джерельний" : "новий"} · ${current.width}×${current.height}${current.sourceCode?.value ? " · код " + String(current.sourceCode.value) : ""}`;
   $("glyph-title").textContent =
     `${slot?.char ? codepoint(slot.char) + " · " : ""}${current.id} · ${current.width}×${current.height} · ${doc.state.reviewed.includes(slot?.key) ? "переглянуто" : "не переглянуто"}`;
   $<HTMLInputElement>("width").value = String(current.width);
@@ -537,12 +543,22 @@ async function renderQueue() {
     const label = document.createElement("span");
     label.textContent = s.char
       ? codepoint(s.char)
-      : (value?.codepoint ?? s.key);
+      : (value?.codepoint ?? String(value?.sourceCode?.value ?? s.key));
     button.append(label);
     button.onclick = () => void select(start + i).catch(error);
     fragment.append(button);
   }
   container.append(fragment);
+  const active = container.querySelector<HTMLButtonElement>(
+    '[aria-pressed="true"]',
+  );
+  if (active) {
+    const a = active.getBoundingClientRect(),
+      box = container.getBoundingClientRect();
+    if (a.top < box.top) container.scrollTop += a.top - box.top;
+    else if (a.bottom > box.bottom)
+      container.scrollTop += a.bottom - box.bottom;
+  }
   $("queue-count").textContent = slots.length
     ? `${start + 1}–${start + shown.length} із ${slots.length.toLocaleString("uk")} · пунктир = відсутній · зелена риска = правка`
     : "Немає гліфів у цій черзі";
