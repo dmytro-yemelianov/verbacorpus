@@ -15,8 +15,8 @@ def metric(v):
 def validate_glyph(glyph):
     w, h = glyph.get("width"), glyph.get("height")
     if (
-        not integer(w, 1, 32)
-        or not integer(h, 1, 32)
+        not integer(w, 1, 256)
+        or not integer(h, 1, 256)
         or glyph.get("rowBytes") != (w + 7) // 8
     ):
         raise ValueError("Invalid glyph dimensions")
@@ -65,14 +65,14 @@ def validate_request(request):
         "[a-z0-9][a-z0-9._-]{0,159}", str(font.get("id", ""))
     ) or not re.fullmatch("[a-f0-9]{64}", str(font.get("sha256", ""))):
         raise ValueError("Invalid source font identity")
-    if not all(integer(cell.get(k), 1, 32) for k in ["width", "height"]):
-        raise ValueError("Prototype supports 1–32 px font cells")
+    if not all(integer(cell.get(k), 1, 256) for k in ["width", "height"]):
+        raise ValueError("Prototype supports 1–256 px font cells")
 
     if not metric(font.get("metrics", {}).get("baseline")):
         raise ValueError("Invalid font baseline")
     reference_font = request.get("referenceFont", font)
     if not all(
-        integer(reference_font.get("cell", {}).get(k), 1, 32)
+        integer(reference_font.get("cell", {}).get(k), 1, 256)
         for k in ["width", "height"]
     ) or not metric(reference_font.get("metrics", {}).get("baseline")):
         raise ValueError("Invalid reference font metrics")
@@ -87,7 +87,7 @@ def validate_request(request):
         raise ValueError("Invalid revision or candidate count")
     if (
         not isinstance(request.get("targetSignature"), str)
-        or len(request["targetSignature"]) > 16384
+        or len(request["targetSignature"]) > 65536
     ):
         raise ValueError("Invalid target signature")
     if not isinstance(request.get("character"), str) or len(request["character"]) != 1:

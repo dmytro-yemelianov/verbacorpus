@@ -37,6 +37,7 @@ export async function planStyleTargets(options: {
   characters: string[];
   onlyMissing: boolean;
   load: (id: string) => Promise<Glyph | undefined>;
+  blank?: (id: string, character: string) => Glyph;
   source: (id: string) => Promise<Glyph | undefined>;
 }) {
   const targets: StyleTarget[] = [],
@@ -72,8 +73,7 @@ export async function planStyleTargets(options: {
       throw new Error("Вичерпано діапазон ID гліфів.");
     const target =
       existing ??
-      blankGlyph(
-        options.font,
+      (options.blank ?? ((id, char) => blankGlyph(options.font, id, char)))(
         "g" + String(next++).padStart(6, "0"),
         character,
       );

@@ -1,13 +1,14 @@
 import { pack, type Glyph, type Derivation } from "./model";
 export interface Candidate {
   id: string;
-  method: "cnn" | "retrieval" | "reference" | "homograph";
+  method: "cnn" | "retrieval" | "reference" | "homograph" | "geometry";
   styleReferenceFont?: {
     fontId: string;
     sha256: string;
     name: string;
     licenseId: string;
   };
+  operation?: string;
   model: string;
   checkpointSha256: string | null;
   width: number;
@@ -23,6 +24,25 @@ export interface Candidate {
   sourceLicense: Record<string, unknown>;
   source: Record<string, unknown>;
   references: string[];
+}
+const OPERATIONS: Record<string, string> = {
+  "mirror-x": "дзеркало ↔",
+  "mirror-y": "дзеркало ↕",
+  "rotate-180": "поворот 180°",
+  "compose-k-mirror": "гілки + дзеркало",
+  "compose-stem-oval": "штрих + овал",
+  "compose-open-bowl-bar": "дуга + перекладина",
+};
+export function candidateLabel(candidate: Candidate) {
+  return candidate.method === "geometry"
+    ? `Із латинки · ${candidate.sourceChar ?? ""} · ${OPERATIONS[candidate.operation ?? ""] ?? "трансформація"}`
+    : candidate.method === "homograph"
+      ? `Латинський двійник · ${candidate.sourceChar ?? ""}`
+      : candidate.method === "reference"
+        ? "Із референсу"
+        : candidate.method === "cnn"
+          ? "CNN · експеримент"
+          : "Retrieval";
 }
 export interface CandidateResult {
   filteredNeural?: number;
@@ -73,9 +93,11 @@ export function candidateGlyph(target: Glyph, candidate: Candidate): Glyph {
   )
     throw new Error("Некоректні padding-біти кандидата");
   if (
-    !["cnn", "retrieval", "reference", "homograph"].includes(
+    !["cnn", "retrieval", "reference", "homograph", "geometry"].includes(
       candidate.method,
     ) ||
+    (candidate.operation !== undefined &&
+      !Object.hasOwn(OPERATIONS, candidate.operation)) ||
     !/^g\d{6}$/.test(candidate.sourceGlyphId) ||
     !/^[a-z0-9][a-z0-9._-]{0,159}$/.test(candidate.sourceFontId) ||
     !/^[a-f0-9]{64}$/.test(candidate.sourceSha256) ||
@@ -110,7 +132,7 @@ export function candidateDerivation(
     sourceLicenseId: candidate.sourceLicenseId,
     sourceChar: candidate.sourceChar ?? character,
     targetChar: character,
-    transform: "style-candidate",
+    transform: candidate.operation ?? "style-candidate",
     kind: "generation",
     recipeVersion: 1,
     generation: {

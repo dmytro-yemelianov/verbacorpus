@@ -4,6 +4,7 @@ import json
 import time
 
 import numpy as np
+from native_templates import templates
 from request import validate_request
 
 from data import (
@@ -95,8 +96,6 @@ class Generator:
             if refs[6:, 0, 0].sum() < 2:
                 raise ValueError("Need two groups from H/Н, x/х, o/о, n/п, k/к, p/р")
             ranked = ds.rank(refs, character, exclude, pool=range(len(ds.fonts)))
-        if not ranked:
-            raise ValueError("No independent donor font for this character")
         ranked = ranked[:8] if evaluation else ranked[:16]
         ci = ds.char_index[character]
         probabilities = None
@@ -138,7 +137,14 @@ class Generator:
             style_identity["draftRevision"] = style["draftRevision"]
 
         def append(
-            method, bits, donor, source_id, score, reference_ids, source_character=None
+            method,
+            bits,
+            donor,
+            source_id,
+            score,
+            reference_ids,
+            source_character=None,
+            operation=None,
         ):
             packed = rows(bits)
             digest = hashlib.sha256("|".join(packed).encode()).hexdigest()
@@ -162,6 +168,7 @@ class Generator:
                         "retrieval": "nearest-font-v1",
                         "reference": "reference-copy-v1",
                         "homograph": "latin-homograph-v1",
+                        "geometry": "native-cyrillic-v1",
                     }[method],
                     "checkpointSha256": self.training.get("checkpointSha256")
                     if method == "cnn"
@@ -176,6 +183,7 @@ class Generator:
                     ),
                     "source": donor.get("source", {}),
                     "references": reference_ids,
+                    **({"operation": operation} if operation else {}),
                     **(
                         {"styleReferenceFont": style_identity}
                         if "referenceFont" in request
@@ -185,7 +193,7 @@ class Generator:
             )
 
         def reference_bits(g):
-            if (
+            if (style["id"] != font["id"] or style["sha256"] != font["sha256"]) and (
                 style["cell"]["width"] != font["cell"]["width"]
                 or style["cell"]["height"] != font["cell"]["height"]
             ):
@@ -250,6 +258,20 @@ class Generator:
                 append(
                     "homograph", reference_bits(g), style, g["id"], 0, [g["id"]], latin
                 )
+            for bits, characters, operation in templates(
+                character, provided, reference_bits
+            ):
+                source = provided[characters[0]]
+                append(
+                    "geometry",
+                    bits,
+                    style,
+                    source["id"],
+                    0,
+                    [provided[c]["id"] for c in characters],
+                    "+".join(characters),
+                    operation,
+                )
         for k, (score, i) in enumerate(ranked):
             donor = ds.fonts[i]
             template = ds.images[i, ci]
@@ -273,9 +295,13 @@ class Generator:
             if len(result) >= count:
                 break
         result.sort(
-            key=lambda c: {"reference": 0, "homograph": 1, "retrieval": 2, "cnn": 3}[
-                c["method"]
-            ]
+            key=lambda c: {
+                "reference": 0,
+                "homograph": 1,
+                "geometry": 2,
+                "retrieval": 3,
+                "cnn": 4,
+            }[c["method"]]
         )
         return {
             "format": "para-glyph-candidates",

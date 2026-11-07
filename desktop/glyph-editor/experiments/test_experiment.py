@@ -299,3 +299,109 @@ class LatinCompletionTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class NativeTemplateTests(unittest.TestCase):
+    def test_mirror_preserves_padding_baseline_and_native_strokes(self):
+        from native_templates import transform_glyph
+
+        g = {
+            "width": 5,
+            "height": 6,
+            "rowBytes": 1,
+            "rows": ["00", "80", "C0", "A0", "90", "00"],
+            "metrics": {"leftBearing": 1, "shiftUp": -1},
+        }
+        before = copy.deepcopy(g)
+        mirrored = transform_glyph(g, "mirror-x")
+        self.assertEqual(mirrored["rows"], ["00", "10", "30", "50", "90", "00"])
+        flipped = transform_glyph(g, "mirror-y")
+        self.assertEqual(flipped["rows"], ["00", "90", "A0", "C0", "80", "00"])
+        self.assertEqual(flipped["metrics"], g["metrics"])
+        self.assertEqual(g, before)
+
+    def test_native_recipes_precede_retrieval_and_copy_exact_latin(self):
+        from infer import Generator
+
+        corpus = Path(__file__).resolve().parents[3] / "app"
+        catalog = json.loads((corpus / "font-corpus/catalog.json").read_text())
+        path = Path(__file__).parent.parent / ".build/style-transfer"
+        if not (path / "manifest.json").exists():
+            self.skipTest("Prepare the local dataset first")
+        f = next(
+            f
+            for f in catalog["fonts"]
+            if f["id"] == "hoard-custom-amiga-nudelfonts-polarsmall-prop"
+        )
+        r = json.loads((corpus / "public" / f["url"].lstrip("/")).read_text())
+        by = {g["character"]: g for g in r["glyphs"] if g["character"]}
+        generator = Generator(path, neural=False)
+        for c, latin, method in [
+            ("А", "A", "homograph"),
+            ("И", "N", "geometry"),
+            ("Я", "R", "geometry"),
+            ("П", "U", "geometry"),
+        ]:
+            target = copy.deepcopy(by[latin])
+            target["id"] = "g000226"
+            request = {
+                "snapshot": catalog["snapshot"],
+                "font": f,
+                "referenceFont": {**f, "cell": {"width": 8, "height": 6}},
+                "target": target,
+                "character": c,
+                "references": [
+                    by[x]
+                    for x in "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+                    if x in by
+                ],
+                "preferLatin": True,
+                "revision": 0,
+                "count": 8,
+                "targetSignature": "test",
+            }
+            result = generator.candidates(request)["candidates"]
+            self.assertEqual(result[0]["method"], method)
+            self.assertEqual(result[0]["sourceChar"], latin)
+            if method == "homograph":
+                self.assertEqual(result[0]["rows"], by[latin]["rows"])
+            self.assertEqual(result[0]["sourceFontId"], f["id"])
+
+
+class LargeNativeGlyphTests(unittest.TestCase):
+    def test_classic_sized_native_frames_are_valid_without_changing_matching_grid(self):
+        from request import validate_request
+
+        from data import SIZE
+
+        glyph = {
+            "id": "g000001",
+            "width": 41,
+            "height": 38,
+            "rowBytes": 6,
+            "rows": ["800000000000"] * 38,
+            "labels": [{"kind": "unicode", "value": "A"}],
+            "metrics": {"leftBearing": 0, "shiftUp": -7},
+        }
+        font = {
+            "id": "classic-test",
+            "sha256": "a" * 64,
+            "cell": {"width": 41, "height": 38},
+            "metrics": {"baseline": 31},
+        }
+        req = {
+            "snapshot": "b" * 64,
+            "font": font,
+            "referenceFont": font,
+            "target": glyph,
+            "references": [glyph],
+            "character": "А",
+            "revision": 0,
+            "count": 8,
+            "targetSignature": "test",
+        }
+        self.assertIs(validate_request(req), req)
+        self.assertEqual(SIZE, 32)
+        req["target"] = {**glyph, "width": 257}
+        with self.assertRaises(ValueError):
+            validate_request(req)

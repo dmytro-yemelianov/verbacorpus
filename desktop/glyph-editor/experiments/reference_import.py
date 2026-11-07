@@ -114,8 +114,8 @@ def truetype(data, characters, size):
         h = bottom - top
         if w <= 0 or h <= 0:
             continue
-        if w > 32 or h > 32:
-            raise ValueError("Reference glyph exceeds 32 px; reduce raster size")
+        if w > 256 or h > 256:
+            raise ValueError("Reference glyph exceeds 256 px; reduce raster size")
         image = Image.new("1", (w, h))
         ImageDraw.Draw(image).text((-left, -top), char, font=face, fill=1, anchor="ls")
         result.append(
@@ -239,9 +239,9 @@ def import_reference(request):
     if not glyphs:
         raise ValueError("No requested Unicode glyphs in this reference")
     if not all(
-        type(cell.get(k)) is int and 1 <= cell[k] <= 32 for k in ["width", "height"]
+        type(cell.get(k)) is int and 1 <= cell[k] <= 256 for k in ["width", "height"]
     ):
-        raise ValueError("Reference cell must be 1–32 px; reduce outline size")
+        raise ValueError("Reference cell must be 1–256 px; reduce outline size")
     for g in glyphs:
         validate_glyph(g)
     digest = hashlib.sha256(data).hexdigest()

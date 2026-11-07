@@ -33,13 +33,13 @@ final class CandidateJobs {
         let required = request["mode"] as? String == "retrieval" ? "manifest.json" : "cnn.pt"
         guard FileManager.default.fileExists(atPath:data.appendingPathComponent(required).path) else { throw fail("Локальні дані не підготовлено. Див. experiments/README.md.") }
         guard let font = request["font"] as? [String:Any], let cell = font["cell"] as? [String:Any],
-              let w = cell["width"] as? Int, let h = cell["height"] as? Int, w > 0, h > 0, w <= 32, h <= 32,
-              let refs = request["references"] as? [[String:Any]], refs.count >= 1, refs.count <= 64 else { throw fail("Прототип: комірка 1–32 px, 1–64 референси") }
+              let w = cell["width"] as? Int, let h = cell["height"] as? Int, w > 0, h > 0, w <= 256, h <= 256,
+              let refs = request["references"] as? [[String:Any]], refs.count >= 1, refs.count <= 64 else { throw fail("Прототип: комірка 1–256 px, 1–64 референси") }
         let targets = (request["targets"] as? [[String:Any]]) ?? [request]
         guard !targets.isEmpty, targets.count <= 128 else { throw fail("Пакет: 1–128 літер") }
         for item in targets {
             guard let target = item["target"] as? [String:Any], let tw = target["width"] as? Int, let th = target["height"] as? Int,
-                  tw > 0, th > 0, tw <= 32, th <= 32, let char = item["character"] as? String, char.unicodeScalars.count == 1 else { throw fail("Гліф: одна літера та растр 1–32 px") }
+                  tw > 0, th > 0, tw <= 256, th <= 256, let char = item["character"] as? String, char.unicodeScalars.count == 1 else { throw fail("Гліф: одна літера та растр 1–256 px") }
         }
         return try launch(request,script:"infer.py",arguments:["--data",data.path],limit:1024*1024)
     }

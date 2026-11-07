@@ -1,3 +1,4 @@
+import { candidateLabel } from "./candidates";
 import { native } from "./bridge";
 import { unpack, type Glyph } from "./model";
 import {
@@ -81,7 +82,7 @@ export function createStyleWorkbench(options: {
         `${font.name} · ${font.cell.width}×${font.cell.height}`,
         font.id,
       );
-      option.disabled = font.cell.width > 32 || font.cell.height > 32;
+      option.disabled = font.cell.width > 256 || font.cell.height > 256;
       select.append(option);
     }
   }
@@ -352,14 +353,7 @@ export function createStyleWorkbench(options: {
       );
       const label = document.createElement("strong"),
         source = document.createElement("small");
-      label.textContent =
-        candidate.method === "reference"
-          ? "Із референсу"
-          : candidate.method === "homograph"
-            ? "Із латинського двійника"
-            : candidate.method === "retrieval"
-              ? "Retrieval"
-              : "CNN · експеримент";
+      label.textContent = candidateLabel(candidate);
       source.textContent =
         candidate.sourceFontId + " · " + candidate.sourceLicenseId;
       button.append(
@@ -396,7 +390,7 @@ export function createStyleWorkbench(options: {
       `${font.name} · ${font.cell.width}×${font.cell.height}`,
       font.id,
     );
-    option.disabled = font.cell.width > 32 || font.cell.height > 32;
+    option.disabled = font.cell.width > 256 || font.cell.height > 256;
     select.append(option);
   }
   $("style-load").onclick = () => void loadReference();

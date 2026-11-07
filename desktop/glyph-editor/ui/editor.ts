@@ -1,3 +1,10 @@
+import { asciiMapping, chooseAsciiMapping } from "./ascii-mapping";
+import {
+  compactLegacyFrame,
+  editingProfile,
+  profiledBlank,
+  initialQueue,
+} from "./font-profile";
 import { shortcutKey } from "./shortcuts";
 import { createStyleWorkbench } from "./style-workbench";
 import {
@@ -41,7 +48,6 @@ import {
   UKRAINIAN,
   codepoint,
   newDraft,
-  blankGlyph,
   resized,
   transformed,
   effectiveIndex,
@@ -95,6 +101,10 @@ let controller: AbortController | undefined,
   index = new Map<string, string[]>();
 let current: Glyph | undefined, original: Glyph | undefined;
 let referenceHeights: ReferenceHeights = {};
+let profileSamples: Glyph[] = [];
+let cachedProfile:
+  | { document: GlyphDocument; revision: number; font: FontSummary }
+  | undefined;
 let editingBusy = true;
 let autofilling = false;
 let queueRevision = 0,
@@ -293,6 +303,7 @@ async function openFont(id: string, resume?: string) {
   styleWorkbench.reset();
   guideEditor.close();
   referenceHeights = {};
+  cachedProfile = undefined;
   selectionRevision++;
   queueRevision++;
   controller?.abort();
@@ -311,6 +322,23 @@ async function openFont(id: string, resume?: string) {
     font = summary;
     face = loaded;
     doc = new GlyphDocument(state ?? newDraft(summary, boot.snapshot));
+    const ordinals = [
+      ...new Set(
+        [
+          ..."ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789ÁÀÂÃÄÅÉÈÊËÍÌÎÏÓÒÔÕÖÚÙÛÜÝŸАБВГҐДЕЄЖЗИІЇЙКЛМНОПРСТУФХЦЧШЩЬЮЯабвгґдеєжзиіїйклмнопрстуфхцчшщьюя",
+        ].flatMap((c) => loaded.index.unicodeIndex[c] ?? []),
+      ),
+    ];
+    const samples = await loaded.glyphs(
+      ordinals.length
+        ? ordinals
+        : Array.from(
+            { length: Math.min(128, summary.coverage.glyphCount) },
+            (_, i) => i,
+          ),
+    );
+    if (revision !== fontRevision) return;
+    profileSamples = samples;
     dirty = false;
     $("font-name").textContent = font.name;
     $("font-source").textContent = `${font.collection} · ${font.licenseId}`;
@@ -319,6 +347,20 @@ async function openFont(id: string, resume?: string) {
     $<HTMLTextAreaElement>("notes").value = doc.state.notes ?? "";
     selected = 0;
     slots = [];
+    const queue = $<HTMLSelectElement>("mode");
+    queue.value = initialQueue(
+      queue.value,
+      effectiveIndex(loaded.index.unicodeIndex, doc.state),
+    );
+    const profile = editingProfile(font, profileSamples);
+    if (
+      profile.cell.width !== font.cell.width ||
+      profile.cell.height !== font.cell.height
+    )
+      $("font-meta").textContent +=
+        ` · типова комірка ${profile.cell.width}×${profile.cell.height}`;
+    $("mapping-notice").hidden =
+      Object.keys(loaded.index.unicodeIndex).length > 0;
     rebuildSlots(resume);
     if (!resume && $<HTMLSelectElement>("mode").value === "all") {
       const sample = await Promise.all(
@@ -383,6 +425,9 @@ function rebuildSlots(preferred = slots[selected]?.key) {
     return;
   }
   index = effectiveIndex(face.index.unicodeIndex, doc.state);
+  $("mapping-notice").hidden = [...index.values()].some(
+    (ids) => ids.length > 0,
+  );
   const mode = $<HTMLSelectElement>("mode").value;
   const ids = [
     ...Array.from(
@@ -435,9 +480,7 @@ async function select(position: number, fit = false) {
     return;
   }
   const id = slot.id ?? doc.nextID(font.coverage.glyphCount);
-  const loaded = slot.id
-    ? await glyph(id)
-    : blankGlyph(effectiveFont()!, id, slot.char!);
+  const loaded = slot.id ? await glyph(id) : newGlyph(id, slot.char!);
   const source =
     Number(id.slice(1)) < font.coverage.glyphCount
       ? (await face.glyphs([Number(id.slice(1))]))[0]
@@ -523,10 +566,25 @@ async function draftCoverage() {
   const mapped = [...effective.values()].some((ids) => ids.length);
   $("font-meta").textContent =
     `${font.cell.width}×${font.cell.height} · ${font.coverage.glyphCount.toLocaleString("uk")} вихідних гліфів · українська: джерело ${font.coverage.ukrainian.present ?? "?"}/66 → правка ${mapped ? present : "?"}/66`;
+  const profile = automaticFont()!;
+  if (
+    profile.cell.width !== font.cell.width ||
+    profile.cell.height !== font.cell.height
+  )
+    $("font-meta").textContent +=
+      ` · типова комірка ${profile.cell.width}×${profile.cell.height}`;
   scheduleProof();
 }
 function inspect() {
   if (!current || !doc) return;
+  const repair =
+    font && doc.state.created.includes(current.id)
+      ? compactLegacyFrame(font, profileSamples, current)
+      : undefined;
+  $("compact-frame").hidden = !repair;
+  $("compact-frame").textContent = repair
+    ? `Прибрати зайву ширину · ${repair.width}×${repair.height}`
+    : "Прибрати зайву ширину";
   const slot = slots[selected];
   $("character").textContent = glyphCaption(slot?.char, current);
   $("glyph-meta").textContent =
@@ -561,9 +619,92 @@ function updateButtons() {
   $<HTMLButtonElement>("next").disabled =
     !slots.length || selected >= slots.length - 1;
 }
-function effectiveFont() {
-  return font ? fontWithGuides(font, doc?.state.fontGuides) : undefined;
+function automaticFont() {
+  if (!font || !doc) return font;
+  if (
+    cachedProfile?.document !== doc ||
+    cachedProfile.revision !== doc.state.revision
+  ) {
+    const samples = profileSamples.map((g) => doc!.state.edits[g.id] ?? g);
+    samples.push(
+      ...doc.state.created.flatMap((id) =>
+        doc!.state.edits[id] ? [doc!.state.edits[id]] : [],
+      ),
+    );
+    cachedProfile = {
+      document: doc,
+      revision: doc.state.revision,
+      font: editingProfile(font, samples),
+    };
+  }
+  return cachedProfile.font;
 }
+function effectiveFont() {
+  const automatic = automaticFont();
+  return automatic
+    ? fontWithGuides(automatic, doc?.state.fontGuides)
+    : undefined;
+}
+function newGlyph(id: string, char: string) {
+  const samples = profileSamples.map((g) => doc?.state.edits[g.id] ?? g);
+  return profiledBlank(
+    fontWithGuides(font!, doc?.state.fontGuides),
+    samples,
+    id,
+    char,
+  );
+}
+$("compact-frame").onclick = () => {
+  if (
+    !font ||
+    !doc ||
+    !current ||
+    editingBusy ||
+    !doc.state.created.includes(current.id)
+  )
+    return;
+  const repair = compactLegacyFrame(font, profileSamples, current);
+  if (repair) {
+    commit(repair);
+    fitZoom();
+    draw();
+  }
+};
+$("ascii-map-open").onclick = () =>
+  void (async () => {
+    await canvasUI.flushRegions();
+    if (!face || !font || !doc || editingBusy) return;
+    const targetDoc = doc,
+      targetFace = face,
+      targetFont = font,
+      revision = doc.state.revision;
+    if (targetFont.coverage.glyphCount > 8192)
+      throw new Error("Ця мапа підтримує до 8192 вихідних гліфів.");
+    const values: Glyph[] = [];
+    for (let start = 0; start < targetFont.coverage.glyphCount; start += 128) {
+      const batch = await targetFace.glyphs(
+        Array.from(
+          { length: Math.min(128, targetFont.coverage.glyphCount - start) },
+          (_, i) => start + i,
+        ),
+      );
+      values.push(...batch.map((g) => targetDoc.state.edits[g.id] ?? g));
+    }
+    if (targetDoc !== doc || doc.state.revision !== revision) return;
+    const edits = asciiMapping(values, index);
+    if (!(await chooseAsciiMapping(edits))) return;
+    if (targetDoc !== doc || doc.state.revision !== revision)
+      throw new Error("Шрифт змінився; відкрийте мапу повторно.");
+    doc.commitBatch(edits);
+    profileSamples = values;
+    cachedProfile = undefined;
+    scheduleSave();
+    $<HTMLSelectElement>("mode").value = "latin";
+    rebuildSlots();
+    await select(0, true);
+    $("autofill-status").textContent =
+      `Додано ASCII-мапу: ${edits.length} знаків. Тепер можна доповнювати українську з латинки.`;
+  })().catch(error);
 const comparison = createComparison({
   get: () => ({ fontId: font?.id, current, busy: editingBusy || exporting }),
   resolve: async (query) => {
@@ -579,7 +720,7 @@ const comparison = createComparison({
 });
 const guideEditor = createFontGuidesEditor({
   get: () => ({
-    font,
+    font: automaticFont(),
     overrides: doc?.state.fontGuides,
     reference: referenceHeights,
     busy: editingBusy || exporting,
@@ -752,7 +893,10 @@ const styleWorkbench = createStyleWorkbench({
     }
     if (doc !== targetDoc || font !== targetFont)
       throw new Error("Шрифт змінився; повторіть читання референсу.");
-    const effective = fontWithGuides(summary, state?.fontGuides);
+    const effective = fontWithGuides(
+      editingProfile(summary, glyphs),
+      state?.fontGuides,
+    );
     return {
       font: {
         id: summary.id,
@@ -778,6 +922,7 @@ const styleWorkbench = createStyleWorkbench({
       revision = doc.state.revision;
     const result = await planStyleTargets({
       font: effectiveFont()!,
+      blank: newGlyph,
       state: doc.state,
       index: effectiveIndex(face.index.unicodeIndex, doc.state),
       characters,
@@ -1204,11 +1349,7 @@ async function mapping(create = false) {
       await jump(char);
       return;
     }
-    const added = blankGlyph(
-      effectiveFont()!,
-      doc.nextID(font.coverage.glyphCount),
-      char,
-    );
+    const added = newGlyph(doc.nextID(font.coverage.glyphCount), char);
     doc.commit(added.id, added, undefined);
     scheduleSave();
     $<HTMLSelectElement>("mode").value = "all";

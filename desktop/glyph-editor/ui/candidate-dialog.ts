@@ -1,3 +1,4 @@
+import { candidateLabel } from "./candidates";
 import { native } from "./bridge";
 import { unpack, type Glyph } from "./model";
 import {
@@ -68,10 +69,7 @@ export function createCandidateChooser(options: {
           );
       });
       const title = document.createElement("strong");
-      title.textContent =
-        candidate.method === "cnn"
-          ? "CNN · експеримент"
-          : "Пошук схожого шрифту";
+      title.textContent = candidateLabel(candidate);
       const source = document.createElement("small");
       source.textContent = `${candidate.sourceFontId} · ${candidate.sourceLicenseId}`;
       const actions = document.createElement("div"),

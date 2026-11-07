@@ -12,7 +12,7 @@ const require = createRequire(join(app, "package.json")),
 const compiled = await build({
   stdin: {
     contents:
-      'export * from "./ui/model"; export * from "./ui/autofill"; export * from "./ui/raster-mutation"; export * from "./ui/regions"; export * from "./ui/pixel-regions"; export * from "./ui/guides"; export * from "./ui/pixel-stroke"; export * from "./ui/shortcuts"; export * from "./ui/font-guides"; export * from "./ui/comparison"; export * from "./ui/candidates"; export * from "./ui/style-plan";',
+      'export * from "./ui/model"; export * from "./ui/autofill"; export * from "./ui/raster-mutation"; export * from "./ui/regions"; export * from "./ui/pixel-regions"; export * from "./ui/guides"; export * from "./ui/pixel-stroke"; export * from "./ui/shortcuts"; export * from "./ui/font-guides"; export * from "./ui/comparison"; export * from "./ui/candidates"; export * from "./ui/style-plan"; export * from "./ui/font-profile"; export * from "./ui/auto-guides"; export * from "./ui/ascii-mapping";',
     resolveDir: join(root, "desktop/glyph-editor"),
     sourcefile: "model-tests.ts",
   },
@@ -1724,4 +1724,166 @@ test("style planning refuses ambiguous aliases and reference provenance never re
   assert.equal(recipe.glyphId, "g000256");
   assert.deepEqual(recipe.generation.styleReferenceGlyphIds, ["g000300"]);
   assert.equal(recipe.generation.styleReferenceFont.name, "Reference");
+});
+
+test("PolarSmall letter frames exclude the 98px source banner and preserve A metrics", async () => {
+  const font = catalog.fonts.find(
+    (f) => f.id === "hoard-custom-amiga-nudelfonts-polarsmall-prop",
+  );
+  const raw = await readFile(join(app, "public", font.url), "utf8");
+  const record = JSON.parse(raw);
+  const profile = m.editingProfile(font, record.glyphs);
+  assert.equal(font.cell.width, 98);
+  assert.ok(profile.cell.width <= 10);
+  const a = record.glyphs.find((g) => g.character === "A");
+  const blank = m.profiledBlank(font, record.glyphs, "g000226", "А");
+  assert.equal(blank.width, 7);
+  assert.equal(blank.height, 6);
+  assert.equal(blank.advanceX, a.advanceX);
+  assert.deepEqual(blank.metrics, a.metrics);
+  assert.ok(blank.rows.every((r) => !parseInt(r, 16)));
+  assert.equal(JSON.stringify(record), JSON.stringify(JSON.parse(raw)));
+  assert.equal(
+    profile.metrics.capHeight,
+    m.referenceHeight(record.glyphs.find((g) => g.character === "H")),
+  );
+  assert.ok(profile.metrics.ascent > 0);
+});
+
+test("Classic's existing glyphs become visible and explicit ASCII mapping preserves every bitmap", async () => {
+  const font = catalog.fonts.find(
+    (f) => f.id === "hoard-apple-lisa-classic-18pt",
+  );
+  const record = JSON.parse(
+    await readFile(join(app, "public", font.url), "utf8"),
+  );
+  assert.equal(
+    record.glyphs.filter((g) => g.rows.some((r) => /[1-9a-f]/i.test(r))).length,
+    192,
+  );
+  const index = new Map();
+  assert.equal(m.initialQueue("ukrainian", index), "all");
+  const edits = m.asciiMapping(record.glyphs, index);
+  assert.equal(edits.length, 95);
+  assert.ok(edits.some((e) => e.glyph.character === "A"));
+  for (const edit of edits) {
+    assert.deepEqual(edit.glyph.rows, edit.source.rows);
+    assert.deepEqual(edit.glyph.metrics, edit.source.metrics);
+    assert.deepEqual(edit.glyph.sourceCode, edit.source.sourceCode);
+  }
+  const state = m.newDraft(font, catalog.snapshot),
+    doc = new m.Document(state);
+  doc.commitBatch(edits);
+  const mapped = m.effectiveIndex({}, state);
+  assert.equal(m.initialQueue("ukrainian", mapped), "latin");
+  assert.equal(mapped.get("A").length, 1);
+  const profile = m.editingProfile(font, Object.values(state.edits));
+  assert.ok(profile.metrics.capHeight > profile.metrics.xHeight);
+  assert.ok(profile.metrics.descent > 0);
+  doc.undo();
+  assert.equal(Object.keys(state.edits).length, 0);
+  doc.redo();
+  const exported = m.exportRecord(record, state);
+  validateFont(exported);
+  assert.equal(exported.glyphs.length, record.glyphs.length);
+});
+
+test("automatic guides measure ink in baseline coordinates and manual overrides win", () => {
+  const g = (char, rows, shiftUp = -1) => ({
+    ...source.glyphs[0],
+    id: "g000001",
+    width: 5,
+    height: rows.length,
+    rowBytes: 1,
+    rows,
+    metrics: { leftBearing: 0, rightBearing: 1, shiftUp },
+    labels: [{ kind: "unicode", value: char }],
+  });
+  const f = {
+    ...summary,
+    cell: { ...summary.cell, width: 5, height: 8 },
+    metrics: {
+      ...summary.metrics,
+      baseline: 7,
+      ascent: 0,
+      descent: 0,
+      capHeight: 0,
+      xHeight: 0,
+      lineHeight: 10,
+      lineGap: 0,
+    },
+  };
+  const samples = [
+    g("H", ["00", "88", "88", "F8", "88", "88", "88", "00"]),
+    g("x", ["00", "00", "00", "88", "50", "20", "88", "00"]),
+    g("p", ["00", "00", "F0", "88", "F0", "80", "80", "80"]),
+  ];
+  const guides = m.detectFontGuides(f, samples);
+  assert.deepEqual(guides, {
+    baseline: 7,
+    capHeight: 6,
+    xHeight: 4,
+    ascent: 6,
+    descent: 1,
+    lineGap: 3,
+  });
+  const effective = m.fontWithGuides(m.editingProfile(f, samples), {
+    capHeight: 5,
+    descent: 2,
+  });
+  assert.equal(effective.metrics.capHeight, 5);
+  assert.equal(effective.metrics.descent, 2);
+});
+
+test("ASCII mapping skips conflicting, duplicate, and non-ASCII source labels", () => {
+  const raw = (id, code) => ({
+    ...source.glyphs[0],
+    id,
+    character: null,
+    codepoint: null,
+    labels: [{ kind: "codepoint", value: code }],
+  });
+  assert.equal(
+    m.asciiMapping(
+      [raw("g000001", "0x41"), raw("g000002", "0x41"), raw("g000003", "0x80")],
+      new Map(),
+    ).length,
+    0,
+  );
+  assert.equal(
+    m.asciiMapping([raw("g000001", "0x41")], new Map([["A", ["g000004"]]]))
+      .length,
+    0,
+  );
+});
+
+test("legacy logo-width drafts can be compacted without losing ink; unsafe crops are refused", () => {
+  const samples = source.glyphs.filter((g) =>
+    ["A", "H", "x"].includes(g.character),
+  );
+  const a = structuredClone(samples.find((g) => g.character === "A"));
+  const pixels = new Uint8Array(98 * a.height),
+    ink = m.unpack(a);
+  for (let y = 0; y < a.height; y++)
+    pixels.set(ink.slice(y * a.width, (y + 1) * a.width), y * 98);
+  const legacy = {
+    ...a,
+    character: "А",
+    width: 98,
+    rowBytes: 13,
+    advanceX: 7.588,
+    rows: m.pack(pixels, 98, a.height),
+  };
+  const repaired = m.compactLegacyFrame(summary, samples, legacy);
+  assert.equal(repaired.width, a.width);
+  assert.deepEqual(repaired.rows, a.rows);
+  assert.equal(repaired.advanceX, a.advanceX);
+  pixels[97] = 1;
+  assert.equal(
+    m.compactLegacyFrame(summary, samples, {
+      ...legacy,
+      rows: m.pack(pixels, 98, a.height),
+    }),
+    undefined,
+  );
 });

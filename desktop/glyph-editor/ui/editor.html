@@ -75,6 +75,10 @@
             <p class="eyebrow" id="font-source">Локальний корпус</p>
             <h2 id="font-name">Завантаження…</h2>
             <p id="font-meta" class="muted"></p>
+            <p id="mapping-notice" class="muted" hidden>
+              Вихідні гліфи є, але Unicode-мапу не задано. Показано оригінальні
+              коди. <button id="ascii-map-open">Задати ASCII-мапу…</button>
+            </p>
           </div>
           <button id="font-guides-open">Гайди шрифту…</button>
           <label
@@ -235,6 +239,7 @@
             <p class="eyebrow">Гліф</p>
             <h3 id="character">—</h3>
             <p id="glyph-meta" class="muted"></p>
+            <button id="compact-frame" hidden>Прибрати зайву ширину</button>
             <div class="previews">
               <figure>
                 <canvas id="original-preview"></canvas>
@@ -580,7 +585,7 @@
             <p class="muted">
               JSON: Para Font, набір glyphs або Para Glyph Region. BDF:
               ISO10646. TTF/OTF перетворюється на 1-bit растр без згладжування.
-              Файл до 8 MiB; комірка й гліфи до 32 px. Для регіону без підпису
+              Файл до 8 MiB; комірка й гліфи до 256 px. Для регіону без підпису
               введіть один референсний символ.
             </p>
           </div>
@@ -596,7 +601,8 @@
               rows="2"
               placeholder="ҐЄІЇґєії"
             >
-ҐЄІЇґєії</textarea>
+ҐЄІЇґєії</textarea
+            >
           </label>
           <div class="two">
             <label class="inline"
@@ -651,8 +657,9 @@
         <h2 id="font-guides-title">Типографічні гайди шрифту</h2>
         <p id="font-guides-name"></p>
         <p class="muted">
-          Усі значення у пікселях шрифту. Порожнє поле — метрика джерела або
-          вимір H/Н та x/х. Кольорові стрілки показують відстань на схемі; 0 —
+          Усі значення у пікселях шрифту. Порожнє поле — автоматичний гайд цього
+          шрифту: висоти вимірюються з його літер, базова лінія та інтервал — з
+          метрик джерела. Кольорові стрілки показують відстань на схемі; 0 —
           базова лінія. Застосовується до всього шрифту, зберігається у правках
           та експорті. Растри й метрики окремих гліфів не пересуваються.
         </p>

@@ -84,7 +84,7 @@ execFileSync("iconutil", [
 ]);
 await writeFile(
   join(contents, "Info.plist"),
-  `<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><dict><key>CFBundleIdentifier</key><string>org.verbacorpus.glyph-editor</string><key>CFBundleName</key><string>Verba Glyph Editor</string><key>CFBundleDisplayName</key><string>Редактор гліфів Verba</string><key>CFBundleExecutable</key><string>VerbaGlyphEditor</string><key>CFBundlePackageType</key><string>APPL</string><key>CFBundleShortVersionString</key><string>0.10.2</string><key>CFBundleVersion</key><string>12</string><key>CFBundleIconFile</key><string>VerbaGlyphEditor</string><key>LSMinimumSystemVersion</key><string>14.0</string><key>NSHighResolutionCapable</key><true/><key>NSPrincipalClass</key><string>NSApplication</string></dict></plist>`,
+  `<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><dict><key>CFBundleIdentifier</key><string>org.verbacorpus.glyph-editor</string><key>CFBundleName</key><string>Verba Glyph Editor</string><key>CFBundleDisplayName</key><string>Редактор гліфів Verba</string><key>CFBundleExecutable</key><string>VerbaGlyphEditor</string><key>CFBundlePackageType</key><string>APPL</string><key>CFBundleShortVersionString</key><string>0.11.0</string><key>CFBundleVersion</key><string>13</string><key>CFBundleIconFile</key><string>VerbaGlyphEditor</string><key>LSMinimumSystemVersion</key><string>14.0</string><key>NSHighResolutionCapable</key><true/><key>NSPrincipalClass</key><string>NSApplication</string></dict></plist>`,
 );
 execFileSync(
   "swiftc",
