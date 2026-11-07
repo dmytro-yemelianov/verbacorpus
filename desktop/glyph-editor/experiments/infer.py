@@ -28,6 +28,7 @@ class Generator:
         self.dev = "cpu"
         self.training = {}
         self.rankings = {}
+        self.optical = None
         if neural:
             import torch
             from network import GlyphStyleCNN, device
@@ -303,7 +304,7 @@ class Generator:
                 "cnn": 4,
             }[c["method"]]
         )
-        return {
+        result = {
             "format": "para-glyph-candidates",
             "schemaVersion": 1,
             "snapshot": request["snapshot"],
@@ -320,6 +321,15 @@ class Generator:
             "filteredNeural": filtered,
             "neuralSkipped": self.model is None or refs[6:, 0, 0].sum() < 2,
         }
+
+        if not evaluation and request.get("ocrFeedback"):
+            from ocr_feedback import OpticalFeedback
+
+            if self.optical is None:
+                self.optical = OpticalFeedback()
+            self.optical.apply(result, request["references"])
+            result["seconds"] = time.perf_counter() - start
+        return result
 
     def batch(self, request):
         targets = request.get("targets", [])

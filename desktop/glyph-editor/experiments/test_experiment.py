@@ -405,3 +405,72 @@ class LargeNativeGlyphTests(unittest.TestCase):
         req["target"] = {**glyph, "width": 257}
         with self.assertRaises(ValueError):
             validate_request(req)
+
+
+class OpticalFeedbackTests(unittest.TestCase):
+    def test_recognition_preserves_case_and_accepts_only_curated_homographs(self):
+        from ocr_feedback import recognition_status
+
+        self.assertEqual(recognition_status("А", "A", 90), "compatible")
+        self.assertEqual(recognition_status("А", "а", 90), "mismatch")
+        self.assertEqual(recognition_status("Б", "E", 90), "mismatch")
+        self.assertEqual(recognition_status("Б", "Б", 30), "uncertain")
+        self.assertEqual(recognition_status("Б", "ББ", 95), "uncertain")
+
+    def test_feedback_demotes_confident_confusions_but_protects_native_copies(self):
+        from ocr_feedback import rerank
+
+        candidates = [
+            {"id": "exact", "method": "homograph"},
+            {"id": "bad", "method": "geometry"},
+            {"id": "good", "method": "retrieval"},
+        ]
+        observations = {"exact": ("E", 95), "bad": ("E", 95), "good": ("Б", 90)}
+        recognize = lambda g: observations[g["id"]]
+        ranked = rerank(candidates, "Б", recognize, calibrated=True)
+        self.assertEqual([c["id"] for c in ranked], ["exact", "good", "bad"])
+        self.assertEqual(ranked[-1]["ocr"]["status"], "mismatch")
+        unchanged = rerank(candidates, "Б", recognize, calibrated=False)
+        self.assertEqual([c["id"] for c in unchanged], ["exact", "bad", "good"])
+        self.assertNotIn("ocr", candidates[0])
+
+    def test_missing_ocr_models_do_not_block_generation(self):
+        import tempfile
+
+        from ocr_feedback import OpticalFeedback
+
+        with tempfile.TemporaryDirectory() as directory:
+            feedback = OpticalFeedback(directory)
+            result = {"character": "А", "candidates": [{"id": "unchanged"}]}
+            feedback.apply(result, [])
+            self.assertEqual(result["candidates"], [{"id": "unchanged"}])
+            self.assertEqual(result["recognition"]["status"], "unavailable")
+
+    def test_local_ocr_calibrates_and_caches_actual_pixel_fonts(self):
+        from ocr_feedback import OpticalFeedback
+
+        feedback = OpticalFeedback()
+        if not feedback.handle:
+            self.skipTest("Optional local Tesseract/models are unavailable")
+        try:
+            corpus = Path(__file__).resolve().parents[3] / "app"
+            catalog = json.loads((corpus / "font-corpus/catalog.json").read_text())
+            font = next(f for f in catalog["fonts"] if f["id"] == "spleen-12x24")
+            record = json.loads(
+                (corpus / "public" / font["url"].lstrip("/")).read_text()
+            )
+            by = {g["character"]: g for g in record["glyphs"] if g["character"]}
+            refs = [by[c] for c in "AHMOExonkpyB"]
+            result = {
+                "character": "А",
+                "candidates": [{**by["A"], "method": "homograph"}],
+            }
+            feedback.apply(result, refs)
+            self.assertEqual(result["recognition"]["referenceCount"], 12)
+            self.assertIn(result["recognition"]["status"], ("active", "unreliable"))
+            self.assertEqual(result["candidates"][0]["rows"], by["A"]["rows"])
+            count = len(feedback.cache)
+            feedback.recognize(by["A"])
+            self.assertEqual(len(feedback.cache), count)
+        finally:
+            feedback.close()

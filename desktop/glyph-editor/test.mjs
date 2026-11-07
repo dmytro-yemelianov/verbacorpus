@@ -12,7 +12,7 @@ const require = createRequire(join(app, "package.json")),
 const compiled = await build({
   stdin: {
     contents:
-      'export * from "./ui/model"; export * from "./ui/autofill"; export * from "./ui/raster-mutation"; export * from "./ui/regions"; export * from "./ui/pixel-regions"; export * from "./ui/guides"; export * from "./ui/pixel-stroke"; export * from "./ui/shortcuts"; export * from "./ui/font-guides"; export * from "./ui/comparison"; export * from "./ui/candidates"; export * from "./ui/style-plan"; export * from "./ui/font-profile"; export * from "./ui/auto-guides"; export * from "./ui/ascii-mapping";',
+      'export * from "./ui/model"; export * from "./ui/autofill"; export * from "./ui/raster-mutation"; export * from "./ui/regions"; export * from "./ui/pixel-regions"; export * from "./ui/guides"; export * from "./ui/pixel-stroke"; export * from "./ui/shortcuts"; export * from "./ui/font-guides"; export * from "./ui/comparison"; export * from "./ui/candidates"; export * from "./ui/style-plan"; export * from "./ui/font-profile"; export * from "./ui/auto-guides"; export * from "./ui/ascii-mapping"; export * from "./ui/group-selection"; export * from "./ui/glyph-gallery";',
     resolveDir: join(root, "desktop/glyph-editor"),
     sourcefile: "model-tests.ts",
   },
@@ -830,15 +830,15 @@ test("named regions have unique codepoint slots and useful headings for every ch
   assert.equal(m.regionFor("😀"), undefined);
 });
 test("human glyph captions distinguish Latin/Cyrillic and name invisible characters", () => {
-  assert.equal(m.characterLabel("A"), "A · лат.");
-  assert.equal(m.characterLabel("А"), "А · укр.");
-  assert.equal(m.characterLabel("Э"), "Э · кир.");
+  assert.equal(m.characterLabel("A"), "A · лат. · велика");
+  assert.equal(m.characterLabel("А"), "А · укр. · велика");
+  assert.equal(m.characterLabel("Э"), "Э · кир. · велика");
   assert.equal(m.characterLabel("0"), "0");
   assert.equal(m.characterLabel(" "), "Пробіл");
   assert.equal(m.characterLabel("\u00a0"), "Нерозривний пробіл");
   assert.equal(m.characterLabel("\t"), "Табуляція");
-  assert.equal(m.glyphCaption(undefined, letter("A")), "A · лат.");
-  assert.equal(m.glyphCaption("А", letter("A")), "А · укр.");
+  assert.equal(m.glyphCaption(undefined, letter("A")), "A · лат. · велика");
+  assert.equal(m.glyphCaption("А", letter("A")), "А · укр. · велика");
 });
 test("captions never infer Unicode from numeric source labels or stale primary characters", () => {
   const g = structuredClone(letter("A"));
@@ -1885,5 +1885,114 @@ test("legacy logo-width drafts can be compacted without losing ink; unsafe crops
       rows: m.pack(pixels, 98, a.height),
     }),
     undefined,
+  );
+});
+
+test("Latin and Ukrainian groups can be viewed together, separately and by case", () => {
+  const index = new Map([
+    ["A", ["g000001"]],
+    ["А", ["g000002"]],
+  ]);
+  const both = { groups: ["latin", "ukrainian"], upper: true, lower: true };
+  const slots = m.selectedGroupSlots(both, index);
+  assert.equal(slots.length, 118);
+  assert.equal(slots.find((s) => s.char === "A").id, "g000001");
+  assert.equal(slots.find((s) => s.char === "А").id, "g000002");
+  assert.equal(new Set(slots.map((s) => s.key)).size, 118);
+  const upper = m.selectedGroupSlots({ ...both, lower: false }, index);
+  assert.equal(upper.length, 59);
+  assert.ok(upper.every((s) => s.char === s.char.toUpperCase()));
+  assert.equal(m.selectedGroupSlots({ ...both, groups: [] }, index).length, 0);
+  assert.equal(
+    m.selectedGroupSlots({ ...both, upper: false, lower: false }, index).length,
+    0,
+  );
+  assert.equal(
+    m.selectedGroupSlots(
+      { groups: ["digits"], upper: false, lower: false },
+      index,
+    ).length,
+    10,
+  );
+  assert.match(m.characterLabel("a"), /мала/);
+  assert.match(m.characterLabel("а"), /мала/);
+  assert.match(m.characterLabel("Ї"), /велика/);
+});
+
+test("gallery row windowing preserves every glyph index and section boundary at any width", () => {
+  const slots = m.selectedGroupSlots(
+    { groups: ["latin", "ukrainian"], upper: true, lower: true },
+    new Map(),
+  );
+  for (const columns of [1, 7, 20]) {
+    const plan = m.galleryRows(slots, columns);
+    assert.deepEqual(
+      plan.rows.flatMap((r) => r.indices),
+      slots.map((_, i) => i),
+    );
+    assert.equal(plan.rows.filter((r) => r.section).length, 4);
+    assert.equal(
+      plan.height,
+      plan.rows.reduce((n, r) => n + r.height, 0),
+    );
+    for (let i = 1; i < plan.rows.length; i++)
+      assert.equal(
+        plan.rows[i].top,
+        plan.rows[i - 1].top + plan.rows[i - 1].height,
+      );
+  }
+  const huge = Array.from({ length: 20000 }, (_, i) => ({ key: String(i) }));
+  const plan = m.galleryRows(huge, 12);
+  const shown = plan.rows.filter(
+    (r) => r.top + r.height > 50000 && r.top < 51000,
+  );
+  assert.ok(shown.flatMap((r) => r.indices).length < 160);
+});
+
+test("parallel script lanes keep Latin and Ukrainian visible at the same vertical origin", () => {
+  const slots = m.selectedGroupSlots(
+    { groups: ["latin", "ukrainian"], upper: true, lower: true },
+    new Map(),
+  );
+  const plan = m.galleryRows(slots, 12, true);
+  const headings = plan.rows.filter((r) => r.section && r.top === 0);
+  assert.equal(headings.length, 2);
+  assert.equal(headings[0].left, 0);
+  assert.equal(headings[1].left, 6);
+  assert.equal(headings[0].columns, 6);
+  assert.deepEqual(
+    plan.rows.flatMap((r) => r.indices).sort((a, b) => a - b),
+    slots.map((_, i) => i),
+  );
+  for (const row of plan.rows)
+    for (const i of row.indices)
+      assert.equal(slots[i].group, row.left === 0 ? "latin" : "ukrainian");
+});
+
+test("OCR observations are preserved in exported derivation without changing glyph pixels", () => {
+  const state = m.newDraft(summary, catalog.snapshot),
+    doc = new m.Document(state),
+    original = source.glyphs.find((g) => g.character === "A");
+  const candidate = generatedCandidate(original);
+  candidate.ocr = {
+    text: "A",
+    confidence: 91,
+    status: "compatible",
+    calibrated: true,
+    engine: "tesseract-lstm",
+  };
+  doc.commitBatch([
+    {
+      id: original.id,
+      source: original,
+      glyph: m.candidateGlyph(original, candidate),
+      derivation: m.candidateDerivation(original, candidate),
+    },
+  ]);
+  const exported = m.exportRecord(source, state);
+  validateFont(exported);
+  assert.deepEqual(
+    state.derivations[original.id].generation.recognition,
+    candidate.ocr,
   );
 });

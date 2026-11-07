@@ -1,3 +1,6 @@
+import { createGlyphGallery } from "./glyph-gallery";
+import { createLibraryGallery, type LibraryPreview } from "./library-gallery";
+import { createGroupSelection, selectedGroupSlots } from "./group-selection";
 import { asciiMapping, chooseAsciiMapping } from "./ascii-mapping";
 import {
   compactLegacyFrame,
@@ -25,7 +28,6 @@ import { fontWithGuides } from "./font-guides";
 import { referenceHeight, type ReferenceHeights } from "./guides";
 import type { RegionOrigin } from "./pixel-regions";
 import {
-  REGIONS,
   canonicalSlots,
   regionFor,
   characterLabel,
@@ -72,7 +74,7 @@ type Boot = {
   projectPath: string;
   warnings: string[];
 };
-const cache = new FontAssetCache(8 * 1024 * 1024, async (input, init) => {
+const readFontAsset: typeof fetch = async (input, init) => {
   init?.signal?.throwIfAborted();
   const path =
     typeof input === "string"
@@ -83,7 +85,9 @@ const cache = new FontAssetCache(8 * 1024 * 1024, async (input, init) => {
   return new Response(await native<string>("readAsset", { path }), {
     headers: { "content-type": "application/json" },
   });
-});
+};
+const cache = new FontAssetCache(8 * 1024 * 1024, readFontAsset);
+const libraryCache = new FontAssetCache(4 * 1024 * 1024, readFontAsset);
 const painter = new GlyphPainter();
 const stage = $<HTMLElement>("canvas-stage"),
   zoom = $<HTMLInputElement>("zoom");
@@ -215,6 +219,9 @@ function session() {
         q: $<HTMLInputElement>("search").value,
         collection: $<HTMLSelectElement>("collection").value,
         filter: $<HTMLSelectElement>("font-filter").value,
+        ...groups.save(),
+        workspaceView,
+        workspaceLayout: "gallery-1",
       }).catch(error),
     350,
   );
@@ -232,6 +239,9 @@ async function flush() {
     q: $<HTMLInputElement>("search").value,
     collection: $<HTMLSelectElement>("collection").value,
     filter: $<HTMLSelectElement>("font-filter").value,
+    ...groups.save(),
+    workspaceView,
+    workspaceLayout: "gallery-1",
   });
 }
 window.glyphEditorFlush = flush;
@@ -261,6 +271,7 @@ function filterFonts() {
     `У черзі: ${visibleFonts.length.toLocaleString("uk")}`;
   $("font-list-inner").style.height = visibleFonts.length * 52 + "px";
   renderFonts();
+  updateLibrary();
   session();
 }
 function renderFonts() {
@@ -288,7 +299,10 @@ function renderFonts() {
     meta.textContent = `${f.cell.width}×${f.cell.height} · UA ${f.coverage.ukrainian.present ?? "?"}/66${p?.done ? " · ✓" : ""}${p?.edits ? " · правок: " + p.edits : ""}`;
     if (p?.edits) meta.className = "edited";
     button.append(name, meta);
-    button.onclick = () => void openFont(f.id).catch(error);
+    button.onclick = () =>
+      void openFont(f.id)
+        .then(() => switchWorkspace("font"))
+        .catch(error);
     inner.append(button);
   }
 }
@@ -352,6 +366,14 @@ async function openFont(id: string, resume?: string) {
       queue.value,
       effectiveIndex(loaded.index.unicodeIndex, doc.state),
     );
+    if (
+      queue.value === "groups" &&
+      !selectedGroupSlots(
+        groups.get(),
+        effectiveIndex(loaded.index.unicodeIndex, doc.state),
+      ).some((slot) => slot.id)
+    )
+      queue.value = "all";
     const profile = editingProfile(font, profileSamples);
     if (
       profile.cell.width !== font.cell.width ||
@@ -429,6 +451,8 @@ function rebuildSlots(preferred = slots[selected]?.key) {
     (ids) => ids.length > 0,
   );
   const mode = $<HTMLSelectElement>("mode").value;
+  $("view-all-glyphs").setAttribute("aria-pressed", String(mode === "all"));
+  $("view-groups").setAttribute("aria-pressed", String(mode === "groups"));
   const ids = [
     ...Array.from(
       { length: font.coverage.glyphCount },
@@ -438,17 +462,15 @@ function rebuildSlots(preferred = slots[selected]?.key) {
   ];
   const mapped = new Set([...index.values()].flat());
   slots =
-    canonicalSlots(mode, index) ??
+    (mode === "groups"
+      ? selectedGroupSlots(groups.get(), index)
+      : canonicalSlots(mode, index)) ??
     (mode === "changed"
       ? Object.keys(doc.state.edits)
       : mode === "unmapped"
         ? ids.filter((id) => !mapped.has(id))
         : ids
     ).map((id) => ({ key: id, id }));
-  for (const button of document.querySelectorAll<HTMLButtonElement>(
-    "[data-region]",
-  ))
-    button.setAttribute("aria-pressed", String(button.dataset.region === mode));
   if ($<HTMLInputElement>("unreviewed").checked)
     slots = slots.filter((s) => !doc!.state.reviewed.includes(s.key));
   const found = slots.findIndex((s) => s.key === preferred);
@@ -587,6 +609,7 @@ function inspect() {
     : "Прибрати зайву ширину";
   const slot = slots[selected];
   $("character").textContent = glyphCaption(slot?.char, current);
+  $("editor-dock-title").textContent = glyphCaption(slot?.char, current);
   $("glyph-meta").textContent =
     `${current.id} · ${original ? "джерельний" : "новий"} · ${current.width}×${current.height}${current.sourceCode?.value ? " · код " + String(current.sourceCode.value) : ""}`;
   $("glyph-title").textContent =
@@ -1080,91 +1103,18 @@ function commit(after: Glyph | undefined, origin?: RegionOrigin) {
   draw();
   updateButtons();
   void draftCoverage().catch(error);
+  updateLibrary(true);
   void renderQueue().catch(error);
 }
-function queuePageSize() {
-  return REGIONS.some(
-    (region) => region.id === $<HTMLSelectElement>("mode").value,
-  )
-    ? 128
-    : 64;
-}
 async function renderQueue() {
-  if (!doc) return;
-  const size = queuePageSize();
-  const token = ++queueRevision,
-    start = Math.floor(selected / size) * size,
-    shown = slots.slice(start, start + size),
-    container = $("glyphs");
-  container.replaceChildren();
-  const values = await Promise.all(
-    shown.map((s) => (s.id ? glyph(s.id) : Promise.resolve(undefined))),
+  if (!doc || !font) return;
+  await gallery.set(
+    slots,
+    selected,
+    doc.state,
+    font.id,
+    $<HTMLSelectElement>("mode").value === "groups",
   );
-  if (token !== queueRevision) return;
-  const fragment = document.createDocumentFragment();
-  for (const [i, s] of shown.entries()) {
-    const value = values[i],
-      button = document.createElement("button");
-    if (s.section && (i === 0 || s.section !== shown[i - 1].section)) {
-      const heading = document.createElement("h3");
-      heading.className = "glyph-section";
-      heading.textContent = s.section;
-      fragment.append(heading);
-    }
-    button.className =
-      "glyph" +
-      (!value ? " missing" : "") +
-      (s.id && doc.state.edits[s.id] ? " changed" : "") +
-      (doc.state.reviewed.includes(s.key) ? " reviewed" : "");
-    button.setAttribute("aria-pressed", String(start + i === selected));
-    const char = s.char ?? mappedCharacter(value);
-    const caption = glyphCaption(s.char, value);
-    button.setAttribute("aria-label", (!value ? "Відсутній · " : "") + caption);
-    button.title =
-      caption +
-      " · " +
-      (char ? codepoint(char) + " · " : "") +
-      (value?.id ?? "відсутній");
-    if (value) {
-      const c = document.createElement("canvas");
-      c.width = Math.max(1, value.width);
-      c.height = Math.max(1, value.height);
-      painter.paint(c.getContext("2d")!, value, 0, 0, 1, INK);
-      button.append(c);
-    } else {
-      const text = document.createElement("strong");
-      text.textContent =
-        s.char === " " || s.char === "\u00a0" ? "␠" : (s.char ?? "+");
-      button.append(text);
-    }
-    const label = document.createElement("span");
-    label.textContent = caption;
-    button.append(label);
-    button.onclick = (event) => {
-      if (event.shiftKey && value) {
-        comparison.pin(value);
-        $<HTMLDetailsElement>("comparison-panel").open = true;
-      } else void select(start + i).catch(error);
-    };
-    button.title += " · Shift+клік — додати як підкладку";
-    fragment.append(button);
-  }
-  container.append(fragment);
-  const active = container.querySelector<HTMLButtonElement>(
-    '[aria-pressed="true"]',
-  );
-  if (active) {
-    const a = active.getBoundingClientRect(),
-      box = container.getBoundingClientRect();
-    if (a.top < box.top) container.scrollTop += a.top - box.top;
-    else if (a.bottom > box.bottom)
-      container.scrollTop += a.bottom - box.bottom;
-  }
-  $("queue-count").textContent = slots.length
-    ? `${start + 1}–${start + shown.length} із ${slots.length.toLocaleString("uk")} · пунктир = відсутній · зелена риска = правка`
-    : "Немає гліфів у цій черзі";
-  $<HTMLButtonElement>("page-prev").disabled = start === 0;
-  $<HTMLButtonElement>("page-next").disabled = start + size >= slots.length;
 }
 async function nextFont(delta: number) {
   const i = visibleFonts.findIndex((f) => f.id === font?.id),
@@ -1717,17 +1667,8 @@ $<HTMLTextAreaElement>("notes").oninput = () => {
     scheduleSave();
   }
 };
-on("page-prev", () => {
-  const size = queuePageSize();
-  return select(Math.max(0, Math.floor(selected / size) * size - size));
-});
-on("page-next", () => {
-  const size = queuePageSize();
-  return select(
-    Math.min(slots.length - 1, Math.floor(selected / size) * size + size),
-  );
-});
 document.addEventListener("keydown", (event) => {
+  if (document.querySelector("dialog[open]")) return;
   if (
     choosingGeometry() ||
     $<HTMLDialogElement>("font-guides-dialog").open ||
@@ -1763,7 +1704,9 @@ document.addEventListener("keydown", (event) => {
     };
     const [dx, dy] = direction[key],
       step = event.shiftKey ? 10 : 1;
-    run = () => canvasUI.nudge(dx * step, dy * step);
+    run = document.body.classList.contains("editor-open")
+      ? () => canvasUI.nudge(dx * step, dy * step)
+      : () => select(gallery.navigate(key));
   } else if (!cmd && (key === "Delete" || key === "Backspace"))
     run = () => action("delete-selection");
   else if (key === "Enter" && canvasUI.pendingSelection())
@@ -1778,30 +1721,37 @@ document.addEventListener("keydown", (event) => {
   else if (key === "Enter") run = review;
   else if (key.toLowerCase() === "b")
     run = () => {
+      openEditor();
       $("pencil").click();
     };
   else if (key.toLowerCase() === "e")
     run = () => {
+      openEditor();
       $("eraser").click();
     };
   else if (!cmd && !event.altKey && key.toLowerCase() === "f")
     run = () => {
+      openEditor();
       $("flip").click();
     };
   else if (!cmd && !event.altKey && key.toLowerCase() === "r")
     run = () => {
+      openEditor();
       $("rect").click();
     };
   else if (!cmd && !event.altKey && key.toLowerCase() === "l")
     run = () => {
+      openEditor();
       $("lasso").click();
     };
   else if (!cmd && !event.altKey && key.toLowerCase() === "m")
     run = () => {
+      openEditor();
       $("move").click();
     };
   else if (!cmd && !event.altKey && key.toLowerCase() === "s")
     run = () => {
+      openEditor();
       $("scale").click();
     };
   else if (key === "Escape")
@@ -1820,27 +1770,166 @@ document.addEventListener("keyup", (event) => {
   if (key.startsWith("Arrow")) canvasUI.finishNudge();
 });
 window.addEventListener("blur", () => canvasUI.finishNudge());
-function buildRegionNavigation() {
-  const nav = $("glyph-regions");
-  for (const region of [{ id: "canonical", title: "Усі групи" }, ...REGIONS]) {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.dataset.region = region.id;
-    button.textContent = region.title;
-    button.setAttribute("aria-pressed", "false");
-    button.onclick = () => {
-      if (exporting || choosingGeometry()) return;
-      finishStroke();
-      $<HTMLSelectElement>("mode").value = region.id;
-      selected = 0;
-      rebuildSlots("");
-      void select(0).catch(error);
-      session();
-    };
-    nav.append(button);
-  }
+let workspaceView = "font";
+function updateLibrary(invalidate = false) {
+  libraryGallery.set(
+    visibleFonts,
+    groups.get(),
+    workspaceView === "library",
+    invalidate,
+  );
 }
-buildRegionNavigation();
+function switchWorkspace(view: string) {
+  workspaceView = view === "library" ? "library" : "font";
+  document.body.classList.toggle("library-mode", workspaceView === "library");
+  $("library-browser").hidden = workspaceView !== "library";
+  $("view-font").setAttribute("aria-pressed", String(workspaceView === "font"));
+  $("view-library").setAttribute(
+    "aria-pressed",
+    String(workspaceView === "library"),
+  );
+  $("editor-open").hidden = workspaceView === "library";
+  updateLibrary();
+  gallery.refresh();
+  session();
+}
+function openEditor() {
+  switchWorkspace("font");
+  document.body.classList.add("editor-open");
+  requestAnimationFrame(() => {
+    fitZoom();
+    draw();
+  });
+}
+$("editor-open").onclick = openEditor;
+$("inspector-toggle").onclick = () => {
+  const visible = document.body.classList.toggle("inspector-open");
+  $("inspector-toggle").setAttribute("aria-pressed", String(visible));
+  requestAnimationFrame(() => {
+    fitZoom();
+    draw();
+  });
+};
+$("editor-close").onclick = async () => {
+  await canvasUI.flushRegions();
+  document.body.classList.remove("editor-open");
+  gallery.refresh();
+};
+$("view-font").onclick = () => switchWorkspace("font");
+$("view-library").onclick = () => switchWorkspace("library");
+function showSelectedGroups() {
+  finishStroke();
+  $<HTMLSelectElement>("mode").value = "groups";
+  selected = 0;
+  rebuildSlots("");
+  void select(0).catch(error);
+  updateLibrary();
+  session();
+}
+const groups = createGroupSelection(showSelectedGroups);
+$("view-groups").onclick = showSelectedGroups;
+$("view-all-glyphs").onclick = () => {
+  finishStroke();
+  $<HTMLSelectElement>("mode").value = "all";
+  selected = 0;
+  rebuildSlots("");
+  void select(0).catch(error);
+  switchWorkspace("font");
+};
+const gallery = createGlyphGallery({
+  load: glyph,
+  select: (position, edit) => {
+    void select(position)
+      .then(() => {
+        if (edit) openEditor();
+      })
+      .catch(error);
+  },
+  pin: (value) => {
+    comparison.pin(value);
+    document.body.classList.add("inspector-open");
+    $("inspector-toggle").setAttribute("aria-pressed", "true");
+    $<HTMLDetailsElement>("comparison-panel").open = true;
+    openEditor();
+  },
+  error,
+});
+const libraryGallery = createLibraryGallery({
+  load: async (id, sections, signal): Promise<LibraryPreview> => {
+    const summary = await native<FontSummary>("summary", { id });
+    signal.throwIfAborted();
+    const loaded = await NativeFont.open(summary, libraryCache, signal);
+    const state =
+      id === font?.id
+        ? doc?.state
+        : await native<Draft | null>("readState", { id });
+    const mapping = state
+      ? effectiveIndex(loaded.index.unicodeIndex, state)
+      : new Map(
+          Object.entries(loaded.index.unicodeIndex).map(([char, ids]) => [
+            char,
+            ids.map((n) => "g" + String(n).padStart(6, "0")),
+          ]),
+        );
+    const resolve = async (gid: string) =>
+      state?.edits[gid] ??
+      (Number(gid.slice(1)) < summary.coverage.glyphCount
+        ? (await loaded.glyphs([Number(gid.slice(1))]))[0]
+        : undefined);
+    const result = await Promise.all(
+      sections.map(async (section) => {
+        const values = await Promise.all(
+          section.chars.map(async (c): Promise<Glyph | undefined> => {
+            const gid = mapping.get(c)?.[0];
+            const value = gid ? await resolve(gid) : undefined;
+            return value
+              ? {
+                  ...value,
+                  character: c,
+                  labels: [{ kind: "unicode", value: c }],
+                }
+              : undefined;
+          }),
+        );
+        return {
+          title: section.title,
+          glyphs: values.filter((g): g is Glyph => !!g),
+          missing: values.filter((g) => !g).length,
+        };
+      }),
+    );
+    signal.throwIfAborted();
+    if (
+      result.length &&
+      ![...mapping.values()].some((ids) => ids.length) &&
+      result.every((s) => !s.glyphs.length)
+    ) {
+      const raw = await loaded.glyphs(
+        Array.from(
+          { length: Math.min(12, summary.coverage.glyphCount) },
+          (_, i) => i,
+        ),
+      );
+      return {
+        unmapped: true,
+        sections: [
+          {
+            title: "Вихідні гліфи · числові коди",
+            glyphs: raw.map((g) => state?.edits[g.id] ?? g),
+            missing: 0,
+          },
+        ],
+      };
+    }
+    return { sections: result, unmapped: false };
+  },
+  open: (id) => {
+    void openFont(id)
+      .then(() => switchWorkspace("font"))
+      .catch(error);
+  },
+  error,
+});
 async function start() {
   busy(true);
   boot = await native<Boot>("bootstrap");
@@ -1850,6 +1939,7 @@ async function start() {
   $("font-total").textContent = fonts.length.toLocaleString("uk");
   if (boot.warnings.length) error(boot.warnings.join("\n"));
   const saved = await native<Record<string, string>>("readSession");
+  groups.restore(saved);
   for (const [id, key] of [
     ["search", "q"],
     ["collection", "collection"],
@@ -1858,7 +1948,10 @@ async function start() {
   ]) {
     if (saved[key]) $<HTMLInputElement>(id).value = saved[key];
   }
+  if (saved.workspaceLayout !== "gallery-1")
+    $<HTMLSelectElement>("mode").value = "groups";
   filterFonts();
+  switchWorkspace(saved.workspaceView ?? "font");
   const id = fonts.some((f) => f.id === saved.fontId)
     ? saved.fontId
     : visibleFonts[0]?.id;

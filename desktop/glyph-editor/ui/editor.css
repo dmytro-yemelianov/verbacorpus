@@ -1029,3 +1029,213 @@ main {
 .ascii-map-preview canvas {
   image-rendering: pixelated;
 }
+
+/* The font overview owns the workspace; editing is an optional secondary dock. */
+[hidden] {
+  display: none !important;
+}
+.workspace-views {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex: none;
+}
+.workspace-views [aria-pressed="true"] {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+#editor-open {
+  margin-left: auto;
+}
+.queue {
+  flex: 1;
+  min-height: 120px;
+}
+#glyphs {
+  display: block;
+  position: relative;
+  flex: 1;
+  overflow: auto;
+  min-height: 0;
+  overflow-anchor: none;
+}
+.gallery-inner {
+  position: relative;
+}
+.glyph span {
+  white-space: normal;
+  text-align: center;
+  line-height: 1.25;
+  font-size: 10px;
+}
+.glyph canvas {
+  height: 38px;
+  max-width: 68px;
+}
+.glyph-section {
+  margin: 0;
+  padding: 4px 2px;
+  font-size: 12px;
+  color: var(--accent);
+}
+#glyph-regions {
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+  flex: none;
+  align-items: center;
+}
+.group-toggle {
+  padding: 5px 7px;
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  cursor: pointer;
+}
+.group-toggle:has(input:checked) {
+  border-color: var(--accent);
+  color: var(--ink);
+}
+#glyph-regions hr {
+  height: 22px;
+  width: 1px;
+  border: 0;
+  background: var(--rule);
+  margin: 0 4px;
+}
+.editing {
+  display: none;
+  position: fixed;
+  right: 16px;
+  top: 160px;
+  bottom: 34px;
+  width: min(760px, 54vw);
+  z-index: 4;
+  grid-template-columns: minmax(0, 1fr) 220px;
+  grid-template-rows: auto minmax(0, 1fr);
+  padding: 12px;
+  gap: 10px;
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+  box-shadow: 0 12px 40px #0007;
+  min-height: 0;
+}
+.editor-dock-heading {
+  grid-column: 1/-1;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: center;
+}
+body.editor-open .editing {
+  display: grid;
+}
+body.editor-open:not(.library-mode) .queue {
+  margin-right: min(776px, 55vw);
+}
+body.library-mode .editing,
+body.library-mode .font-heading,
+body.library-mode .work-controls,
+body.library-mode .queue,
+body.library-mode #proof-panel {
+  display: none;
+}
+#library-browser {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+}
+#library-gallery-count {
+  margin: 0 0 8px;
+}
+#library-cards {
+  flex: 1;
+  overflow: auto;
+  min-height: 0;
+  position: relative;
+  overflow-anchor: none;
+}
+.library-cards-inner {
+  position: relative;
+}
+.library-glyph-card {
+  border: 1px solid var(--rule);
+  border-radius: 7px;
+  background: var(--panel);
+  padding: 10px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.library-glyph-card > button {
+  font-weight: 600;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.library-glyph-card small {
+  display: block;
+  color: var(--muted);
+  font-size: 10px;
+}
+.library-glyph-card > div {
+  height: 52px;
+  overflow: hidden;
+  flex: none;
+}
+.library-glyph-card canvas {
+  display: block;
+  image-rendering: pixelated;
+  max-width: none;
+  margin-top: 4px;
+}
+@media (max-width: 1100px) {
+  .editing {
+    left: 282px;
+    right: 12px;
+    width: auto;
+  }
+  body.editor-open:not(.library-mode) .queue {
+    margin-right: 0;
+  }
+}
+
+main {
+  gap: 8px;
+}
+#proof-panel {
+  order: 8;
+  flex: none;
+}
+.queue {
+  order: 7;
+}
+main > footer {
+  order: 9;
+}
+
+.editing {
+  grid-template-columns: minmax(0, 1fr);
+}
+.editing .inspector {
+  display: none;
+}
+body.inspector-open .editing {
+  grid-template-columns: minmax(0, 1fr) 220px;
+}
+body.inspector-open .editing .inspector {
+  display: flex;
+}
+.editing #guide-legend {
+  flex-wrap: nowrap;
+  overflow: auto;
+  white-space: nowrap;
+}
+.glyph canvas {
+  max-width: calc(100% - 4px);
+}
+body.editor-open .glyph span {
+  font-size: 8px;
+}

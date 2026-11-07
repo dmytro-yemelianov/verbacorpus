@@ -24,6 +24,13 @@ export interface Derivation {
   transform: string;
   kind: "homograph" | "geometry" | "generation";
   generation?: {
+    recognition?: {
+      text: string;
+      confidence: number;
+      status: string;
+      calibrated: boolean;
+      engine: string;
+    };
     method: string;
     model: string;
     checkpointSha256: string | null;

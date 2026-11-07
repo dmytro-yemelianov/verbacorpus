@@ -70,6 +70,13 @@
         </div>
       </aside>
       <main>
+        <div class="workspace-views" role="group" aria-label="Режим перегляду">
+          <button id="view-font" aria-pressed="true">Гліфи шрифту</button>
+          <button id="view-library" aria-pressed="false">
+            Бібліотека гліфами
+          </button>
+          <button id="editor-open">Редагувати вибраний…</button>
+        </div>
         <section class="font-heading">
           <div>
             <p class="eyebrow" id="font-source">Локальний корпус</p>
@@ -84,7 +91,9 @@
           <label
             >Черга гліфів<select id="mode">
               <optgroup label="Канонічні групи">
-                <option value="canonical" selected>Усі групи символів</option>
+                <option value="all" selected>Усі вихідні гліфи</option>
+                <option value="groups">Вибрані групи разом</option>
+                <option value="canonical">Усі групи символів</option>
                 <option value="digits">Цифри · 0–9</option>
                 <option value="latin">Латинська абетка · 52</option>
                 <option value="ukrainian">Українська абетка · 66</option>
@@ -92,13 +101,15 @@
                 <option value="symbols">Математика й валюти</option>
                 <option value="drawing">Рамки й блоки</option>
               </optgroup>
-              <option value="all">Усі вихідні гліфи</option>
               <option value="unmapped">Без Unicode</option>
               <option value="changed">Змінені / додані</option>
             </select></label
           >
         </section>
         <div class="work-controls">
+          <button id="style-latin-open" class="primary">
+            Доповнити українську з латинки…
+          </button>
           <div>
             <button id="previous" aria-label="Попередній гліф">←</button
             ><button id="next" aria-label="Наступний гліф">→</button
@@ -118,7 +129,28 @@
             /><button>Перейти</button>
           </form>
         </div>
-        <div class="editing">
+        <nav id="glyph-regions" aria-label="Групи та регістр символів">
+          <button id="view-all-glyphs">Усі гліфи</button
+          ><button id="view-groups">Показати групи разом</button>
+        </nav>
+        <section id="library-browser" hidden>
+          <p id="library-gallery-count" class="muted"></p>
+          <div
+            id="library-cards"
+            aria-label="Бібліотека шрифтів зі зразками"
+          ></div>
+        </section>
+        <div
+          class="editing"
+          role="region"
+          aria-label="Редагування вибраного гліфа"
+        >
+          <div class="editor-dock-heading">
+            <strong id="editor-dock-title">Редагування гліфа</strong
+            ><button id="inspector-toggle" aria-pressed="false">
+              Підкладка / властивості</button
+            ><button id="editor-close">Закрити редактор ×</button>
+          </div>
           <section class="drawing">
             <div class="canvas-toolbar">
               <div>
@@ -323,9 +355,7 @@
                 експорт.
               </p>
             </details>
-            <button id="style-latin-open" class="primary">
-              Доповнити українську з латинки…
-            </button>
+
             <button
               id="autofill"
               title="Заповнити відсутні латинські й кириличні двійники в поточному шрифті"
@@ -483,7 +513,7 @@
             </label>
           </aside>
         </div>
-        <details id="proof-panel" open>
+        <details id="proof-panel">
           <summary>Текстовий зразок з урахуванням правок</summary>
           <div class="proof-controls">
             <input
@@ -506,12 +536,7 @@
         <section class="queue">
           <div class="queue-heading">
             <p id="queue-count" role="status"></p>
-            <div>
-              <button id="page-prev">← Сторінка</button
-              ><button id="page-next">Сторінка →</button>
-            </div>
           </div>
-          <nav id="glyph-regions" aria-label="Групи символів"></nav>
           <div id="glyphs" role="group" aria-label="Черга гліфів"></div>
         </section>
         <footer>
@@ -615,6 +640,10 @@
               </select></label
             >
           </div>
+          <label class="inline"
+            ><input id="style-ocr" type="checkbox" checked />Перевіряти
+            читабельність через OCR · з калібруванням на цьому шрифті</label
+          >
           <label class="inline"
             ><input id="style-latin-first" type="checkbox" checked />Спочатку
             точні латинські двійники A→А, H→Н, I→І…</label

@@ -5,6 +5,7 @@ export interface GlyphSlot {
   char?: string;
   id?: string;
   section?: string;
+  group?: string;
 }
 interface Section {
   title: string;
@@ -86,6 +87,7 @@ export function canonicalSlots(
         char,
         id: index.get(char)?.[0],
         section: s.title,
+        group: region.id,
       })),
     ),
   );
@@ -108,9 +110,14 @@ export function characterLabel(char: string) {
   if (names[char]) return names[char];
   if ([...char].length !== 1) return char;
   if (/\p{Cc}|\p{Cf}/u.test(char)) return `Керувальний знак ${codepoint(char)}`;
-  if (UKRAINIAN.includes(char)) return char + " · укр.";
-  if (/\p{Script=Latin}/u.test(char)) return char + " · лат.";
-  if (/\p{Script=Cyrillic}/u.test(char)) return char + " · кир.";
+  const register = /\p{Lu}/u.test(char)
+    ? " · велика"
+    : /\p{Ll}/u.test(char)
+      ? " · мала"
+      : "";
+  if (UKRAINIAN.includes(char)) return char + " · укр." + register;
+  if (/\p{Script=Latin}/u.test(char)) return char + " · лат." + register;
+  if (/\p{Script=Cyrillic}/u.test(char)) return char + " · кир." + register;
   return char;
 }
 export function mappedCharacter(glyph?: Glyph) {

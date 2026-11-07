@@ -7,6 +7,7 @@ import {
   type CandidateResult,
 } from "./candidates";
 import { styleCharacters, type StyleTarget } from "./style-plan";
+import { characterLabel } from "./regions";
 import { UKRAINIAN } from "./model";
 export interface ReferenceFont {
   id: string;
@@ -274,7 +275,12 @@ export function createStyleWorkbench(options: {
         `Пошук для ${plan.length} літер…${prepared.skipped.length ? " Пропущено наявні: " + prepared.skipped.join(" ") : ""}`;
       const value = await runJob<StyleBatch>(
         "candidateStart",
-        { request: prepared.request },
+        {
+          request: {
+            ...prepared.request,
+            ocrFeedback: $<HTMLInputElement>("style-ocr").checked,
+          },
+        },
         token,
       );
       if (token !== epoch || !value) return;
@@ -299,6 +305,18 @@ export function createStyleWorkbench(options: {
       $("style-results").hidden = false;
       $("style-status").textContent =
         `Готово: ${plan.length} літер. Виберіть варіанти для застосування.`;
+      const recognized = value.results.filter(
+        (r) => "recognition" in r && r.recognition?.status === "active",
+      ).length;
+      const unavailable = value.results.find(
+        (r) => "recognition" in r && r.recognition?.status === "unavailable",
+      );
+      if ($<HTMLInputElement>("style-ocr").checked)
+        $("style-status").textContent += recognized
+          ? ` OCR перевірив ${recognized} літер; точні двійники захищені.`
+          : unavailable && "recognition" in unavailable
+            ? ` OCR недоступний: ${unavailable.recognition?.reason ?? ""}.`
+            : " OCR непевно читає цей шрифт; початковий порядок збережено.";
       renderResults();
     } catch (reason) {
       if (token === epoch) localError(reason);
@@ -312,7 +330,8 @@ export function createStyleWorkbench(options: {
     batch?.results.forEach((r) => {
       const b = document.createElement("button");
       b.type = "button";
-      b.textContent = r.character + (chosen.has(r.character) ? " ✓" : "");
+      b.textContent =
+        characterLabel(r.character) + (chosen.has(r.character) ? " ✓" : "");
       b.setAttribute("aria-pressed", String(active === r.character));
       b.onclick = () => {
         active = r.character;
@@ -356,10 +375,16 @@ export function createStyleWorkbench(options: {
       label.textContent = candidateLabel(candidate);
       source.textContent =
         candidate.sourceFontId + " · " + candidate.sourceLicenseId;
+      const feedback = document.createElement("small");
+      feedback.className = "ocr-feedback";
+      feedback.textContent = candidate.ocr
+        ? `OCR: ${candidate.ocr.text || "не прочитано"} · ${candidate.ocr.confidence}/100${candidate.ocr.calibrated ? "" : " · непевний для цього шрифту"}`
+        : "";
       button.append(
         thumbnail(candidateGlyph(target.target, candidate), 110),
         label,
         source,
+        feedback,
       );
       button.onclick = () => {
         chosen.set(active, candidate);
@@ -429,6 +454,7 @@ export function createStyleWorkbench(options: {
     "style-missing",
     "style-method",
     "style-latin-first",
+    "style-ocr",
   ])
     $(id).oninput = invalidate;
   $("style-first").onclick = () => {

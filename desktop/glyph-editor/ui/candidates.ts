@@ -8,6 +8,13 @@ export interface Candidate {
     name: string;
     licenseId: string;
   };
+  ocr?: {
+    text: string;
+    confidence: number;
+    status: string;
+    calibrated: boolean;
+    engine: string;
+  };
   operation?: string;
   model: string;
   checkpointSha256: string | null;
@@ -45,6 +52,13 @@ export function candidateLabel(candidate: Candidate) {
           : "Retrieval";
 }
 export interface CandidateResult {
+  recognition?: {
+    status: string;
+    reason?: string;
+    referenceAgreement?: number;
+    referenceCount?: number;
+    seconds?: number;
+  };
   filteredNeural?: number;
   format: string;
   schemaVersion: number;
@@ -145,6 +159,7 @@ export function candidateDerivation(
         : {}),
       sourceLicense: structuredClone(candidate.sourceLicense),
       source: structuredClone(candidate.source),
+      ...(candidate.ocr ? { recognition: structuredClone(candidate.ocr) } : {}),
     },
   };
 }
