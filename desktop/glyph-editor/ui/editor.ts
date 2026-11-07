@@ -1,4 +1,11 @@
 import { shortcutKey } from "./shortcuts";
+import { createCandidateChooser } from "./candidate-dialog";
+import {
+  candidateDerivation,
+  candidateGlyph,
+  glyphSignature,
+  hiddenTarget,
+} from "./candidates";
 import { createComparison } from "./comparison";
 import { createFontGuidesEditor } from "./font-guides-editor";
 import { fontWithGuides } from "./font-guides";
@@ -131,6 +138,7 @@ function busy(value: boolean) {
     "redo",
     "font-guides-open",
     "comparison-current",
+    "candidate-generate",
   ])
     $<HTMLButtonElement>(id).disabled = value;
 }
@@ -273,6 +281,7 @@ async function openFont(id: string, resume?: string) {
   $("autofill-status").textContent = "";
   const revision = ++fontRevision;
   comparison.reset();
+  candidateChooser.reset();
   guideEditor.close();
   referenceHeights = {};
   selectionRevision++;
@@ -576,6 +585,94 @@ const guideEditor = createFontGuidesEditor({
     updateButtons();
     draw();
     scheduleProof();
+  },
+  error,
+});
+const candidateChooser = createCandidateChooser({
+  request: async () => {
+    await canvasUI.flushRegions();
+    if (!font || !doc || !current || editingBusy || exporting) return;
+    const target = current,
+      revision = doc.state.revision,
+      targetFont = font;
+    clearError();
+    const character = slots[selected]?.char ?? mappedCharacter(current);
+    if (!character || [...character].length !== 1)
+      throw new Error("Спочатку задайте Unicode-мапу гліфа.");
+    const ids = [
+      ...new Set([..."HНxхoоnпkкрp"].flatMap((c) => index.get(c) ?? [])),
+    ]
+      .filter((id) => id !== target.id)
+      .slice(0, 12);
+    const references = (await Promise.all(ids.map((id) => glyph(id)))).filter(
+      (g): g is Glyph => !!g,
+    );
+    if (
+      font !== targetFont ||
+      !doc ||
+      doc.state.revision !== revision ||
+      current !== target
+    )
+      return;
+    return {
+      snapshot: boot.snapshot,
+      font: effectiveFont(),
+      target: hiddenTarget(target),
+      references,
+      character,
+      count: 8,
+      revision,
+      targetSignature: glyphSignature(target),
+    };
+  },
+  valid: (result) =>
+    !!font &&
+    !!doc &&
+    !!current &&
+    result.fontId === font.id &&
+    result.baseSha256 === font.sha256 &&
+    result.snapshot === boot.snapshot &&
+    result.glyphId === current.id &&
+    result.revision === doc.state.revision &&
+    result.targetSignature === glyphSignature(current),
+  target: () => current,
+  apply: async (candidate, result) => {
+    await canvasUI.flushRegions();
+    if (
+      !doc ||
+      !current ||
+      !font ||
+      result.fontId !== font.id ||
+      result.revision !== doc.state.revision ||
+      result.targetSignature !== glyphSignature(current)
+    )
+      throw new Error("Гліф змінився. Повторіть генерацію.");
+    const after = candidateGlyph(current, candidate);
+    if (
+      !doc.commitBatch([
+        {
+          id: current.id,
+          glyph: after,
+          source: original,
+          derivation: candidateDerivation(current, candidate, result.character),
+        },
+      ])
+    )
+      return;
+    current = after;
+    $<HTMLSelectElement>("view").value = "edit";
+    rebuildSlots();
+    scheduleSave();
+    inspect();
+    draw();
+    updateButtons();
+    void renderQueue().catch(error);
+    void draftCoverage().catch(error);
+  },
+  backdrop: (glyph) => {
+    comparison.pin(glyph);
+    $<HTMLDetailsElement>("comparison-panel").open = true;
+    draw();
   },
   error,
 });
@@ -983,7 +1080,9 @@ async function exportAll() {
 async function action(value: string) {
   clearError();
   if (
-    (choosingGeometry() || $<HTMLDialogElement>("font-guides-dialog").open) &&
+    (choosingGeometry() ||
+      $<HTMLDialogElement>("font-guides-dialog").open ||
+      candidateChooser.open()) &&
     value !== "save"
   )
     return;
@@ -1300,7 +1399,11 @@ on("page-next", () => {
   );
 });
 document.addEventListener("keydown", (event) => {
-  if (choosingGeometry() || $<HTMLDialogElement>("font-guides-dialog").open)
+  if (
+    choosingGeometry() ||
+    $<HTMLDialogElement>("font-guides-dialog").open ||
+    candidateChooser.open()
+  )
     return;
   const editing =
     event.target instanceof HTMLElement &&

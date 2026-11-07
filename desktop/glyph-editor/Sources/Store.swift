@@ -21,6 +21,7 @@ final class EditorStore {
     let fonts: [[String: Any]]
     let byID: [String: [String: Any]]
     let snapshot: String
+    private lazy var candidateJobs = CandidateJobs(corpus:corpus,project:project)
     private let lockHandle: FileHandle
     private let clipboardName = NSPasteboard.Name("org.verbacorpus.glyph-test." + UUID().uuidString)
     init(corpus: URL, project: URL?) throws {
@@ -160,6 +161,13 @@ final class EditorStore {
     }
     func command(_ action: String, _ args: [String: Any]) throws -> Any {
         switch action {
+        case "candidateStart":
+            guard let request = args["request"] as? [String: Any], request["snapshot"] as? String == snapshot,
+                  let requestedFont = request["font"] as? [String: Any], let id = requestedFont["id"] as? String,
+                  requestedFont["sha256"] as? String == (try summary(id))["sha256"] as? String else { throw fail("Запит належить іншому шрифту або знімку") }
+            return try candidateJobs.start(request)
+        case "candidateStatus": return try candidateJobs.status(args["id"] as? String ?? "")
+        case "candidateCancel": return try candidateJobs.cancel(args["id"] as? String ?? "")
         case "readClipboard", "writeClipboard": return try clipboard(action, args["text"] as? String)
         case "uiReady": return true
         case "bootstrap": return bootstrap()

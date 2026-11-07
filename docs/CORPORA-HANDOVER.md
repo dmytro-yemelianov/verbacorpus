@@ -474,3 +474,38 @@ FontDiffuser, MSD-Font, обмеження 1-bit/Ukrainian/MPS, ліцензій
 та гібридний benchmark/інтеграційний план. Моделей не встановлювали й не
 запускали, генерацію в UI не додавали. Каталог: 122 записи з UA>0, 62 UA66,
 110 UA≥60; train/test розділяти за сімейством/походженням, не за варіантами.
+
+### Локальні кандидати стилю — 7 листопада 2026
+
+Desktop 0.9 встановлено й запущено. Новий «Варіанти гліфа…» запускає
+окремий Python/MPS процес через CandidateJobs (start/status/cancel), не
+блокує малювання чи збереження. До восьми різних 1-bit заготовок, retrieval
+першим за побажанням користувача; CNN явно експериментальна. Кандидат можна
+підкласти або застосувати одним undo. Розміри/метрики/Unicode залишаються,
+export journal зберігає source font/glyph/SHA/license text, модель/checkpoint
+та фактично використані style reference IDs. Foreign donor IDs не ремапляться,
+локальні reference IDs нових гліфів ремапляться. Є revision/signature guard,
+Cancel, bounds/bitmap/padding validation. Не вбудовано FontDiffuser/MX-Font.
+
+Власна мала CNN: 39 057 параметрів, 1000 fixed steps, seed1729, MPS, 9.75s
+навчання. Джерельні SHA перевірено: 318 verified-license records <=32px,
+129 family/duplicate groups, 310 train / 8 held-out records (Cozette/Spleen).
+Тільки три train records мають українські гліфи (IBM variants). Ваги,
+нормалізовані bitmaps, повні атрибуції й звіт HTML лишаються в ignored
+.build/style-transfer. Нічого не завантажувалось у зовнішній inference API.
+
+90 hidden-character cases (7 records / 2 related families), raw best-of-up-to4:
+retrieval 31.73 pixel corrections, 6 exact; CNN29.04, 0 exact. Це не human
+acceptance. Visual QA виявив втрату штрихів; UI відсіює CNN з <60% donor ink
+retention або >1.8x ink, raw benchmark не фільтрується. Для Cozette Ґ відсіяно
+8 CNN, лишилось6 retrieval. Користувачеві подобається retrieval; пріоритет
+далі — пошук/ранжування, CNN не вважати покращенням якості.
+
+65 Node tests, strict tsc, 6 optional Python tests/MPS, Ruff та native build
+пройшли. WKWebView smoke/clipboard/save barrier пройшов. Browser QA в окремому
+проєкті: реальна генерація MPS, backdrop без edits, apply/undo/redo, actual
+export validateFont з незмінними метриками/мапою та ліцензією донора; Cancel
+без помилки, stale response після навігації не відкривається/не застосовується.
+П'ять користувацьких draft files збережено без зміни SHA під час оновлення;
+backup .build/last-update.json. Відкрито benchmark.html у системному браузері;
+preview.png — три реальні приклади. Метод/протокол/results.json у experiments/.

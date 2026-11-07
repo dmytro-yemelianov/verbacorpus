@@ -12,7 +12,7 @@ const require = createRequire(join(app, "package.json")),
 const compiled = await build({
   stdin: {
     contents:
-      'export * from "./ui/model"; export * from "./ui/autofill"; export * from "./ui/raster-mutation"; export * from "./ui/regions"; export * from "./ui/pixel-regions"; export * from "./ui/guides"; export * from "./ui/pixel-stroke"; export * from "./ui/shortcuts"; export * from "./ui/font-guides"; export * from "./ui/comparison";',
+      'export * from "./ui/model"; export * from "./ui/autofill"; export * from "./ui/raster-mutation"; export * from "./ui/regions"; export * from "./ui/pixel-regions"; export * from "./ui/guides"; export * from "./ui/pixel-stroke"; export * from "./ui/shortcuts"; export * from "./ui/font-guides"; export * from "./ui/comparison"; export * from "./ui/candidates";',
     resolveDir: join(root, "desktop/glyph-editor"),
     sourcefile: "model-tests.ts",
   },
@@ -1514,4 +1514,104 @@ test("font guide reset and unchanged values do not create spurious history", () 
   const restored = new m.Document(JSON.parse(JSON.stringify(state)));
   assert.equal(restored.state.fontGuides.baseline, 6);
   assert.equal(restored.canUndo, false);
+});
+
+function generatedCandidate(target) {
+  return {
+    id: "candidate",
+    method: "cnn",
+    model: "para-style-cnn-v1",
+    checkpointSha256: "a".repeat(64),
+    width: target.width,
+    height: target.height,
+    rowBytes: target.rowBytes,
+    rows: m.transformed(target, "invert").rows,
+    styleDistance: 0.1,
+    sourceGlyphId: "g000123",
+    sourceFontId: "cozette-13x15",
+    sourceSha256: "b".repeat(64),
+    sourceLicenseId: "MIT",
+    sourceLicense: { id: "MIT", attribution: "test" },
+    source: { collection: "test" },
+    references: ["g000072", "g000120"],
+  };
+}
+test("candidate application changes only bitmap and preserves mapping, metrics and source codes", () => {
+  const target = letter("A"),
+    candidate = generatedCandidate(target),
+    before = structuredClone(target);
+  const after = m.candidateGlyph(target, candidate);
+  assert.deepEqual({ ...after, rows: target.rows }, target);
+  assert.deepEqual(target, before);
+  assert.notDeepEqual(after.rows, target.rows);
+  assert.deepEqual(
+    m.hiddenTarget(target).rows,
+    Array(target.height).fill("00".repeat(target.rowBytes)),
+  );
+  assert.equal(m.glyphSignature(target), m.glyphSignature(before));
+  assert.notEqual(m.glyphSignature(after), m.glyphSignature(target));
+});
+test("candidate data rejects mismatched dimensions, invalid rows, padding and absent provenance", () => {
+  const target = m.resized(letter("A"), 5, 8),
+    valid = generatedCandidate(target);
+  for (const change of [
+    { width: 6 },
+    { rows: ["00"] },
+    { rows: Array(8).fill("ZZ") },
+    { rows: Array(8).fill("01") },
+    { sourceFontId: "../escape" },
+    { checkpointSha256: null },
+    { references: ["bad"] },
+    { sourceSha256: "wrong" },
+  ])
+    assert.throws(() => m.candidateGlyph(target, { ...valid, ...change }));
+});
+test("generated glyph is one undo step and carries donor/model provenance through export", () => {
+  const state = m.newDraft(summary, catalog.snapshot),
+    doc = new m.Document(state),
+    target = letter("A"),
+    candidate = generatedCandidate(target);
+  const after = m.candidateGlyph(target, candidate);
+  doc.commitBatch([
+    {
+      id: target.id,
+      glyph: after,
+      source: target,
+      derivation: m.candidateDerivation(target, candidate),
+    },
+  ]);
+  assert.equal(state.revision, 1);
+  assert.equal(doc.undo(), target.id);
+  assert.deepEqual(state.edits, {});
+  assert.deepEqual(state.derivations, {});
+  doc.redo();
+  const exported = m.exportRecord(source, state);
+  validateFont(exported);
+  const recipe = exported.modifications.at(-1).derivations[0];
+  assert.equal(recipe.kind, "generation");
+  assert.equal(recipe.sourceGlyphId, "g000123");
+  assert.equal(recipe.generation.model, "para-style-cnn-v1");
+  assert.equal(recipe.generation.sourceLicense.id, "MIT");
+});
+test("new glyph and generated reference IDs are remapped locally while foreign donor IDs survive", () => {
+  const state = m.newDraft(summary, catalog.snapshot),
+    doc = new m.Document(state),
+    target = m.blankGlyph(summary, "g000300", "Ґ"),
+    ref = m.blankGlyph(summary, "g000301", "Є"),
+    candidate = generatedCandidate(target);
+  candidate.references = [ref.id];
+  doc.commit(ref.id, ref, undefined);
+  doc.commitBatch([
+    {
+      id: target.id,
+      glyph: m.candidateGlyph(target, candidate),
+      derivation: m.candidateDerivation(target, candidate),
+    },
+  ]);
+  const exported = m.exportRecord(source, state);
+  validateFont(exported);
+  const recipe = exported.modifications.at(-1).derivations[0];
+  assert.equal(recipe.sourceGlyphId, "g000123");
+  assert.deepEqual(recipe.generation.styleReferenceGlyphIds, ["g000256"]);
+  assert.equal(recipe.glyphId, "g000257");
 });

@@ -5,6 +5,20 @@
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>Verba · редактор гліфів</title>
     <link rel="stylesheet" href="editor.css" />
+    <dialog id="candidate-dialog" aria-labelledby="candidate-title">
+      <h2 id="candidate-title">Варіанти гліфа</h2>
+      <p id="candidate-info" class="muted"></p>
+      <p class="muted">
+        CNN і пошук схожого шрифту — експериментальні заготовки. Перевірте
+        українську форму, діакритики й товщину штрихів. «Вибрати» замінює
+        пікселі поточного гліфа одним undo; підкладка лишає його без змін.
+      </p>
+      <div id="candidate-list"></div>
+      <div class="dialog-actions">
+        <button id="candidate-again">Повторити</button
+        ><button id="candidate-close">Закрити</button>
+      </div>
+    </dialog>
     <dialog id="font-guides-dialog" aria-labelledby="font-guides-title">
       <form id="font-guides-form">
         <h2 id="font-guides-title">Типографічні гайди шрифту</h2>
@@ -343,7 +357,10 @@
             >
               Автозаповнити А ↔ A
             </button>
-            <button id="geometry">Дзеркала й повороти…</button>
+            <button id="geometry">Дзеркала й повороти…</button
+            ><button id="candidate-generate">Варіанти гліфа…</button
+            ><button id="candidate-cancel" hidden>Скасувати генерацію</button>
+            <p id="candidate-status" class="muted" role="status"></p>
             <p id="autofill-status" class="muted" role="status"></p>
             <label
               >Взяти за основу<input

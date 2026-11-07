@@ -22,7 +22,15 @@ export interface Derivation {
   sourceChar: string;
   targetChar: string;
   transform: string;
-  kind: "homograph" | "geometry";
+  kind: "homograph" | "geometry" | "generation";
+  generation?: {
+    method: string;
+    model: string;
+    checkpointSha256: string | null;
+    styleReferenceGlyphIds: string[];
+    sourceLicense: Record<string, unknown>;
+    source: Record<string, unknown>;
+  };
   recipeVersion?: number;
   components?: {
     sourceGlyphId: string;
@@ -485,7 +493,7 @@ export function exportRecord(base: FontRecord, state: Draft): FontRecord {
       ...base.modifications,
       {
         type: "manual-glyph-edit",
-        tool: "Verba Glyph Editor 0.8",
+        tool: "Verba Glyph Editor 0.9",
         baseFontId: base.id,
         baseSha256: state.baseSha256,
         sourceSnapshot: state.snapshot,
@@ -505,6 +513,17 @@ export function exportRecord(base: FontRecord, state: Draft): FontRecord {
                 ? recipe.sourceGlyphId
                 : (exportedIDs.get(recipe.sourceGlyphId) ??
                   recipe.sourceGlyphId),
+            ...(recipe.generation
+              ? {
+                  generation: {
+                    ...recipe.generation,
+                    styleReferenceGlyphIds:
+                      recipe.generation.styleReferenceGlyphIds.map(
+                        (id) => exportedIDs.get(id) ?? id,
+                      ),
+                  },
+                }
+              : {}),
             ...(recipe.components
               ? {
                   components: recipe.components.map((part) => ({
