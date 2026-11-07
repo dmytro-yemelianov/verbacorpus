@@ -910,3 +910,98 @@ main {
   font-size: 11px;
   padding: 5px 7px;
 }
+#style-dialog {
+  width: min(1050px, 94vw);
+  max-height: 92vh;
+  overflow: auto;
+  padding: 22px;
+  color: var(--ink);
+  background: var(--paper);
+  border: 1px solid var(--rule);
+  border-radius: 8px;
+}
+#style-dialog::backdrop {
+  background: #0009;
+}
+#style-dialog h2 {
+  margin: 0;
+}
+#style-settings {
+  display: grid;
+  gap: 10px;
+  border: 1px solid var(--rule);
+  padding: 12px;
+}
+#style-font {
+  max-width: 100%;
+}
+#style-reference-glyphs,
+#style-targets,
+.style-choice-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+.style-reference-glyph {
+  display: flex;
+  align-items: center;
+  padding: 7px;
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+}
+.style-reference-glyph canvas {
+  image-rendering: pixelated;
+  max-height: 48px;
+}
+#style-candidates h3 {
+  margin: 10px 0;
+}
+.style-candidate-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px;
+  margin: 10px 0;
+}
+.style-candidate {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+}
+.style-candidate canvas {
+  image-rendering: pixelated;
+}
+.style-candidate small {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  font-size: 10px;
+  color: var(--muted);
+}
+.style-candidate[aria-pressed="true"],
+#style-targets button[aria-pressed="true"] {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: #36402e;
+}
+#style-error {
+  padding: 10px;
+  background: #512c26;
+  color: #ffa294;
+}
+.style-choice-actions {
+  margin: 10px 0;
+}
+#style-file-controls {
+  display: grid;
+  grid-template-columns: 1fr 180px;
+  gap: 8px;
+}
+#style-file-controls p {
+  grid-column: 1 / -1;
+}
+.style-candidate strong {
+  white-space: normal;
+  max-width: 100%;
+  font-size: 12px;
+}

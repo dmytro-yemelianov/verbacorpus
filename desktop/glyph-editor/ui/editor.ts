@@ -1,4 +1,10 @@
 import { shortcutKey } from "./shortcuts";
+import { createStyleWorkbench } from "./style-workbench";
+import {
+  planStyleTargets,
+  styleTargetRequest,
+  type StyleTarget,
+} from "./style-plan";
 import { createCandidateChooser } from "./candidate-dialog";
 import {
   candidateDerivation,
@@ -139,6 +145,8 @@ function busy(value: boolean) {
     "font-guides-open",
     "comparison-current",
     "candidate-generate",
+    "style-open",
+    "style-latin-open",
   ])
     $<HTMLButtonElement>(id).disabled = value;
 }
@@ -282,6 +290,7 @@ async function openFont(id: string, resume?: string) {
   const revision = ++fontRevision;
   comparison.reset();
   candidateChooser.reset();
+  styleWorkbench.reset();
   guideEditor.close();
   referenceHeights = {};
   selectionRevision++;
@@ -676,6 +685,184 @@ const candidateChooser = createCandidateChooser({
   },
   error,
 });
+let styleSession:
+  | {
+      document: GlyphDocument;
+      revision: number;
+      fontId: string;
+      targets: StyleTarget[];
+    }
+  | undefined;
+const styleWorkbench = createStyleWorkbench({
+  fonts: () => fonts,
+  before: async () => {
+    candidateChooser.reset();
+    await canvasUI.flushRegions();
+  },
+  load: async (id, characters) => {
+    if (!font || !doc || !face) throw new Error("Виберіть шрифт призначення.");
+    const targetDoc = doc,
+      targetFont = font,
+      sourceId = id || font.id;
+    const summary =
+      sourceId === font.id
+        ? font
+        : await native<FontSummary>("summary", { id: sourceId });
+    const sourceFace =
+      sourceId === font.id
+        ? face
+        : await NativeFont.open(summary, cache, new AbortController().signal);
+    const state =
+      sourceId === font.id
+        ? doc.state
+        : await native<Draft | null>("readState", { id: sourceId });
+    const mapping = state
+      ? effectiveIndex(sourceFace.index.unicodeIndex, state)
+      : new Map(
+          Object.entries(sourceFace.index.unicodeIndex).map(
+            ([char, values]) => [
+              char,
+              values.map((n) => "g" + String(n).padStart(6, "0")),
+            ],
+          ),
+        );
+    const glyphs: Glyph[] = [],
+      missing: string[] = [];
+    for (const char of characters) {
+      const ids = mapping.get(char) ?? [];
+      if (ids.length > 1)
+        throw new Error(
+          `Референс ${char} має кілька гліфів; задайте однозначну мапу.`,
+        );
+      const gid = ids[0],
+        ordinal = gid ? Number(gid.slice(1)) : Infinity;
+      const value = gid
+        ? (state?.edits[gid] ??
+          (ordinal < summary.coverage.glyphCount
+            ? (await sourceFace.glyphs([ordinal]))[0]
+            : undefined))
+        : undefined;
+      if (value && value.rows.some((row) => /[1-9a-f]/i.test(row)))
+        glyphs.push({
+          ...structuredClone(value),
+          character: char,
+          labels: [{ kind: "unicode", value: char }],
+        });
+      else missing.push(char);
+    }
+    if (doc !== targetDoc || font !== targetFont)
+      throw new Error("Шрифт змінився; повторіть читання референсу.");
+    const effective = fontWithGuides(summary, state?.fontGuides);
+    return {
+      font: {
+        id: summary.id,
+        name: summary.name,
+        sha256: summary.sha256,
+        cell: effective.cell,
+        metrics: effective.metrics,
+        licenseId: summary.licenseId,
+        license: sourceFace.index.font.license,
+        source: sourceFace.index.font.source,
+        draftRevision: state?.revision,
+      },
+      glyphs,
+      missing,
+    };
+  },
+  prepare: async (characters, onlyMissing, reference, mode, preferLatin) => {
+    await canvasUI.flushRegions();
+    if (!doc || !font || !face || exporting || editingBusy) return;
+    const document = doc,
+      targetFont = font,
+      targetFace = face,
+      revision = doc.state.revision;
+    const result = await planStyleTargets({
+      font: effectiveFont()!,
+      state: doc.state,
+      index: effectiveIndex(face.index.unicodeIndex, doc.state),
+      characters,
+      onlyMissing,
+      load: async (id) =>
+        document.state.edits[id] ??
+        (Number(id.slice(1)) < targetFont.coverage.glyphCount
+          ? (await targetFace.glyphs([Number(id.slice(1))]))[0]
+          : undefined),
+      source: async (id) =>
+        Number(id.slice(1)) < targetFont.coverage.glyphCount
+          ? (await targetFace.glyphs([Number(id.slice(1))]))[0]
+          : undefined,
+    });
+    if (
+      doc !== document ||
+      font !== targetFont ||
+      doc.state.revision !== revision
+    )
+      throw new Error("Шрифт змінився. Повторіть пошук.");
+    styleSession = {
+      document,
+      revision,
+      fontId: font.id,
+      targets: result.targets,
+    };
+    return {
+      ...result,
+      request: {
+        snapshot: boot.snapshot,
+        font: effectiveFont(),
+        referenceFont: reference.font,
+        references: reference.glyphs,
+        mode,
+        preferLatin,
+        count: 8,
+        revision,
+        targets: result.targets.map(styleTargetRequest),
+      },
+    };
+  },
+  valid: () =>
+    !!doc &&
+    !!font &&
+    !!styleSession &&
+    doc === styleSession.document &&
+    font.id === styleSession.fontId &&
+    doc.state.revision === styleSession.revision,
+  apply: async (choices) => {
+    await canvasUI.flushRegions();
+    const session = styleSession;
+    if (
+      !doc ||
+      !font ||
+      !session ||
+      doc !== session.document ||
+      font.id !== session.fontId ||
+      doc.state.revision !== session.revision
+    )
+      throw new Error("Шрифт змінився. Повторіть пошук.");
+    const edits = choices.map((choice) => {
+      const planned = session.targets.find(
+        (t) => t.character === choice.character,
+      );
+      if (!planned) throw new Error("Літера поза планом.");
+      return {
+        id: planned.target.id,
+        glyph: candidateGlyph(planned.target, choice.candidate),
+        source: planned.source,
+        derivation: candidateDerivation(
+          planned.target,
+          choice.candidate,
+          choice.character,
+        ),
+      };
+    });
+    if (!doc.commitBatch(edits)) return;
+    scheduleSave();
+    rebuildSlots();
+    await select(selected);
+    void draftCoverage().catch(error);
+  },
+  error,
+});
+$("style-latin-open").onclick = () => void styleWorkbench.openLatin();
 const canvasUI = createCanvas({
   get: () => ({
     glyph: current,
@@ -1082,7 +1269,8 @@ async function action(value: string) {
   if (
     (choosingGeometry() ||
       $<HTMLDialogElement>("font-guides-dialog").open ||
-      candidateChooser.open()) &&
+      candidateChooser.open() ||
+      styleWorkbench.open()) &&
     value !== "save"
   )
     return;

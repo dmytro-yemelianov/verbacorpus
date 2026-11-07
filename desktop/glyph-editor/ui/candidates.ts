@@ -1,7 +1,13 @@
 import { pack, type Glyph, type Derivation } from "./model";
 export interface Candidate {
   id: string;
-  method: "cnn" | "retrieval";
+  method: "cnn" | "retrieval" | "reference" | "homograph";
+  styleReferenceFont?: {
+    fontId: string;
+    sha256: string;
+    name: string;
+    licenseId: string;
+  };
   model: string;
   checkpointSha256: string | null;
   width: number;
@@ -10,6 +16,7 @@ export interface Candidate {
   rows: string[];
   styleDistance: number;
   sourceGlyphId: string;
+  sourceChar?: string;
   sourceFontId: string;
   sourceSha256: string;
   sourceLicenseId: string;
@@ -66,12 +73,14 @@ export function candidateGlyph(target: Glyph, candidate: Candidate): Glyph {
   )
     throw new Error("Некоректні padding-біти кандидата");
   if (
-    !["cnn", "retrieval"].includes(candidate.method) ||
+    !["cnn", "retrieval", "reference", "homograph"].includes(
+      candidate.method,
+    ) ||
     !/^g\d{6}$/.test(candidate.sourceGlyphId) ||
     !/^[a-z0-9][a-z0-9._-]{0,159}$/.test(candidate.sourceFontId) ||
     !/^[a-f0-9]{64}$/.test(candidate.sourceSha256) ||
     !Array.isArray(candidate.references) ||
-    candidate.references.length > 12 ||
+    candidate.references.length > 64 ||
     !candidate.references.every((id) => /^g\d{6}$/.test(id)) ||
     !candidate.sourceLicense ||
     typeof candidate.sourceLicense !== "object" ||
@@ -99,7 +108,7 @@ export function candidateDerivation(
     sourceFontId: candidate.sourceFontId,
     sourceSha256: candidate.sourceSha256,
     sourceLicenseId: candidate.sourceLicenseId,
-    sourceChar: character,
+    sourceChar: candidate.sourceChar ?? character,
     targetChar: character,
     transform: "style-candidate",
     kind: "generation",
@@ -109,6 +118,9 @@ export function candidateDerivation(
       model: candidate.model,
       checkpointSha256: candidate.checkpointSha256,
       styleReferenceGlyphIds: [...candidate.references],
+      ...(candidate.styleReferenceFont
+        ? { styleReferenceFont: structuredClone(candidate.styleReferenceFont) }
+        : {}),
       sourceLicense: structuredClone(candidate.sourceLicense),
       source: structuredClone(candidate.source),
     },

@@ -241,6 +241,34 @@ class Dataset:
                     break
         return refs
 
+    def rank_custom(self, references, character, exclude_group=None):
+        ci = self.char_index.get(character) if character is not None else None
+        if character is not None and ci is None:
+            return []
+        usable = {
+            self.char_index[c]: image
+            for c, image in references.items()
+            if c in self.char_index and image.any()
+        }
+        if not usable:
+            raise ValueError("No mapped reference characters overlap the donor corpus")
+        ranked = []
+        for i, font in enumerate(self.fonts):
+            if font["group"] == exclude_group or (
+                ci is not None and not self.present[i, ci]
+            ):
+                continue
+            distances = [
+                float(np.mean((image.astype(np.float32) - self.images[i, j]) ** 2))
+                for j, image in usable.items()
+                if self.present[i, j]
+            ]
+            if not distances:
+                continue
+            score = float(np.mean(distances)) + 0.1 * (1 - len(distances) / len(usable))
+            ranked.append((score, i))
+        return sorted(ranked)
+
     def rank(self, refs, character, exclude_group=None, pool=None):
         ci = self.char_index.get(character)
         if ci is None:

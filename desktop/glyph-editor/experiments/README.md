@@ -14,6 +14,41 @@ font or target signature cannot be applied. Cancel terminates the inference
 process. There are no network requests or uploads. Failed/missing optional
 Python/model dependencies do not affect editing or saving.
 
+## Reference-to-Ukrainian workflow
+
+The 0.10.1 preset uses existing Latin glyphs in the open font as its style
+reference and proposes every missing/empty Ukrainian letter. It copies 20
+curated Latin/Cyrillic visual pairs at native pixel positions first, then offers
+retrieval alternatives for the remaining letters. No per-font training or
+PyTorch is needed in retrieval mode. All first choices are previewed; only the
+explicit Apply commits one undoable batch. Original Latin and existing nonempty
+Ukrainian glyphs are preserved by default.
+
+Custom batches support a different catalog font, a selected set of explicitly
+mapped glyphs, or imported Para/glyph JSON, Para Glyph Region, Unicode BDF and
+TTF/OTF files. Outline import uses fontTools cmap and Pillow's 1-bit rasterizer;
+there is no antialiased output. Import is local, bounded to 8 MiB input and
+32×32 cells/glyphs. Reference files without explicit license metadata retain
+NOASSERTION rather than inheriting a donor's license. No font/reference is
+uploaded or added to the corpus.
+
+Batch requests add `referenceFont`, `mode`, `preferLatin` and `targets` to the
+existing request. `referenceFont` gives normalization metrics separately from
+the destination `font`; targets carry individual characters, geometries and
+signatures. Up to 64 mapped reference glyphs and 128 targets are supported.
+Retrieval scores all common mapped reference characters (one is sufficient)
+and caches the per-donor style ranking across the batch. The old fixed six
+reference slots remain the optional CNN conditioning interface; a hybrid batch
+can skip neural proposals if those slots are unavailable. Retrieval is the
+default and loads neither PyTorch nor a checkpoint.
+
+Each result identifies the reference font, file/base SHA and a SHA of the
+actual reference glyph payload; this distinguishes edited/imported references.
+Donor and reference identities are separate. Foreign reference glyph IDs remain
+foreign on export. Native import runs as an owned cancellable job. Batch
+results are bound to their font, document revision and reserved target plan;
+ambiguous aliases require an explicit mapping instead of two conflicting edits.
+
 ## Prepare and run
 
 The app still uses the local checkout. The optional model/data live in ignored
@@ -38,7 +73,7 @@ python3 -m unittest discover -s desktop/glyph-editor/experiments -p test_experim
 The native app uses `candidateStart`, `candidateStatus`, `candidateCancel`.
 Each job writes a bounded JSON request, response and log under the editor
 project's `candidates/` directory. Request fields: snapshot; font ID/SHA,
-cell/metrics; target glyph geometry; revision/signature; character; up to 12
+cell/metrics; target glyph geometry; revision/signature; character; up to 64
 reference glyphs; count. The target's bitmap is zeroed in the request and is
 never used by inference. Reference groups are H/Н, x/х, o/о, n/п, k/к, p/р;
 the currently edited glyph is excluded. Two groups are required. Current

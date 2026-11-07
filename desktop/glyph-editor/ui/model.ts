@@ -28,6 +28,12 @@ export interface Derivation {
     model: string;
     checkpointSha256: string | null;
     styleReferenceGlyphIds: string[];
+    styleReferenceFont?: {
+      fontId: string;
+      sha256: string;
+      name: string;
+      licenseId: string;
+    };
     sourceLicense: Record<string, unknown>;
     source: Record<string, unknown>;
   };
@@ -493,7 +499,7 @@ export function exportRecord(base: FontRecord, state: Draft): FontRecord {
       ...base.modifications,
       {
         type: "manual-glyph-edit",
-        tool: "Verba Glyph Editor 0.9",
+        tool: "Verba Glyph Editor 0.10.1",
         baseFontId: base.id,
         baseSha256: state.baseSha256,
         sourceSnapshot: state.snapshot,
@@ -518,8 +524,14 @@ export function exportRecord(base: FontRecord, state: Draft): FontRecord {
                   generation: {
                     ...recipe.generation,
                     styleReferenceGlyphIds:
-                      recipe.generation.styleReferenceGlyphIds.map(
-                        (id) => exportedIDs.get(id) ?? id,
+                      recipe.generation.styleReferenceGlyphIds.map((id) =>
+                        recipe.generation?.styleReferenceFont &&
+                        (recipe.generation.styleReferenceFont.fontId !==
+                          base.id ||
+                          recipe.generation.styleReferenceFont.sha256 !==
+                            state.baseSha256)
+                          ? id
+                          : (exportedIDs.get(id) ?? id),
                       ),
                   },
                 }

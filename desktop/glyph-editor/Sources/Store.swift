@@ -161,6 +161,7 @@ final class EditorStore {
     }
     func command(_ action: String, _ args: [String: Any]) throws -> Any {
         switch action {
+        case "referenceImport": return try candidateJobs.importReference(args)
         case "candidateStart":
             guard let request = args["request"] as? [String: Any], request["snapshot"] as? String == snapshot,
                   let requestedFont = request["font"] as? [String: Any], let id = requestedFont["id"] as? String,

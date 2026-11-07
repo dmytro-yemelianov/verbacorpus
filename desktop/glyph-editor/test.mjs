@@ -12,7 +12,7 @@ const require = createRequire(join(app, "package.json")),
 const compiled = await build({
   stdin: {
     contents:
-      'export * from "./ui/model"; export * from "./ui/autofill"; export * from "./ui/raster-mutation"; export * from "./ui/regions"; export * from "./ui/pixel-regions"; export * from "./ui/guides"; export * from "./ui/pixel-stroke"; export * from "./ui/shortcuts"; export * from "./ui/font-guides"; export * from "./ui/comparison"; export * from "./ui/candidates";',
+      'export * from "./ui/model"; export * from "./ui/autofill"; export * from "./ui/raster-mutation"; export * from "./ui/regions"; export * from "./ui/pixel-regions"; export * from "./ui/guides"; export * from "./ui/pixel-stroke"; export * from "./ui/shortcuts"; export * from "./ui/font-guides"; export * from "./ui/comparison"; export * from "./ui/candidates"; export * from "./ui/style-plan";',
     resolveDir: join(root, "desktop/glyph-editor"),
     sourcefile: "model-tests.ts",
   },
@@ -1550,6 +1550,10 @@ test("candidate application changes only bitmap and preserves mapping, metrics a
   );
   assert.equal(m.glyphSignature(target), m.glyphSignature(before));
   assert.notEqual(m.glyphSignature(after), m.glyphSignature(target));
+  candidate.sourceChar = "A";
+  const recipe = m.candidateDerivation(target, candidate, "А");
+  assert.equal(recipe.sourceChar, "A");
+  assert.equal(recipe.targetChar, "А");
 });
 test("candidate data rejects mismatched dimensions, invalid rows, padding and absent provenance", () => {
   const target = m.resized(letter("A"), 5, 8),
@@ -1614,4 +1618,110 @@ test("new glyph and generated reference IDs are remapped locally while foreign d
   assert.equal(recipe.sourceGlyphId, "g000123");
   assert.deepEqual(recipe.generation.styleReferenceGlyphIds, ["g000256"]);
   assert.equal(recipe.glyphId, "g000257");
+});
+
+test("style target strings normalize Ukrainian letters and deduplicate without guessing unknown scripts", () => {
+  assert.deepEqual(m.styleCharacters("Ґ, Є І Ї Ґ і\u0308"), [
+    "Ґ",
+    "Є",
+    "І",
+    "Ї",
+    "ї",
+  ]);
+  assert.throws(() => m.styleCharacters("Ω"));
+  assert.deepEqual(m.styleCharacters("ΩЖ", true), ["Ω", "Ж"]);
+});
+test("batch planning skips existing ink and reserves missing glyph IDs without touching the draft", async () => {
+  const state = m.newDraft(summary, catalog.snapshot),
+    before = JSON.stringify(state),
+    a = letter("A");
+  const plan = await m.planStyleTargets({
+    font: summary,
+    state,
+    index: new Map([["A", [a.id]]]),
+    characters: ["A", "Ґ", "Є"],
+    onlyMissing: true,
+    load: async (id) => source.glyphs.find((g) => g.id === id),
+    source: async (id) => source.glyphs.find((g) => g.id === id),
+  });
+  assert.deepEqual(plan.skipped, ["A"]);
+  assert.deepEqual(
+    plan.targets.map((t) => t.target.id),
+    ["g000256", "g000257"],
+  );
+  assert.equal(JSON.stringify(state), before);
+  assert.equal(m.styleTargetRequest(plan.targets[0]).character, "Ґ");
+});
+test("chosen style candidates apply as one batch undo and preserve existing glyph metrics", async () => {
+  const state = m.newDraft(summary, catalog.snapshot),
+    doc = new m.Document(state),
+    a = letter("A");
+  const plan = await m.planStyleTargets({
+    font: summary,
+    state,
+    index: new Map([["A", [a.id]]]),
+    characters: ["A", "Ґ"],
+    onlyMissing: false,
+    load: async () => a,
+    source: async () => a,
+  });
+  doc.commitBatch(
+    plan.targets.map((t) => {
+      const candidate = generatedCandidate(t.target);
+      return {
+        id: t.target.id,
+        glyph: m.candidateGlyph(t.target, candidate),
+        source: t.source,
+        derivation: m.candidateDerivation(t.target, candidate, t.character),
+      };
+    }),
+  );
+  assert.equal(state.revision, 1);
+  assert.equal(Object.keys(state.edits).length, 2);
+  doc.undo();
+  assert.deepEqual(state.edits, {});
+  assert.deepEqual(state.created, []);
+  doc.redo();
+  validateFont(m.exportRecord(source, state));
+});
+test("style planning refuses ambiguous aliases and reference provenance never remaps foreign IDs", async () => {
+  const state = m.newDraft(summary, catalog.snapshot),
+    a = letter("A");
+  await assert.rejects(() =>
+    m.planStyleTargets({
+      font: summary,
+      state,
+      index: new Map([
+        ["A", [a.id]],
+        ["А", [a.id]],
+      ]),
+      characters: ["A", "А"],
+      onlyMissing: false,
+      load: async () => a,
+      source: async () => a,
+    }),
+  );
+  const doc = new m.Document(state),
+    g = m.blankGlyph(summary, "g000300", "Ґ"),
+    candidate = generatedCandidate(g);
+  candidate.styleReferenceFont = {
+    fontId: "reference-1234",
+    sha256: "c".repeat(64),
+    name: "Reference",
+    licenseId: "MIT",
+  };
+  candidate.references = ["g000300"];
+  doc.commitBatch([
+    {
+      id: g.id,
+      glyph: m.candidateGlyph(g, candidate),
+      derivation: m.candidateDerivation(g, candidate),
+    },
+  ]);
+  const exported = m.exportRecord(source, state);
+  validateFont(exported);
+  const recipe = exported.modifications.at(-1).derivations[0];
+  assert.equal(recipe.glyphId, "g000256");
+  assert.deepEqual(recipe.generation.styleReferenceGlyphIds, ["g000300"]);
+  assert.equal(recipe.generation.styleReferenceFont.name, "Reference");
 });

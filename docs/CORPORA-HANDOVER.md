@@ -509,3 +509,41 @@ export validateFont з незмінними метриками/мапою та �
 П'ять користувацьких draft files збережено без зміни SHA під час оновлення;
 backup .build/last-update.json. Відкрито benchmark.html у системному браузері;
 preview.png — три реальні приклади. Метод/протокол/results.json у experiments/.
+
+### Українська з латинки / власний референс — 7 листопада 2026
+
+Новий основний сценарій (побажання користувача): «Доповнити українську з
+латинки…». Бере52 Latin refs поточного шрифту з правками, пропонує66 UA;
+20 curated homographs копіюються на native baseline/origin без нормалізації,
+інші — retrieval. Перші кандидати обрані для перегляду, запис лише явним Apply.
+Existing ink UA пропускається, Latin незмінна; whole batch — один undo.
+Reference ranking кешований для всіх літер, без дотренування/PyTorch у retrieval.
+
+Generic «Інший референс / літери…»: каталог, вибір refs, JSON/Para region/BDF
+ISO10646/TTF/OTF local import, 64refs/128targets, клітинки≤32px. TTF/OTF через
+fontTools cmap + Pillow1bit, параметр6–24px. No guessed mappings. Окремі metrics
+referenceFont/destination font; журнал має sourceChar/targetChar, donor license,
+reference identity/hash of actual refs. Foreign ref IDs не ремапляться як local.
+
+69 Node tests, 11 Python tests, tsc/Ruff/build пройшли. Browser QA з окремим
+проєктом: native-startup ready, 66 UA /52refs, Apply revision1, created66;
+undo created0, redo; actual export validated, усі256 source glyphs незмінні,
+20 copies рівні Latin bitmap. Пакет1416KiB, provider≈0.196s без startup.
+JSON file-input/import job tested з synthetic glyphs; external source batch
+на2літери працює. BDF masks/baseline та реальний outline import перевірені
+Python-тестами. Whole source/reference rank computed once per batch.
+
+0.10 preview вже встановлений і відкритий, збережено8 user draft files за SHA;
+після sourceChar provenance fix фінальна збірка0.10.1. Додано demoLatin/projectRoot
+configuration/--demo-latin для окремого тестового вікна з автоматичним відкриттям
+перегляду без Apply; regular project не використовувати для демо-генерації.
+
+Фінальне встановлення0.10.1: normal app та окремий
+/Users/dmytro/Applications/Verba Ukrainian Demo.app. Demo config має власний
+projectRoot /Users/dmytro/Library/Application Support/VerbaGlyphEditor/Demo-Latin/
+(конкретний UUID у .build/demo.json), demoLatin=true. Нативне demo-вікно
+автоматично показало66 candidates; regular project не використовувалось.
+Main app теж відновлено, Demo активовано поверх. Під час patch update збережено
+вже11 user draft files за SHA. Не закривати Demo і не застосовувати його вибір
+автоматично: користувачеві відкрито саме перегляд для ручного тестування.
+Поточні існуючі приклади/corpus assets та ваги не змінювалися.

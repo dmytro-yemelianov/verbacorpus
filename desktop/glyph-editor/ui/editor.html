@@ -5,39 +5,6 @@
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>Verba · редактор гліфів</title>
     <link rel="stylesheet" href="editor.css" />
-    <dialog id="candidate-dialog" aria-labelledby="candidate-title">
-      <h2 id="candidate-title">Варіанти гліфа</h2>
-      <p id="candidate-info" class="muted"></p>
-      <p class="muted">
-        CNN і пошук схожого шрифту — експериментальні заготовки. Перевірте
-        українську форму, діакритики й товщину штрихів. «Вибрати» замінює
-        пікселі поточного гліфа одним undo; підкладка лишає його без змін.
-      </p>
-      <div id="candidate-list"></div>
-      <div class="dialog-actions">
-        <button id="candidate-again">Повторити</button
-        ><button id="candidate-close">Закрити</button>
-      </div>
-    </dialog>
-    <dialog id="font-guides-dialog" aria-labelledby="font-guides-title">
-      <form id="font-guides-form">
-        <h2 id="font-guides-title">Типографічні гайди шрифту</h2>
-        <p id="font-guides-name"></p>
-        <p class="muted">
-          Усі значення у пікселях шрифту. Порожнє поле — метрика джерела або
-          вимір H/Н та x/х. Кольорові стрілки показують відстань на схемі; 0 —
-          базова лінія. Застосовується до всього шрифту, зберігається у правках
-          та експорті. Растри й метрики окремих гліфів не пересуваються.
-        </p>
-        <div id="font-guide-fields"></div>
-        <div class="dialog-actions">
-          <button type="button" id="font-guides-reset">
-            Скинути поля до авто</button
-          ><button type="button" id="font-guides-close">Скасувати</button
-          ><button type="submit" class="primary">Застосувати</button>
-        </div>
-      </form>
-    </dialog>
     <script defer src="editor.js"></script>
   </head>
   <body>
@@ -351,6 +318,9 @@
                 експорт.
               </p>
             </details>
+            <button id="style-latin-open" class="primary">
+              Доповнити українську з латинки…
+            </button>
             <button
               id="autofill"
               title="Заповнити відсутні латинські й кириличні двійники в поточному шрифті"
@@ -360,6 +330,7 @@
             <button id="geometry">Дзеркала й повороти…</button
             ><button id="candidate-generate">Варіанти гліфа…</button
             ><button id="candidate-cancel" hidden>Скасувати генерацію</button>
+            <button id="style-open">Інший референс / літери…</button>
             <p id="candidate-status" class="muted" role="status"></p>
             <p id="autofill-status" class="muted" role="status"></p>
             <label
@@ -562,6 +533,135 @@
           <button id="geometry-apply" class="primary" value="apply" disabled>
             Застосувати (0)
           </button>
+        </div>
+      </form>
+    </dialog>
+    <dialog id="style-dialog" aria-labelledby="style-title">
+      <h2 id="style-title">Референс → потрібні літери</h2>
+      <p class="muted">
+        Оберіть референсний шрифт або набір гліфів і потрібні символи. Retrieval
+        добирає наявні форми схожих шрифтів, без дотренування. Можна вибрати до
+        64 гліфи референсу; результат додається у відкритий шрифт.
+      </p>
+      <details id="style-setup" open>
+        <summary>Референс і параметри</summary>
+        <fieldset id="style-settings">
+          <div class="two">
+            <label
+              >Джерело<select id="style-source">
+                <option value="catalog">Каталог / поточний шрифт</option>
+                <option value="file">Локальний файл</option>
+              </select></label
+            ><label
+              >Референсні символи<input
+                id="style-reference-chars"
+                value="Hxonkp"
+                placeholder="HАохнк"
+            /></label>
+          </div>
+          <label id="style-font-controls"
+            >Референсний шрифт<select id="style-font"></select
+          ></label>
+          <div id="style-file-controls" hidden>
+            <label
+              >Файл шрифту / гліфів<input
+                id="style-file"
+                type="file"
+                accept=".json,.bdf,.ttf,.otf" /></label
+            ><label
+              >TTF/OTF: розмір растрування, px<input
+                id="style-raster-size"
+                type="number"
+                min="6"
+                max="24"
+                step="1"
+                value="16"
+            /></label>
+            <p class="muted">
+              JSON: Para Font, набір glyphs або Para Glyph Region. BDF:
+              ISO10646. TTF/OTF перетворюється на 1-bit растр без згладжування.
+              Файл до 8 MiB; комірка й гліфи до 32 px. Для регіону без підпису
+              введіть один референсний символ.
+            </p>
+          </div>
+          <button id="style-load" type="button">Завантажити референс</button>
+          <p id="style-reference-info" class="muted"></p>
+          <details>
+            <summary>Вибрати референсні гліфи</summary>
+            <div id="style-reference-glyphs"></div>
+          </details>
+          <label
+            >Потрібні літери<textarea
+              id="style-characters"
+              rows="2"
+              placeholder="ҐЄІЇґєії"
+            >
+ҐЄІЇґєії</textarea>
+          </label>
+          <div class="two">
+            <label class="inline"
+              ><input id="style-missing" type="checkbox" checked />Лише відсутні
+              / порожні</label
+            ><label
+              >Метод<select id="style-method">
+                <option value="retrieval">Retrieval · без навчання</option>
+                <option value="hybrid">Retrieval + CNN · експеримент</option>
+              </select></label
+            >
+          </div>
+          <label class="inline"
+            ><input id="style-latin-first" type="checkbox" checked />Спочатку
+            точні латинські двійники A→А, H→Н, I→І…</label
+          >
+        </fieldset>
+      </details>
+      <p id="style-error" role="alert" hidden></p>
+      <p id="style-status" role="status"></p>
+      <div id="style-results" hidden>
+        <div id="style-targets"></div>
+        <div class="style-choice-actions">
+          <button id="style-first">Вибрати перший варіант кожної</button
+          ><button id="style-clear">Зняти вибір</button>
+        </div>
+        <div id="style-candidates"></div>
+      </div>
+      <div class="dialog-actions">
+        <button id="style-run" class="primary">Знайти варіанти</button
+        ><button id="style-stop" hidden>Скасувати завдання</button
+        ><button id="style-apply" disabled>Застосувати вибрані (0)</button
+        ><button id="style-close">Закрити</button>
+      </div>
+    </dialog>
+    <dialog id="candidate-dialog" aria-labelledby="candidate-title">
+      <h2 id="candidate-title">Варіанти гліфа</h2>
+      <p id="candidate-info" class="muted"></p>
+      <p class="muted">
+        CNN і пошук схожого шрифту — експериментальні заготовки. Перевірте
+        українську форму, діакритики й товщину штрихів. «Вибрати» замінює
+        пікселі поточного гліфа одним undo; підкладка лишає його без змін.
+      </p>
+      <div id="candidate-list"></div>
+      <div class="dialog-actions">
+        <button id="candidate-again">Повторити</button
+        ><button id="candidate-close">Закрити</button>
+      </div>
+    </dialog>
+    <dialog id="font-guides-dialog" aria-labelledby="font-guides-title">
+      <form id="font-guides-form">
+        <h2 id="font-guides-title">Типографічні гайди шрифту</h2>
+        <p id="font-guides-name"></p>
+        <p class="muted">
+          Усі значення у пікселях шрифту. Порожнє поле — метрика джерела або
+          вимір H/Н та x/х. Кольорові стрілки показують відстань на схемі; 0 —
+          базова лінія. Застосовується до всього шрифту, зберігається у правках
+          та експорті. Растри й метрики окремих гліфів не пересуваються.
+        </p>
+        <div id="font-guide-fields"></div>
+        <div class="dialog-actions">
+          <button type="button" id="font-guides-reset">
+            Скинути поля до авто</button
+          ><button type="button" id="font-guides-close">Скасувати</button
+          ><button type="submit" class="primary">Застосувати</button>
         </div>
       </form>
     </dialog>

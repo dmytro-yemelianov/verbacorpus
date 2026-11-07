@@ -10,7 +10,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
     var webView: WKWebView!
     var approvedClose = false
     var keyboardMonitor: Any?
-    init(store: EditorStore, resources: URL) { self.store = store; self.resources = resources }
+    let demoLatin: Bool
+    init(store: EditorStore, resources: URL, demoLatin: Bool = false) { self.store = store; self.resources = resources; self.demoLatin = demoLatin }
     func applicationDidFinishLaunching(_ notification: Notification) {
         let configuration = WKWebViewConfiguration()
         configuration.userContentController.add(self, name: "glyphEditor")
@@ -18,6 +19,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
         webView.navigationDelegate = self
         window = NSWindow(contentRect: NSRect(x: 100,y: 100,width: 1420,height: 920), styleMask: [.titled,.closable,.miniaturizable,.resizable], backing: .buffered, defer: false)
         window.title = "Verba — редактор гліфів"; window.minSize = NSSize(width: 1000,height: 760)
+        if demoLatin { window.title = "Verba — ТЕСТ: українська з латинки" }
         window.delegate = self; window.contentView = webView; window.setFrameAutosaveName("VerbaGlyphEditorMain")
         webView.loadFileURL(resources.appendingPathComponent("editor.html"), allowingReadAccessTo: resources)
         if let screen = NSScreen.main {
@@ -95,6 +97,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
         if action == "uiReady" {
             print("EDITOR_READY " + ((try? String(data: jsonData(args), encoding: .utf8)) ?? "")); fflush(stdout)
             reply(["id":id,"ok":true,"value":true])
+            if demoLatin {
+                webView.callAsyncJavaScript("document.querySelector('#style-latin-open').click()", arguments: [:], in: nil, in: .page, completionHandler: nil)
+            }
             if CommandLine.arguments.contains("--smoke") {
                 let prepared = CommandLine.arguments.contains("--isolated-clipboard")
                     ? "if (!(await window.glyphEditorClipboardAction('copy')) || !document.querySelector('#error').hidden) throw new Error('Clipboard copy failed'); await window.glyphEditorAction('paste'); if (!document.querySelector('#error').hidden) throw new Error('Clipboard paste failed'); document.querySelector('#lookup').focus(); if (await window.glyphEditorClipboardAction('copy')) throw new Error('Text clipboard routing failed'); document.querySelector('#canvas-stage').focus(); return true"
@@ -174,7 +179,7 @@ do {
     let resources = Bundle.main.resourceURL ?? URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
     let config = (try? object(Data(contentsOf: resources.appendingPathComponent("configuration.json")))) ?? [:]
     let root = argument("--corpus") ?? ProcessInfo.processInfo.environment["VERBA_GLYPH_CORPUS"] ?? config["corpusRoot"] as? String ?? ""
-    let project = argument("--project").map { URL(fileURLWithPath: $0) }
+    let project = (argument("--project") ?? config["projectRoot"] as? String).map { URL(fileURLWithPath: $0) }
     let store = try EditorStore(corpus: URL(fileURLWithPath: root), project: project)
     if CommandLine.arguments.contains("--self-test") { try selfTest(store) }
     else if let port = argument("--serve-preview").flatMap(UInt16.init) {
@@ -182,7 +187,7 @@ do {
         let server = try PreviewServer(port:port,store:store,resources:directory)
         withExtendedLifetime(server) { dispatchMain() }
     } else {
-        let app = NSApplication.shared, delegate = AppDelegate(store:store,resources:resources)
+        let app = NSApplication.shared, delegate = AppDelegate(store:store,resources:resources,demoLatin:CommandLine.arguments.contains("--demo-latin") || config["demoLatin"] as? Bool == true)
         app.setActivationPolicy(.regular); app.delegate = delegate
         withExtendedLifetime(delegate) { app.run() }
     }
