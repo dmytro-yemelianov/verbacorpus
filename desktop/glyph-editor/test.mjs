@@ -12,7 +12,7 @@ const require = createRequire(join(app, "package.json")),
 const compiled = await build({
   stdin: {
     contents:
-      'export * from "./ui/model"; export * from "./ui/autofill"; export * from "./ui/raster-mutation"; export * from "./ui/regions"; export * from "./ui/pixel-regions"; export * from "./ui/guides"; export * from "./ui/pixel-stroke"; export * from "./ui/shortcuts"; export * from "./ui/font-guides"; export * from "./ui/comparison"; export * from "./ui/candidates"; export * from "./ui/style-plan"; export * from "./ui/font-profile"; export * from "./ui/auto-guides"; export * from "./ui/ascii-mapping"; export * from "./ui/group-selection"; export * from "./ui/monospace"; export * from "./ui/font-coverage"; export * from "./ui/latin-references"; export * from "./ui/glyph-gallery"; export * from "./ui/library-gallery";',
+      'export * from "./ui/model"; export * from "./ui/autofill"; export * from "./ui/raster-mutation"; export * from "./ui/regions"; export * from "./ui/pixel-regions"; export * from "./ui/guides"; export * from "./ui/pixel-stroke"; export * from "./ui/shortcuts"; export * from "./ui/font-guides"; export * from "./ui/comparison"; export * from "./ui/candidates"; export * from "./ui/style-plan"; export * from "./ui/font-profile"; export * from "./ui/auto-guides"; export * from "./ui/ascii-mapping"; export * from "./ui/group-selection"; export * from "./ui/monospace"; export * from "./ui/font-coverage"; export * from "./ui/latin-references"; export * from "./ui/glyph-gallery"; export * from "./ui/library-gallery"; export * from "./ui/document-controller"; export * from "./ui/font-document"; export * from "./ui/font-library";',
     resolveDir: join(root, "desktop/glyph-editor"),
     sourcefile: "model-tests.ts",
   },
@@ -2149,4 +2149,406 @@ test("library cards use fewer columns and rows accommodate natural card heights"
     assert.ok(size.height <= 32);
     assert.ok(size.width > 0 && size.height > 0);
   }
+});
+
+function deferred() {
+  let resolve, reject;
+  const promise = new Promise((yes, no) => {
+    resolve = yes;
+    reject = no;
+  });
+  return { promise, resolve, reject };
+}
+function documentFixture(overrides = {}) {
+  const writes = [],
+    statuses = [],
+    resources = new Map();
+  const resource = (id) => {
+    if (!resources.has(id))
+      resources.set(id, {
+        document: new m.Document({
+          ...m.newDraft(summary, catalog.snapshot),
+          fontId: id,
+        }),
+      });
+    return resources.get(id);
+  };
+  const controller = new m.DocumentController({
+    load: async (id) => resource(id),
+    prepare: async () => {},
+    write: async (state) => {
+      writes.push(structuredClone(state));
+    },
+    status: (value) => statuses.push(value),
+    error: (reason) => {
+      throw reason;
+    },
+    delay: 60000,
+    ...overrides,
+  });
+  return { controller, writes, statuses, resource };
+}
+function editDocument(controller, note) {
+  controller.current.document.state.notes = note;
+  controller.current.document.touch();
+  controller.changed();
+}
+
+test("document close barrier drains edits arriving during an in-flight save", async () => {
+  const started = deferred(),
+    release = deferred(),
+    writes = [];
+  const { controller } = documentFixture({
+    write: async (state) => {
+      writes.push(structuredClone(state));
+      if (writes.length === 1) {
+        started.resolve();
+        await release.promise;
+      }
+    },
+    prepare: async (state) => {
+      state.latinReferences = {
+        upper: state.revision,
+        lower: 0,
+        checkedRevision: state.revision,
+      };
+    },
+  });
+  await controller.open("font-a");
+  editDocument(controller, "first");
+  const closing = controller.flush();
+  await started.promise;
+  editDocument(controller, "second");
+  release.resolve();
+  await closing;
+  assert.deepEqual(
+    writes.map((s) => s.notes),
+    ["first", "second"],
+  );
+  assert.equal(controller.dirty, false);
+  assert.equal(controller.current.document.state.latinReferences.upper, 2);
+});
+
+test("a failed write keeps the document dirty and is retryable", async () => {
+  let fail = true;
+  const { controller, statuses, writes } = documentFixture({
+    write: async (state) => {
+      if (fail) throw new Error("disk unavailable");
+      writes.push(state);
+    },
+  });
+  await controller.open("font-a");
+  editDocument(controller, "keep this note");
+  await assert.rejects(controller.flush(), /disk unavailable/);
+  assert.equal(controller.dirty, true);
+  assert.equal(controller.current.document.state.notes, "keep this note");
+  assert.equal(statuses.at(-1), "error");
+  fail = false;
+  await controller.flush();
+  assert.equal(writes[0].notes, "keep this note");
+  assert.equal(controller.dirty, false);
+});
+
+test("a failed save blocks navigation and preserves the original document", async () => {
+  const loaded = [];
+  const f = documentFixture({
+    write: async () => {
+      throw new Error("no space");
+    },
+    load: async (id) => {
+      loaded.push(id);
+      return f.resource(id);
+    },
+  });
+  await f.controller.open("font-a");
+  editDocument(f.controller, "unsaved");
+  await assert.rejects(f.controller.open("font-b"), /no space/);
+  assert.deepEqual(loaded, ["font-a"]);
+  assert.equal(f.controller.current.document.state.fontId, "font-a");
+  assert.equal(f.controller.dirty, true);
+  assert.equal(f.controller.opening, false);
+});
+
+test("failed loading retains the usable previous resource and its source signal", async () => {
+  const signals = new Map();
+  const f = documentFixture({
+    load: async (id, signal) => {
+      signals.set(id, signal);
+      if (id === "font-b") throw new Error("bad font");
+      return f.resource(id);
+    },
+  });
+  await f.controller.open("font-a");
+  await assert.rejects(f.controller.open("font-b"), /bad font/);
+  assert.equal(f.controller.current, f.resource("font-a"));
+  assert.equal(signals.get("font-a").aborted, false);
+  assert.equal(signals.get("font-b").aborted, true);
+});
+
+test("late navigation cannot replace the latest selected font", async () => {
+  const started = deferred(),
+    slow = deferred();
+  const signals = new Map();
+  const f = documentFixture({
+    load: async (id, signal) => {
+      signals.set(id, signal);
+      if (id === "font-b") {
+        started.resolve();
+        await slow.promise;
+      }
+      return f.resource(id);
+    },
+  });
+  await f.controller.open("font-a");
+  const old = f.controller.open("font-b");
+  await started.promise;
+  await f.controller.open("font-c");
+  slow.resolve();
+  assert.equal(await old, undefined);
+  assert.equal(f.controller.current.document.state.fontId, "font-c");
+  assert.equal(signals.get("font-b").aborted, true);
+  assert.equal(signals.get("font-a").aborted, true);
+});
+
+test("clicking the active font cancels a pending navigation", async () => {
+  const started = deferred(),
+    slow = deferred();
+  const f = documentFixture({
+    load: async (id) => {
+      if (id === "font-b") {
+        started.resolve();
+        await slow.promise;
+      }
+      return f.resource(id);
+    },
+  });
+  const a = await f.controller.open("font-a");
+  const old = f.controller.open("font-b");
+  await started.promise;
+  assert.equal(await f.controller.open("font-a"), a);
+  slow.resolve();
+  assert.equal(await old, undefined);
+  assert.equal(f.controller.current, a);
+});
+
+test("edits made while another font loads are saved before resources are released", async () => {
+  const started = deferred(),
+    slow = deferred(),
+    signals = new Map();
+  const f = documentFixture({
+    load: async (id, signal) => {
+      signals.set(id, signal);
+      if (id === "font-b") {
+        started.resolve();
+        await slow.promise;
+      }
+      return f.resource(id);
+    },
+    prepare: async (state) => {
+      assert.equal(signals.get(state.fontId).aborted, false);
+    },
+  });
+  await f.controller.open("font-a");
+  const opening = f.controller.open("font-b");
+  await started.promise;
+  editDocument(f.controller, "late edit");
+  slow.resolve();
+  await opening;
+  assert.equal(f.writes[0].fontId, "font-a");
+  assert.equal(f.writes[0].notes, "late edit");
+  assert.equal(signals.get("font-a").aborted, true);
+});
+
+test("debounced saves coalesce and explicit flush cancels the timer", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const f = documentFixture({ delay: 300 });
+  await f.controller.open("font-a");
+  editDocument(f.controller, "one");
+  editDocument(f.controller, "two");
+  t.mock.timers.tick(299);
+  assert.equal(f.writes.length, 0);
+  await f.controller.flush();
+  t.mock.timers.tick(1000);
+  assert.deepEqual(
+    f.writes.map((s) => s.notes),
+    ["two"],
+  );
+});
+
+test("session close barrier waits for an older write, then writes the latest snapshot", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const started = deferred(),
+    release = deferred(),
+    values = [];
+  let fontId = "a";
+  const session = m.createSessionPersistence({
+    snapshot: () => ({ fontId }),
+    write: async (value) => {
+      values.push(value.fontId);
+      if (values.length === 1) {
+        started.resolve();
+        await release.promise;
+      }
+    },
+    error: () => {},
+    delay: 350,
+  });
+  session.schedule();
+  t.mock.timers.tick(350);
+  await started.promise;
+  fontId = "b";
+  session.schedule();
+  const closing = session.flush();
+  release.resolve();
+  await closing;
+  t.mock.timers.tick(1000);
+  assert.deepEqual(values, ["a", "b"]);
+});
+
+test("session persistence can retry after failure without losing the current view", async () => {
+  let fail = true;
+  const values = [];
+  const session = m.createSessionPersistence({
+    snapshot: () => ({ fontId: "new" }),
+    write: async (v) => {
+      if (fail) throw Error("session disk error");
+      values.push(v);
+    },
+    error: () => {},
+  });
+  await assert.rejects(session.flush(), /session disk error/);
+  fail = false;
+  await session.flush();
+  assert.deepEqual(values, [{ fontId: "new" }]);
+});
+
+test("font library combines terms, collection and Unicode-aware case-insensitive search", () => {
+  const a = {
+    ...summary,
+    id: "a",
+    name: "Їжак 12",
+    family: "Київ",
+    collection: "local",
+  };
+  const b = {
+    ...summary,
+    id: "b",
+    name: "Їжак 2",
+    family: "Київ",
+    collection: "other",
+  };
+  const library = m.createFontLibrary([a, b], {});
+  assert.deepEqual(
+    library.fonts.map((f) => f.id),
+    ["b", "a"],
+  );
+  assert.deepEqual(
+    library
+      .filter({ search: "їЖАК   КИЇВ", collection: "local", filter: "all" })
+      .map((f) => f.id),
+    ["a"],
+  );
+});
+
+test("font library filters use updated draft coverage and matching-case reference counts", () => {
+  const fonts = [
+    { ...summary, id: "a", latinReferences: { upper: 26, lower: 26 } },
+    { ...summary, id: "b", latinReferences: { upper: 26, lower: 0 } },
+  ];
+  const progress = {
+    a: { edits: 66, reviewed: 0, done: false, ukrainianPresent: 66 },
+  };
+  const library = m.createFontLibrary(fonts, progress);
+  const query = (filter) =>
+    library.filter({ search: "", collection: "", filter }).map((f) => f.id);
+  assert.deepEqual(query("ua"), ["b"]);
+  assert.deepEqual(query("latin-missing"), ["b"]);
+  progress.a.latinReferences = { upper: 0, lower: 26 };
+  assert.deepEqual(query("latin-missing"), ["a", "b"]);
+});
+
+test("font library progress counts and review filters stay current after changes", () => {
+  const progress = { a: { edits: 2, reviewed: 1, done: false } };
+  const library = m.createFontLibrary([{ ...summary, id: "a" }], progress);
+  const options = { search: "", collection: "", filter: "done" };
+  assert.equal(library.filter(options).length, 0);
+  progress.a.done = true;
+  assert.equal(library.filter(options).length, 1);
+  assert.deepEqual(library.counts(), { done: 1, changed: 1 });
+});
+
+test("obsolete saved filter values do not hide the entire library", () => {
+  const library = m.createFontLibrary([summary], {});
+  assert.equal(
+    library.filter({ search: "", collection: "", filter: "retired-filter" })
+      .length,
+    1,
+  );
+});
+
+test("an older failed autosave does not poison a newer queued successful save", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const started = deferred(),
+    failFirst = deferred(),
+    errors = [],
+    writes = [];
+  const f = documentFixture({
+    delay: 300,
+    error: (e) => errors.push(e.message),
+    write: async (state) => {
+      writes.push(state.notes);
+      if (writes.length === 1) {
+        started.resolve();
+        await failFirst.promise;
+      }
+    },
+  });
+  await f.controller.open("font-a");
+  editDocument(f.controller, "older");
+  t.mock.timers.tick(300);
+  await started.promise;
+  editDocument(f.controller, "latest");
+  t.mock.timers.tick(300);
+  const close = f.controller.flush();
+  failFirst.reject(Error("older write failed"));
+  await close;
+  assert.deepEqual(writes, ["older", "latest"]);
+  assert.deepEqual(errors, ["older write failed"]);
+  assert.equal(f.controller.dirty, false);
+  assert.equal(f.statuses.at(-1), "saved");
+});
+
+test("queued saves retain independent nested bitmap snapshots", async () => {
+  const started = deferred(),
+    release = deferred(),
+    rows = [];
+  const f = documentFixture({
+    prepare: async (state) => {
+      if (state.revision === 0) {
+        started.resolve();
+        await release.promise;
+      }
+    },
+    write: async (state) => {
+      rows.push(state.edits.g000000.rows[0]);
+    },
+  });
+  await f.controller.open("font-a");
+  const state = f.controller.current.document.state;
+  state.edits.g000000 = {
+    ...structuredClone(source.glyphs[0]),
+    id: "g000000",
+    rows: [...source.glyphs[0].rows],
+  };
+  const before = state.edits.g000000.rows[0];
+  f.controller.changed();
+  const closing = f.controller.flush();
+  await started.promise;
+  const after = before === "00" ? "FF" : "00";
+  state.edits.g000000.rows[0] = after;
+  f.controller.current.document.touch();
+  f.controller.changed();
+  release.resolve();
+  await closing;
+  assert.deepEqual(rows, [before, after]);
 });

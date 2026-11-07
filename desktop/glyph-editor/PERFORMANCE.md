@@ -73,13 +73,14 @@ Narrow/wide checks used 1000/1280/1800 px windows, including the final library r
 
 ## Remaining limitations and follow-up
 
-`ui/editor.ts` remains a roughly 2,100-line orchestration module. Rendering,
-mutation, guides, comparisons and generation have separate modules, but document
-lifecycle/save coordination and filtering still share mutable state there.
-Extracting a document controller is the next structural refactor; a broad rewrite
-was not needed to fix the measured stalls and would require separate lifecycle
-regression coverage. There is no current trace evidence that splitting this file
-alone improves runtime speed.
+The 0.14.1 follow-up extracted document navigation/cancellation and serialized
+save barriers into `ui/document-controller.ts`, source loading/coverage snapshots
+into `ui/font-document.ts`, and library sorting/filtering/progress into
+`ui/font-library.ts`. The UI no longer owns debounce/save promises, dirty flags
+or source AbortControllers. The remaining approximately 2,000-line `editor.ts`
+still wires views, selection and mutation controls together; further decomposition
+should target those UI responsibilities. File length alone is not a measured
+runtime bottleneck.
 
 The corpus-wide result is not a human visual acceptance test. 418 fonts remain
 blocked until valid Latin mappings/references are supplied. Retrieval shapes,
@@ -102,3 +103,34 @@ and native WKWebView smoke passed during this audit. An isolated two-font bulk
 pipeline generated/applied 66 eligible glyphs and applied none to the unmapped
 Classic font. The main source/draft audit verified all 2,266 source SHA hashes,
 586 pre-existing nonempty edited glyphs and 11 notes documents.
+
+## 0.14.1 follow-up: document lifecycle and library model
+
+Saving now drains changes that arrive during an in-flight write. Each queued
+write has an independent deep snapshot and its original source resource. A failed
+write leaves the document dirty and retryable; an older failed autosave cannot
+mark a newer successful revision dirty. Navigation waits for the save barrier,
+keeps the current source alive until its work is saved, publishes fully loaded
+resources, and ignores stale success/failure. A failed load leaves the previous
+document usable. Session writes are serialized across debounce and explicit flush.
+
+The browser check injected delayed writes and a simulated disk failure into the
+bridge on a full copied project. It verified latest-note persistence, blocked
+navigation with the unsaved document retained, successful retry, cancellation by
+clicking the active font, and latest-selection wins over a delayed font. A reload
+restored the selected font. The saved obsolete-filter probe restored the valid
+“All” dropdown and all 2,266 fonts. No working drafts were used for injected faults.
+
+Library sorting reuses one `Intl.Collator`. In a 10-run Node microbenchmark over
+the same 2,266 names, the median sort fell from 15.46 ms with per-comparison
+`localeCompare` options to 0.65 ms with the reused collator. This measures sorting
+alone. The copied-project browser reload measured bootstrap at 168 ms, UI-ready
+at 232 ms from navigation, and no tasks over 50 ms; selected-font/workspace state
+differs from the earlier run, so this is a regression check, not an end-to-end
+speedup claim. The first scan after copying files took 3.47 s, as expected because
+copying changes their inode fingerprints.
+
+100 Node tests include 16 lifecycle/library regressions covering delayed writes,
+deep snapshots, failure/retry, cancellation, source lifetime, debouncing,
+session ordering, filters and updated progress. Native WKWebView/clipboard/close
+checks also exercise the new save barrier on both fresh and large copied projects.

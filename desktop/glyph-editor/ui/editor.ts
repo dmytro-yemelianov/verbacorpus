@@ -1,4 +1,18 @@
 import {
+  createFontLibrary,
+  type LibraryFont as Light,
+  type FontProgress as Progress,
+} from "./font-library";
+import {
+  DocumentController,
+  createSessionPersistence,
+} from "./document-controller";
+import {
+  loadFontDocument,
+  prepareDraft,
+  type FontDocument,
+} from "./font-document";
+import {
   latinReferences,
   latinSupportedTargets,
   requireLatinReferences,
@@ -57,7 +71,6 @@ import {
 import {
   Document as GlyphDocument,
   codepoint,
-  newDraft,
   blankGlyph,
   transformed,
   effectiveIndex,
@@ -69,17 +82,6 @@ import {
 } from "./model";
 const $ = <T extends HTMLElement>(id: string) =>
   document.getElementById(id) as T;
-type Light = Pick<
-  FontSummary,
-  "id" | "name" | "family" | "cell" | "coverage" | "collection" | "licenseId"
-> & { latinReferences?: LatinReferences };
-type Progress = {
-  edits: number;
-  reviewed: number;
-  done: boolean;
-  ukrainianPresent?: number;
-  latinReferences?: LatinReferences;
-};
 type Boot = {
   snapshot: string;
   fonts: Light[];
@@ -105,15 +107,14 @@ const libraryCache = new FontAssetCache(4 * 1024 * 1024, readFontAsset);
 const painter = new GlyphPainter();
 const stage = $<HTMLElement>("canvas-stage"),
   zoom = $<HTMLInputElement>("zoom");
+let library: ReturnType<typeof createFontLibrary>;
 let boot: Boot,
   fonts: Light[] = [],
   visibleFonts: Light[] = [],
   font: FontSummary | undefined,
   face: NativeFont | undefined,
   doc: GlyphDocument | undefined;
-let controller: AbortController | undefined,
-  fontRevision = 0,
-  selectionRevision = 0,
+let selectionRevision = 0,
   selected = 0,
   slots: Slot[] = [],
   index = new Map<string, string[]>();
@@ -128,12 +129,8 @@ let cachedProfile:
   | undefined;
 let editingBusy = true;
 let autofilling = false;
-let queueRevision = 0,
-  saveTimer: ReturnType<typeof setTimeout> | undefined,
-  sessionTimer: ReturnType<typeof setTimeout> | undefined;
-let saving: Promise<void> = Promise.resolve(),
-  dirty = false,
-  exporting = false;
+let queueRevision = 0;
+let exporting = false;
 const INK = "#eee9d7";
 function error(value: unknown) {
   if (value instanceof DOMException && value.name === "AbortError") return;
@@ -183,7 +180,7 @@ function busy(value: boolean) {
 }
 function progressUpdate() {
   if (!doc || !font) return;
-  boot.progress[font.id] = {
+  library.progress[font.id] = {
     edits:
       Object.keys(doc.state.edits).length +
       (Object.keys(doc.state.fontGuides ?? {}).length ? 1 : 0) +
@@ -197,97 +194,14 @@ function progressUpdate() {
     ukrainianPresent:
       doc.state.ukrainianCoverage?.checkedRevision === doc.state.revision
         ? doc.state.ukrainianCoverage.present
-        : boot.progress[font.id]?.ukrainianPresent,
+        : library.progress[font.id]?.ukrainianPresent,
   };
-  const done = Object.values(boot.progress).filter((p) => p.done).length,
-    changed = Object.values(boot.progress).filter((p) => p.edits > 0).length;
+  const { done, changed } = library.counts();
   $("overall").textContent = `${done} переглянуто · ${changed} з правками`;
   renderFonts();
 }
-function scheduleSave() {
-  if (!doc) return;
-  dirty = true;
-  $("save-status").textContent = "Є незбережені правки";
-  clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => void persist().catch(error), 300);
-  progressUpdate();
-}
-async function persist() {
-  clearTimeout(saveTimer);
-  if (!doc || !font || !dirty) return saving;
-  const state = structuredClone(doc.state),
-    id = font.id,
-    revision = state.revision,
-    targetFace = face!,
-    targetCount = font.coverage.glyphCount;
-  dirty = false;
-  const task = saving
-    .catch(() => {})
-    .then(async () => {
-      state.ukrainianCoverage = await ukrainianCoverage(
-        state,
-        targetFace.index.unicodeIndex,
-        async (gid) =>
-          Number(gid.slice(1)) < targetCount
-            ? (await targetFace.glyphs([Number(gid.slice(1))]))[0]
-            : undefined,
-      );
-      const refIndex = effectiveIndex(targetFace.index.unicodeIndex, state);
-      const refGlyphs = await Promise.all(
-        [..."ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"]
-          .flatMap((c) => refIndex.get(c) ?? [])
-          .map(
-            async (gid) =>
-              state.edits[gid] ??
-              (Number(gid.slice(1)) < targetCount
-                ? (await targetFace.glyphs([Number(gid.slice(1))]))[0]
-                : undefined),
-          ),
-      );
-      state.latinReferences = {
-        ...latinReferences(refGlyphs.filter((g): g is Glyph => !!g)),
-        checkedRevision: revision,
-      };
-      await native("saveState", { id, state });
-      if (doc?.state.fontId === id && doc.state.revision === revision) {
-        doc.state.ukrainianCoverage = state.ukrainianCoverage;
-        doc.state.latinReferences = state.latinReferences;
-        progressUpdate();
-        $("save-status").textContent = "Збережено локально";
-      }
-    });
-  saving = task.catch((reason) => {
-    if (doc?.state.fontId === id) dirty = true;
-    $("save-status").textContent = "Помилка збереження";
-    throw reason;
-  });
-  return saving;
-}
-function session() {
-  clearTimeout(sessionTimer);
-  sessionTimer = setTimeout(
-    () =>
-      void native("saveSession", {
-        fontId: font?.id,
-        mode: $<HTMLSelectElement>("mode").value,
-        slot: slots[selected]?.key,
-        q: $<HTMLInputElement>("search").value,
-        collection: $<HTMLSelectElement>("collection").value,
-        filter: $<HTMLSelectElement>("font-filter").value,
-        ...groups.save(),
-        workspaceView,
-        workspaceLayout: "gallery-1",
-      }).catch(error),
-    350,
-  );
-}
-async function flush() {
-  await canvasUI.flushRegions();
-  clearTimeout(saveTimer);
-  await persist();
-  await saving;
-  clearTimeout(sessionTimer);
-  await native("saveSession", {
+const sessionPersistence = createSessionPersistence({
+  snapshot: () => ({
     fontId: font?.id,
     mode: $<HTMLSelectElement>("mode").value,
     slot: slots[selected]?.key,
@@ -297,34 +211,52 @@ async function flush() {
     ...groups.save(),
     workspaceView,
     workspaceLayout: "gallery-1",
-  });
+  }),
+  write: (value) => native("saveSession", value),
+  error,
+});
+const documents = new DocumentController<FontDocument>({
+  load: (id, signal) =>
+    loadFontDocument(id, signal, {
+      snapshot: boot.snapshot,
+      cache,
+      summary: (id) => native<FontSummary>("summary", { id }),
+      state: (id) => native<Draft | null>("readState", { id }),
+    }),
+  beforeSwitch: async () => {
+    await canvasUI.flushRegions();
+    if (doc) await sessionPersistence.flush();
+  },
+  prepare: prepareDraft,
+  write: (state) => native("saveState", { id: state.fontId, state }),
+  status: (status) => {
+    $("save-status").textContent = {
+      dirty: "Є незбережені правки",
+      saved: "Збережено локально",
+      error: "Помилка збереження",
+    }[status];
+    if (status === "saved") progressUpdate();
+  },
+  error,
+});
+function scheduleSave() {
+  documents.changed();
+  progressUpdate();
+}
+function session() {
+  if (doc) sessionPersistence.schedule();
+}
+async function flush() {
+  await canvasUI.flushRegions();
+  await documents.flush();
+  if (doc) await sessionPersistence.flush();
 }
 window.glyphEditorFlush = flush;
 function filterFonts() {
-  const terms = $<HTMLInputElement>("search")
-      .value.toLocaleLowerCase("uk")
-      .trim()
-      .split(/\s+/)
-      .filter(Boolean),
-    collection = $<HTMLSelectElement>("collection").value,
-    filter = $<HTMLSelectElement>("font-filter").value;
-  visibleFonts = fonts.filter((f) => {
-    const p = boot.progress[f.id];
-    return (
-      terms.every((t) =>
-        `${f.id} ${f.name} ${f.family}`.toLocaleLowerCase("uk").includes(t),
-      ) &&
-      (!collection || f.collection === collection) &&
-      (filter === "all" ||
-        (filter === "pending" && !p?.done) ||
-        (filter === "ua" &&
-          (p?.ukrainianPresent ?? f.coverage.ukrainian.present ?? 0) < 66) ||
-        (filter === "changed" && (p?.edits ?? 0) > 0) ||
-        (filter === "latin-missing" &&
-          (!(p?.latinReferences ?? f.latinReferences)?.upper ||
-            !(p?.latinReferences ?? f.latinReferences)?.lower)) ||
-        (filter === "done" && p?.done))
-    );
+  visibleFonts = library.filter({
+    search: $<HTMLInputElement>("search").value,
+    collection: $<HTMLSelectElement>("collection").value,
+    filter: $<HTMLSelectElement>("font-filter").value,
   });
   $("library-count").textContent =
     `У черзі: ${visibleFonts.length.toLocaleString("uk")}`;
@@ -345,7 +277,7 @@ function renderFonts() {
   inner.replaceChildren();
   for (let i = start; i < end; i++) {
     const f = visibleFonts[i],
-      p = boot.progress[f.id],
+      p = library.progress[f.id],
       button = document.createElement("button");
     button.className = "font-row";
     button.style.top = i * 52 + "px";
@@ -367,42 +299,32 @@ function renderFonts() {
   }
 }
 async function openFont(id: string, resume?: string) {
-  if (font?.id === id && face) return;
-  await flush();
-  clearError();
-  $("autofill-status").textContent = "";
-  const revision = ++fontRevision;
-  comparison.reset();
-  candidateChooser.reset();
-  styleWorkbench.reset();
-  guideEditor.close();
-  referenceHeights = {};
-  latinReferenceCounts = { upper: 0, lower: 0 };
-  cachedProfile = undefined;
+  if (font?.id === id && face && !documents.opening) return;
+  const request = documents.generation + 1;
   selectionRevision++;
   queueRevision++;
-  controller?.abort();
-  controller = new AbortController();
-  const signal = controller.signal;
+  coverageRevision++;
+  proofRevision++;
   busy(true);
   $("save-status").textContent = "Відкриття шрифту…";
   try {
-    const [summary, state] = await Promise.all([
-      native<FontSummary>("summary", { id }),
-      native<Draft | null>("readState", { id }),
-    ]);
-    if (revision !== fontRevision) return;
-    const loaded = await NativeFont.open(summary, cache, signal);
-    if (revision !== fontRevision) return;
+    const resource = await documents.open(id);
+    if (!resource || request !== documents.generation) return;
+    const revision = documents.generation;
+    clearError();
+    $("autofill-status").textContent = "";
+    comparison.reset();
+    candidateChooser.reset();
+    styleWorkbench.reset();
+    guideEditor.close();
+    referenceHeights = {};
+    latinReferenceCounts = { upper: 0, lower: 0 };
+    cachedProfile = undefined;
+    const { summary, face: loaded, document, samples } = resource;
     font = summary;
     face = loaded;
-    doc = new GlyphDocument(state ?? newDraft(summary, boot.snapshot));
-    const samples = await loaded.glyphs(
-      frameOrdinals(summary.coverage.glyphCount, loaded.index.unicodeIndex),
-    );
-    if (revision !== fontRevision) return;
+    doc = document;
     profileSamples = samples;
-    dirty = false;
     $("font-name").textContent = font.name;
     $("font-source").textContent = `${font.collection} · ${font.licenseId}`;
     $("font-meta").textContent =
@@ -439,7 +361,7 @@ async function openFont(id: string, resume?: string) {
           .slice(0, 64)
           .map((slot) => (slot.id ? glyph(slot.id) : undefined)),
       );
-      if (revision !== fontRevision) return;
+      if (revision !== documents.generation) return;
       const firstInk = sample.findIndex((glyph) =>
         glyph?.rows.some((row) => /[1-9A-Fa-f]/.test(row)),
       );
@@ -453,15 +375,17 @@ async function openFont(id: string, resume?: string) {
       renderFonts();
     }
     await select(selected, true);
+    if (revision !== documents.generation) return;
     void loadReferenceHeights(summary, loaded, revision).catch(error);
     void draftCoverage().catch(error);
     $("save-status").textContent = "Збереження правок — автоматично";
     session();
   } catch (reason) {
-    if (revision === fontRevision) {
-      face = undefined;
-      current = undefined;
-      draw();
+    if (request === documents.generation) {
+      busy(!current);
+      updateButtons();
+      $("save-status").textContent =
+        "Не вдалося відкрити шрифт. Поточний документ залишається відкритим.";
       throw reason;
     }
   }
@@ -486,7 +410,7 @@ async function loadReferenceHeights(
     reference(["H", "Н"]),
     reference(["x", "х"]),
   ]);
-  if (revision !== fontRevision || font?.id !== summary.id) return;
+  if (revision !== documents.generation || font?.id !== summary.id) return;
   referenceHeights = { cap, x };
   scheduleDraw();
 }
@@ -528,11 +452,12 @@ function rebuildSlots(preferred = slots[selected]?.key) {
 }
 async function glyph(id: string): Promise<Glyph | undefined> {
   if (!doc || !face || !font) return;
-  const edited = doc.state.edits[id];
-  if (edited) return normalizeCell(edited, currentCell());
+  const target = { document: doc, face, font, cell: currentCell() };
+  const edited = target.document.state.edits[id];
+  if (edited) return normalizeCell(edited, target.cell);
   const n = Number(id.slice(1));
-  return n < font.coverage.glyphCount
-    ? normalizeCell((await face.glyphs([n]))[0], currentCell())
+  return n < target.font.coverage.glyphCount
+    ? normalizeCell((await target.face.glyphs([n]))[0], target.cell)
     : undefined;
 }
 async function select(position: number, fit = false) {
@@ -634,8 +559,8 @@ async function draftCoverage() {
   );
   const listing = fonts.find((f) => f.id === id);
   if (listing) listing.latinReferences = latinReferenceCounts;
-  if (boot.progress[id])
-    boot.progress[id].latinReferences = latinReferenceCounts;
+  if (library.progress[id])
+    library.progress[id].latinReferences = latinReferenceCounts;
   $("latin-reference-notice").hidden =
     !!latinReferenceCounts.upper && !!latinReferenceCounts.lower;
   $("latin-reference-notice").textContent =
@@ -651,7 +576,7 @@ async function draftCoverage() {
   const present = coverage.present;
   if (token !== coverageRevision || font?.id !== id) return;
   const mapped = [...effective.values()].some((ids) => ids.length);
-  if (boot.progress[id]) boot.progress[id].ukrainianPresent = present;
+  if (library.progress[id]) library.progress[id].ukrainianPresent = present;
   const frame = currentCell();
   $("generation-notice").hidden = !doc.state.bulkGeneration?.needsVisualReview;
   $("generation-notice").textContent =
@@ -1436,8 +1361,8 @@ async function exportOne(id = font?.id) {
 }
 async function exportAll() {
   await flush();
-  const ids = Object.keys(boot.progress).filter(
-    (id) => boot.progress[id].edits > 0,
+  const ids = Object.keys(library.progress).filter(
+    (id) => library.progress[id].edits > 0,
   );
   if (!ids.length) throw new Error("Ще немає змінених шрифтів");
   exporting = true;
@@ -2037,9 +1962,8 @@ const libraryGallery = createLibraryGallery({
 async function start() {
   busy(true);
   boot = await native<Boot>("bootstrap");
-  fonts = boot.fonts.sort((a, b) =>
-    a.name.localeCompare(b.name, "uk", { numeric: true }),
-  );
+  library = createFontLibrary(boot.fonts, boot.progress);
+  fonts = library.fonts;
   $("font-total").textContent = fonts.length.toLocaleString("uk");
   if (boot.warnings.length) error(boot.warnings.join("\n"));
   const saved = await native<Record<string, string>>("readSession");
@@ -2050,7 +1974,13 @@ async function start() {
     ["font-filter", "filter"],
     ["mode", "mode"],
   ]) {
-    if (saved[key]) $<HTMLInputElement>(id).value = saved[key];
+    const field = $(id);
+    if (
+      saved[key] &&
+      (!(field instanceof HTMLSelectElement) ||
+        [...field.options].some((o) => o.value === saved[key]))
+    )
+      (field as HTMLInputElement).value = saved[key];
   }
   if (saved.workspaceLayout !== "gallery-1")
     $<HTMLSelectElement>("mode").value = "groups";
