@@ -712,3 +712,37 @@ main {
 .queue {
   flex-basis: 255px;
 }
+
+.selection-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--rule);
+}
+.selection-toolbar button {
+  font-size: 11px;
+  padding: 4px 7px;
+}
+#canvas[data-tool="rect"] {
+  cursor: crosshair;
+}
+#canvas[data-tool="lasso"] {
+  cursor: crosshair;
+}
+#region-status {
+  font-size: 10px;
+  color: var(--muted);
+}
+#guide-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px 12px;
+  padding: 3px 8px;
+  font-size: 10px;
+  border-bottom: 1px solid var(--rule);
+}
+#guide-legend:empty {
+  display: none;
+}

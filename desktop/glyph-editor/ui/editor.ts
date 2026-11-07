@@ -1,3 +1,5 @@
+import { referenceHeight, type ReferenceHeights } from "./guides";
+import type { RegionOrigin } from "./pixel-regions";
 import {
   REGIONS,
   canonicalSlots,
@@ -79,6 +81,7 @@ let controller: AbortController | undefined,
   slots: Slot[] = [],
   index = new Map<string, string[]>();
 let current: Glyph | undefined, original: Glyph | undefined;
+let referenceHeights: ReferenceHeights = {};
 let editingBusy = true;
 let autofilling = false;
 let queueRevision = 0,
@@ -108,6 +111,8 @@ function busy(value: boolean) {
     "raster-apply",
     "move",
     "scale",
+    "rect",
+    "lasso",
     "previous",
     "next",
     "review",
@@ -182,7 +187,7 @@ function session() {
   );
 }
 async function flush() {
-  finishStroke();
+  await canvasUI.flushRegions();
   clearTimeout(saveTimer);
   await persist();
   await saving;
@@ -260,6 +265,7 @@ async function openFont(id: string, resume?: string) {
   clearError();
   $("autofill-status").textContent = "";
   const revision = ++fontRevision;
+  referenceHeights = {};
   selectionRevision++;
   queueRevision++;
   controller?.abort();
@@ -307,6 +313,7 @@ async function openFont(id: string, resume?: string) {
       renderFonts();
     }
     await select(selected, true);
+    void loadReferenceHeights(summary, loaded, revision).catch(error);
     void draftCoverage().catch(error);
     $("save-status").textContent = "Збереження правок — автоматично";
     session();
@@ -318,6 +325,30 @@ async function openFont(id: string, resume?: string) {
       throw reason;
     }
   }
+}
+async function loadReferenceHeights(
+  summary: FontSummary,
+  loaded: NativeFont,
+  revision: number,
+) {
+  const reference = async (chars: string[]) => {
+    for (const char of chars) {
+      const ordinal = loaded.index.unicodeIndex[char]?.[0];
+      if (ordinal === undefined) continue;
+      const value = (await loaded.glyphs([ordinal]))[0];
+      if (value) {
+        const height = referenceHeight(value);
+        if (height !== undefined) return height;
+      }
+    }
+  };
+  const [cap, x] = await Promise.all([
+    reference(["H", "Н"]),
+    reference(["x", "х"]),
+  ]);
+  if (revision !== fontRevision || font?.id !== summary.id) return;
+  referenceHeights = { cap, x };
+  scheduleDraw();
 }
 function rebuildSlots(preferred = slots[selected]?.key) {
   if (!face || !doc || !font) {
@@ -360,8 +391,9 @@ async function glyph(id: string): Promise<Glyph | undefined> {
   return n < font.coverage.glyphCount ? (await face.glyphs([n]))[0] : undefined;
 }
 async function select(position: number, fit = false) {
-  finishStroke();
   const token = ++selectionRevision;
+  await canvasUI.flushRegions();
+  if (token !== selectionRevision) return;
   if (!font || !face || !doc) return;
   selected = Math.max(0, Math.min(position, slots.length - 1));
   const slot = slots[selected];
@@ -505,8 +537,24 @@ const canvasUI = createCanvas({
     glyph: current,
     original,
     editable: !editingBusy && !exporting,
+    key: `${font?.id ?? ""}:${current?.id ?? ""}`,
+    font,
+    references: referenceHeights,
+    origin:
+      font && current
+        ? {
+            fontId: font.id,
+            glyphId: current.id,
+            sha256: font.sha256,
+            licenseId: font.licenseId,
+            char: mappedCharacter(current),
+            baseline: current.height + current.metrics.shiftUp,
+            advanceX: current.advanceX,
+            draftRevision: doc?.state.revision,
+          }
+        : undefined,
   }),
-  commit: (after) => commit(after),
+  commit: (after, origin) => commit(after, origin),
 });
 function draw() {
   canvasUI.draw();
@@ -520,10 +568,30 @@ function fitZoom() {
 function finishStroke() {
   canvasUI.finishStroke();
 }
-function commit(after: Glyph | undefined) {
+function commit(after: Glyph | undefined, origin?: RegionOrigin) {
   if (!current || !doc) return;
   const id = current.id;
-  if (!doc.commit(id, after, original)) return;
+  const changed = origin
+    ? doc.commitBatch([
+        {
+          id,
+          glyph: after,
+          source: original,
+          derivation: {
+            sourceGlyphId: origin.glyphId,
+            sourceFontId: origin.fontId,
+            sourceSha256: origin.sha256,
+            sourceLicenseId: origin.licenseId,
+            sourceChar: origin.char ?? "",
+            targetChar: current.character ?? "",
+            transform: "region-paste",
+            kind: "geometry",
+            recipeVersion: 1,
+          },
+        },
+      ])
+    : doc.commit(id, after, original);
+  if (!changed) return;
   if (after) {
     current = structuredClone(after);
   } else {
@@ -655,8 +723,8 @@ async function review() {
     await nextFont(1);
 }
 async function completeFont() {
+  await canvasUI.flushRegions();
   if (!doc) return;
-  finishStroke();
   doc.state.done = true;
   doc.touch();
   scheduleSave();
@@ -665,7 +733,7 @@ async function completeFont() {
   filterFonts();
 }
 async function history(redo = false) {
-  finishStroke();
+  await canvasUI.flushRegions();
   if (!doc) return;
   const id = redo ? doc.redo() : doc.undo();
   if (!id) return;
@@ -767,6 +835,7 @@ async function autofill(kind: "homograph" | "geometry") {
   }
 }
 async function copy() {
+  finishStroke();
   if (!current || !face) return;
   const revision = selectionRevision,
     document = doc;
@@ -788,6 +857,7 @@ async function copy() {
 async function mapping(create = false) {
   if (!doc || !font || !current) return;
   const char = parseChar($<HTMLInputElement>("mapping").value);
+  finishStroke();
   const assigned = index.get(char)?.[0];
   if (assigned && assigned !== current.id)
     throw new Error(`Цей символ уже має гліф ${assigned}. Перейдіть до нього.`);
@@ -852,6 +922,15 @@ async function action(value: string) {
   clearError();
   if (choosingGeometry() && value !== "save") return;
   switch (value) {
+    case "copy":
+    case "cut":
+    case "paste":
+    case "selectAll":
+    case "deselect":
+    case "delete-selection":
+    case "apply-selection":
+      await canvasUI.regionAction(value);
+      break;
     case "save":
       await flush();
       $("save-status").textContent = "Збережено локально";
@@ -881,6 +960,7 @@ async function action(value: string) {
       await move(-1);
       break;
     case "fit":
+      canvasUI.finishViewGesture();
       fitZoom();
       draw();
       break;
@@ -900,6 +980,20 @@ window.glyphEditorAction = async (value) => {
   } catch (reason) {
     error(reason);
   }
+};
+window.glyphEditorClipboardAction = async (value) => {
+  if (
+    document.activeElement?.matches(
+      "input,textarea,select,[contenteditable=true]",
+    )
+  )
+    return false;
+  try {
+    if (!exporting && !choosingGeometry()) await action(value);
+  } catch (reason) {
+    error(reason);
+  }
+  return true;
 };
 function on(id: string, handler: () => void | Promise<void>) {
   $(id).onclick = () => {
@@ -929,28 +1023,35 @@ on("undo", () => history());
 on("redo", () => history(true));
 on("fit", () => action("fit"));
 on("copy", copy);
+for (const [id, value] of [
+  ["region-copy", "copy"],
+  ["region-cut", "cut"],
+  ["region-paste", "paste"],
+  ["region-all", "selectAll"],
+  ["region-none", "deselect"],
+  ["region-apply", "apply-selection"],
+])
+  on(id, () => action(value));
 on("autofill", () => autofill("homograph"));
 on("geometry", () => autofill("geometry"));
 on("map", () => mapping());
 on("new", () => mapping(true));
 on("restore", () => {
+  canvasUI.cancel();
   commit(original ? structuredClone(original) : undefined);
   rebuildSlots();
   void select(selected).catch(error);
 });
 on("resize", () => {
-  if (current)
-    commit(
-      resized(
-        current,
-        Number($<HTMLInputElement>("width").value),
-        Number($<HTMLInputElement>("height").value),
-      ),
-    );
+  const width = Number($<HTMLInputElement>("width").value),
+    height = Number($<HTMLInputElement>("height").value);
+  finishStroke();
+  if (current) commit(resized(current, width, height));
 });
 on("advance-apply", () => {
-  if (!current) return;
   const advance = Number($<HTMLInputElement>("advance").value);
+  finishStroke();
+  if (!current) return;
   if (!Number.isFinite(advance) || advance < 0 || advance > 4096)
     throw new Error("Крок: 0–4096");
   commit({
@@ -963,9 +1064,10 @@ on("advance-apply", () => {
   });
 });
 on("placement-apply", () => {
-  if (!current) return;
   const leftBearing = Number($<HTMLInputElement>("bearing").value);
   const shiftUp = Number($<HTMLInputElement>("shift-up").value);
+  finishStroke();
+  if (!current) return;
   if (
     ![leftBearing, shiftUp].every(
       (n) => Number.isFinite(n) && Math.abs(n) <= 4096,
@@ -987,33 +1089,51 @@ for (const button of document.querySelectorAll<HTMLButtonElement>(
 ))
   button.onclick = () => {
     try {
-      if (current) commit(transformed(current, button.dataset.transform!));
+      const op = button.dataset.transform!;
+      const directions: Record<string, [number, number]> = {
+        left: [-1, 0],
+        right: [1, 0],
+        up: [0, -1],
+        down: [0, 1],
+      };
+      if (directions[op]) {
+        canvasUI.nudge(...directions[op]);
+        canvasUI.finishNudge();
+      } else if (op === "clear" && canvasUI.hasSelection())
+        void action("delete-selection").catch(error);
+      else {
+        finishStroke();
+        if (current) commit(transformed(current, op));
+      }
     } catch (reason) {
       error(reason);
     }
   };
-for (const t of ["pencil", "eraser", "move", "scale"])
+for (const t of ["pencil", "eraser", "move", "scale", "rect", "lasso"])
   on(t, () => {
     canvasUI.setTool(t);
-    for (const id of ["pencil", "eraser", "move", "scale"])
+    for (const id of ["pencil", "eraser", "move", "scale", "rect", "lasso"])
       $(id).classList.toggle("selected", id === t);
   });
 on("raster-apply", () => {
+  const sx = Number($<HTMLInputElement>("raster-sx").value),
+    sy = Number($<HTMLInputElement>("raster-sy").value);
+  const dx = Number($<HTMLInputElement>("raster-dx").value),
+    dy = Number($<HTMLInputElement>("raster-dy").value);
+  const anchor = $<HTMLSelectElement>("raster-anchor").value as Anchor;
   finishStroke();
   if (!current) return;
   const b = createRasterMutation(current).bounds;
   if (!b) throw new Error("Порожній растр — немає що трансформувати");
-  const sx = Number($<HTMLInputElement>("raster-sx").value),
-    sy = Number($<HTMLInputElement>("raster-sy").value);
   if (![sx, sy].every((n) => Number.isFinite(n) && n >= 12.5 && n <= 800))
     throw new Error("Масштаб растра: 12,5–800 %");
   commit(
     mutatedRaster(current, {
-      dx: Number($<HTMLInputElement>("raster-dx").value),
-      dy: Number($<HTMLInputElement>("raster-dy").value),
+      dx,
+      dy,
       width: Math.max(1, Math.round((b.width * sx) / 100)),
       height: Math.max(1, Math.round((b.height * sy) / 100)),
-      anchor: $<HTMLSelectElement>("raster-anchor").value as Anchor,
+      anchor,
     }),
   );
 });
@@ -1030,12 +1150,15 @@ $<HTMLInputElement>("raster-lock").onchange = () => {
       $<HTMLInputElement>("raster-sx").value;
 };
 zoom.oninput = () => {
-  finishStroke();
+  canvasUI.finishViewGesture();
   scheduleDraw();
 };
 $<HTMLInputElement>("grid").onchange = () => scheduleDraw();
+$<HTMLInputElement>("guides").onchange = () => scheduleDraw();
+$<HTMLInputElement>("region-transparent").onchange = () =>
+  canvasUI.invalidateSelection();
 $<HTMLSelectElement>("view").onchange = () => {
-  finishStroke();
+  canvasUI.finishViewGesture();
   scheduleDraw();
 };
 $<HTMLFormElement>("jump").onsubmit = (event) => {
@@ -1090,11 +1213,37 @@ document.addEventListener("keydown", (event) => {
   let run: (() => Promise<void> | void) | undefined;
   if (cmd && event.key.toLowerCase() === "s") run = () => action("save");
   else if (editing) return;
+  else if (cmd && ["c", "x", "v", "a", "d"].includes(event.key.toLowerCase())) {
+    const operations: Record<string, string> = {
+      c: "copy",
+      x: "cut",
+      v: "paste",
+      a: "selectAll",
+      d: "deselect",
+    };
+    run = () => action(operations[event.key.toLowerCase()]);
+  } else if (
+    !cmd &&
+    ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)
+  ) {
+    const direction: Record<string, [number, number]> = {
+      ArrowLeft: [-1, 0],
+      ArrowRight: [1, 0],
+      ArrowUp: [0, -1],
+      ArrowDown: [0, 1],
+    };
+    const [dx, dy] = direction[event.key],
+      step = event.shiftKey ? 10 : 1;
+    run = () => canvasUI.nudge(dx * step, dy * step);
+  } else if (!cmd && (event.key === "Delete" || event.key === "Backspace"))
+    run = () => action("delete-selection");
+  else if (event.key === "Enter" && canvasUI.pendingSelection())
+    run = () => action("apply-selection");
   else if (cmd && event.key.toLowerCase() === "z")
     run = () => history(event.shiftKey);
   else if (cmd && event.key === "Enter") run = completeFont;
-  else if (event.key === "]" || event.key === "ArrowRight") run = () => move(1);
-  else if (event.key === "[" || event.key === "ArrowLeft") run = () => move(-1);
+  else if (event.key === "]") run = () => move(1);
+  else if (event.key === "[") run = () => move(-1);
   else if (event.key === "PageDown") run = () => nextFont(1);
   else if (event.key === "PageUp") run = () => nextFont(-1);
   else if (event.key === "Enter") run = review;
@@ -1105,6 +1254,14 @@ document.addEventListener("keydown", (event) => {
   else if (event.key.toLowerCase() === "e")
     run = () => {
       $("eraser").click();
+    };
+  else if (!cmd && !event.altKey && event.key.toLowerCase() === "r")
+    run = () => {
+      $("rect").click();
+    };
+  else if (!cmd && !event.altKey && event.key.toLowerCase() === "l")
+    run = () => {
+      $("lasso").click();
     };
   else if (!cmd && !event.altKey && event.key.toLowerCase() === "m")
     run = () => {
@@ -1128,6 +1285,10 @@ document.addEventListener("keydown", (event) => {
       Promise.resolve().then(run).catch(error);
   }
 });
+document.addEventListener("keyup", (event) => {
+  if (event.key.startsWith("Arrow")) canvasUI.finishNudge();
+});
+window.addEventListener("blur", () => canvasUI.finishNudge());
 function buildRegionNavigation() {
   const nav = $("glyph-regions");
   for (const region of [{ id: "canonical", title: "Усі групи" }, ...REGIONS]) {

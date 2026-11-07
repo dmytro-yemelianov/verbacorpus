@@ -12,6 +12,7 @@ declare global {
       error?: string;
     }) => void;
     glyphEditorFlush?: () => Promise<void>;
+    glyphEditorClipboardAction?: (action: string) => Promise<boolean>;
     glyphEditorAction?: (action: string) => Promise<void>;
   }
 }

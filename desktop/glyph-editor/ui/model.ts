@@ -11,6 +11,9 @@ export const codepoint = (char: string) =>
   `U+${char.codePointAt(0)!.toString(16).toUpperCase().padStart(4, "0")}`;
 export interface Derivation {
   sourceGlyphId: string;
+  sourceFontId?: string;
+  sourceSha256?: string;
+  sourceLicenseId?: string;
   sourceChar: string;
   targetChar: string;
   transform: string;
@@ -444,7 +447,7 @@ export function exportRecord(base: FontRecord, state: Draft): FontRecord {
       ...base.modifications,
       {
         type: "manual-glyph-edit",
-        tool: "Verba Glyph Editor 0.4",
+        tool: "Verba Glyph Editor 0.5",
         baseFontId: base.id,
         baseSha256: state.baseSha256,
         sourceSnapshot: state.snapshot,
@@ -457,7 +460,10 @@ export function exportRecord(base: FontRecord, state: Draft): FontRecord {
             ...recipe,
             glyphId: exportedIDs.get(id) ?? id,
             sourceGlyphId:
-              exportedIDs.get(recipe.sourceGlyphId) ?? recipe.sourceGlyphId,
+              recipe.sourceFontId && recipe.sourceFontId !== base.id
+                ? recipe.sourceGlyphId
+                : (exportedIDs.get(recipe.sourceGlyphId) ??
+                  recipe.sourceGlyphId),
             ...(recipe.components
               ? {
                   components: recipe.components.map((part) => ({

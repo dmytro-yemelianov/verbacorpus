@@ -41,8 +41,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
 
         if let edit = main.item(at: 2)?.submenu {
             edit.addItem(.separator())
-            for (title,key,selector) in [("Вирізати","x","cut:"),("Скопіювати","c","copy:"),("Вставити","v","paste:"),("Виділити все","a","selectAll:")] {
-                edit.addItem(NSMenuItem(title:title,action:NSSelectorFromString(selector),keyEquivalent:key))
+            for (title,key,action) in [("Вирізати","x","cut"),("Скопіювати","c","copy"),("Вставити","v","paste"),("Виділити все","a","selectAll")] {
+                let item = NSMenuItem(title:title,action:#selector(menuAction(_:)),keyEquivalent:key)
+                item.target = self; item.representedObject = action; edit.addItem(item)
             }
         }
         let windowItem = NSMenuItem(title:"Вікно",action:nil,keyEquivalent:""), windowMenu = NSMenu(title:"Вікно")
@@ -56,6 +57,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
         if action == "quit" { NSApp.terminate(nil); return }
         if action == "about" { NSApp.orderFrontStandardAboutPanel(nil); return }
         if action == "project" { NSWorkspace.shared.open(store.project); return }
+        if ["cut","copy","paste","selectAll"].contains(action) {
+            webView.callAsyncJavaScript("return window.glyphEditorClipboardAction ? await window.glyphEditorClipboardAction(action) : false", arguments: ["action":action], in: nil, in: .page) { result in
+                if case .success(let handled) = result, (handled as? Bool) == true { return }
+                NSApp.sendAction(NSSelectorFromString(action + ":"), to: nil, from: sender)
+            }
+            return
+        }
         webView.callAsyncJavaScript("if (window.glyphEditorAction) await window.glyphEditorAction(action)", arguments: ["action":action], in: nil, in: .page, completionHandler: nil)
     }
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
@@ -67,7 +75,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
             print("EDITOR_READY " + ((try? String(data: jsonData(args), encoding: .utf8)) ?? "")); fflush(stdout)
             reply(["id":id,"ok":true,"value":true])
             if CommandLine.arguments.contains("--smoke") {
-                flush { success in if success { print("PASS: WKWebView bridge and close/save barrier"); fflush(stdout); self.approvedClose = true; NSApp.terminate(nil) } }
+                let prepared = CommandLine.arguments.contains("--isolated-clipboard")
+                    ? "if (!(await window.glyphEditorClipboardAction('copy')) || !document.querySelector('#error').hidden) throw new Error('Clipboard copy failed'); await window.glyphEditorAction('paste'); if (!document.querySelector('#error').hidden) throw new Error('Clipboard paste failed'); document.querySelector('#lookup').focus(); if (await window.glyphEditorClipboardAction('copy')) throw new Error('Text clipboard routing failed'); document.querySelector('#canvas-stage').focus(); return true"
+                    : "return true"
+                webView.callAsyncJavaScript(prepared, arguments: [:], in: nil, in: .page) { result in
+                    if case .failure(let reason) = result { fputs("Smoke failed: \(reason.localizedDescription)\n",stderr); exit(1) }
+                    self.flush { success in if success { print("PASS: WKWebView bridge, clipboard routing and close/save barrier"); fflush(stdout); self.approvedClose = true; NSApp.terminate(nil) } }
+                }
             }
             return
         }
@@ -121,6 +135,12 @@ func selfTest(_ store: EditorStore) throws {
     do { _ = try store.saveState(id,state:wrong); throw fail("Wrong source accepted") } catch EditorError.message(let text) where text.hasPrefix("Правки") {}
     do { _ = try store.asset("/para/corpus/"+store.snapshot+"/../secret.json"); throw fail("Traversal accepted") } catch EditorError.message(let text) where text.hasPrefix("Недозволений") {}
     do { _ = try EditorStore(corpus: store.corpus, project: store.project); throw fail("Concurrent project open accepted") } catch EditorError.message(let text) where text.hasPrefix("Цей проєкт") {}
+    if CommandLine.arguments.contains("--isolated-clipboard") {
+        let sample = "{\"format\":\"para-glyph-region\",\"schemaVersion\":\"1.0.0\"}"
+        _ = try store.command("writeClipboard", ["text":sample])
+        guard try store.command("readClipboard", [:]) as? String == sample else { throw fail("Clipboard round trip failed") }
+        print("PASS: isolated native clipboard round trip")
+    }
     print("PASS: native atomic persistence, stale-write/source guards, path confinement, exclusive project lock")
 }
 do {

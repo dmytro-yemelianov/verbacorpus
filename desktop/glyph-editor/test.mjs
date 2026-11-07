@@ -12,7 +12,7 @@ const require = createRequire(join(app, "package.json")),
 const compiled = await build({
   stdin: {
     contents:
-      'export * from "./ui/model"; export * from "./ui/autofill"; export * from "./ui/raster-mutation"; export * from "./ui/regions";',
+      'export * from "./ui/model"; export * from "./ui/autofill"; export * from "./ui/raster-mutation"; export * from "./ui/regions"; export * from "./ui/pixel-regions"; export * from "./ui/guides";',
     resolveDir: join(root, "desktop/glyph-editor"),
     sourcefile: "model-tests.ts",
   },
@@ -847,4 +847,269 @@ test("captions never infer Unicode from numeric source labels or stale primary c
   assert.equal(m.glyphCaption(undefined, g), "код 0x41");
   g.sourceCode = null;
   assert.equal(m.glyphCaption(undefined, g), "Без Unicode");
+});
+
+const { default: Ajv2020 } = require("ajv/dist/2020.js");
+const regionSchema = JSON.parse(
+  await readFile(
+    join(root, "desktop/glyph-editor/pixel-region.schema.json"),
+    "utf8",
+  ),
+);
+const validateRegionSchema = new Ajv2020({ allErrors: true }).compile(
+  regionSchema,
+);
+const regionExample = JSON.parse(
+  await readFile(
+    join(root, "desktop/glyph-editor/pixel-region.example.json"),
+    "utf8",
+  ),
+);
+const clipOrigin = {
+  fontId: summary.id,
+  glyphId: "g000065",
+  sha256: summary.sha256,
+  licenseId: summary.licenseId,
+  char: "A",
+  baseline: 7,
+  advanceX: 8,
+  draftRevision: 2,
+};
+test("rectangle selection includes reversed endpoints and clips safely at every edge", () => {
+  const a = m.rectangleMask(5, 4, { x: 3, y: 2 }, { x: 1, y: 1 });
+  assert.equal(
+    a.reduce((a, b) => a + b, 0),
+    6,
+  );
+  assert.deepEqual(m.maskBounds(a, 5), { x: 1, y: 1, width: 3, height: 2 });
+  assert.equal(
+    m.rectangleMask(5, 4, { x: -9, y: 0 }, { x: -2, y: 3 }).some(Boolean),
+    false,
+  );
+  assert.equal(
+    m.rectangleMask(5, 4, { x: 0, y: 9 }, { x: 3, y: 12 }).some(Boolean),
+    false,
+  );
+  assert.equal(
+    m
+      .rectangleMask(5, 4, { x: -9, y: -9 }, { x: 9, y: 9 })
+      .reduce((a, b) => a + b, 0),
+    20,
+  );
+});
+test("freehand selection supports concave shapes instead of filling the bounding box", () => {
+  const mask = m.lassoMask(5, 5, [
+    { x: 0, y: 0 },
+    { x: 4, y: 0 },
+    { x: 4, y: 1 },
+    { x: 1, y: 1 },
+    { x: 1, y: 4 },
+    { x: 0, y: 4 },
+  ]);
+  assert.equal(mask[2 * 5 + 1], 1);
+  assert.equal(mask[2 * 5 + 3], 0);
+  assert.equal(mask[4 * 5], 1);
+  assert.equal(mask[4 * 5 + 4], 0);
+  assert.equal(m.lassoMask(5, 5, []).some(Boolean), false);
+  assert.throws(() => m.lassoMask(5, 5, [{ x: NaN, y: 0 }]));
+});
+test("copy extracts a masked crop and never includes unselected pixels in the payload", () => {
+  const g = raster("A", "g000065", [
+    "#####",
+    "#####",
+    "#####",
+    "#####",
+    "#####",
+  ]);
+  const mask = m.lassoMask(5, 5, [
+    { x: 0, y: 0 },
+    { x: 4, y: 0 },
+    { x: 4, y: 1 },
+    { x: 1, y: 1 },
+    { x: 1, y: 4 },
+    { x: 0, y: 4 },
+  ]);
+  const before = JSON.stringify(g),
+    extracted = m.extractRegion(g, mask, clipOrigin);
+  assert.deepEqual(extracted.region.origin.rectangle, {
+    x: 0,
+    y: 0,
+    width: 5,
+    height: 5,
+  });
+  assert.equal(extracted.region.pixels[2 * 5 + 3], 0);
+  assert.equal(extracted.region.mask[2 * 5 + 3], 0);
+  assert.equal(extracted.region.pixels[2 * 5 + 1], 1);
+  assert.equal(JSON.stringify(g), before);
+  assert.throws(() => m.extractRegion(g, new Uint8Array(1)));
+});
+test("paste across glyphs preserves destination metrics, mapping and pixels outside the shape", () => {
+  const region = m.parseRegion(JSON.stringify(regionExample));
+  const g = raster("Б", "g000066", [
+    "#####",
+    "#####",
+    "#####",
+    "#####",
+    "#####",
+  ]);
+  const opaque = m.placeRegion(g, region, 1, 1, false);
+  assert.deepEqual({ ...opaque.glyph, rows: g.rows }, g);
+  assert.equal(m.unpack(opaque.glyph)[1 * 5 + 1], 1); // outside cross mask
+  const rectangle = { ...region, mask: new Uint8Array(9).fill(1) };
+  const erased = m.placeRegion(g, rectangle, 1, 1, false);
+  assert.equal(m.unpack(erased.glyph)[1 * 5 + 1], 0); // selected white corner erases
+  assert.equal(
+    m.unpack(m.placeRegion(g, rectangle, 1, 1, true).glyph)[1 * 5 + 1],
+    1,
+  );
+});
+test("moving a selected region clears only its source mask and copies keep the source intact", () => {
+  const g = raster("A", "g000065", ["##...", "#....", ".....", "....."]);
+  const mask = m.rectangleMask(5, 4, { x: 0, y: 0 }, { x: 1, y: 1 }),
+    region = m.extractRegion(g, mask).region;
+  const moved = m.placeRegion(g, region, 3, 2, true, mask);
+  const copied = m.placeRegion(g, region, 3, 2, true);
+  assert.deepEqual(
+    moved.glyph.rows,
+    raster("A", g.id, [".....", ".....", "...##", "...#."]).rows,
+  );
+  assert.equal(m.unpack(copied.glyph)[0], 1);
+  assert.equal(m.unpack(copied.glyph)[2 * 5 + 3], 1);
+  assert.equal(m.unpack(m.eraseRegion(g, mask)).some(Boolean), false);
+});
+test("selection scaling resamples the pixels and mask together with nearest pixels", () => {
+  const region = m.parseRegion(JSON.stringify(regionExample));
+  const scaled = m.scaledRegion(region, 6, 6);
+  assert.equal(scaled.width, 6);
+  assert.equal(scaled.height, 6);
+  assert.equal(scaled.pixels[0], 0);
+  assert.equal(scaled.mask[0], 0);
+  assert.equal(scaled.pixels[2], 1);
+  assert.equal(scaled.mask[2], 1);
+  assert.equal(scaled.pixels[3 * 6 + 5], 1);
+  assert.throws(() => m.scaledRegion(region, 1024, 1024));
+});
+test("pasting a larger crop into a smaller glyph clips data and masks to the destination", () => {
+  const g = raster("A", "g000065", ["..", ".."]),
+    region = m.parseRegion(JSON.stringify(regionExample));
+  const result = m.placeRegion(g, region, -1, -1, true);
+  assert.equal(result.pixels.length, 4);
+  assert.equal(result.mask.length, 4);
+  assert.deepEqual([...result.pixels], [1, 1, 1, 0]);
+});
+test("Para Glyph Region example validates against JSON Schema and semantic decoding", () => {
+  assert.equal(
+    validateRegionSchema(regionExample),
+    true,
+    JSON.stringify(validateRegionSchema.errors),
+  );
+  const region = m.parseRegion(JSON.stringify(regionExample));
+  const text = m.serializeRegion({ ...region, origin: clipOrigin });
+  assert.ok(text.includes('\n  "format"'));
+  assert.equal(
+    validateRegionSchema(JSON.parse(text)),
+    true,
+    JSON.stringify(validateRegionSchema.errors),
+  );
+  const decoded = m.parseRegion(text);
+  const withSourceBounds = {
+    ...region,
+    origin: { ...clipOrigin, rectangle: { x: 0, y: 0, width: 3, height: 3 } },
+  };
+  assert.equal(
+    m.parseRegion(m.serializeRegion(m.scaledRegion(withSourceBounds, 6, 6)))
+      .width,
+    6,
+  );
+  assert.deepEqual(decoded.pixels, region.pixels);
+  assert.deepEqual(decoded.mask, region.mask);
+  assert.deepEqual(decoded.origin, clipOrigin);
+});
+test("clipboard decoding rejects versions, malformed rows, padding, empty masks and hostile metadata", () => {
+  for (const patch of [
+    { schemaVersion: "2.0.0" },
+    { width: 3.5 },
+    { width: "3" },
+    { height: 1025 },
+    { rowBytes: 2 },
+    { rows: ["E1", "E0", "E0"] },
+    { rows: ["GG", "E0", "E0"] },
+    { rows: ["E0"] },
+    { maskRows: ["00", "00", "00"] },
+    { origin: null },
+    { origin: { ...clipOrigin, sha256: "bad" } },
+    { oops: 1 },
+    {
+      bitmap: { encoding: "hex-rows", bitOrder: "lsb-first", bitsPerPixel: 1 },
+    },
+  ])
+    assert.throws(
+      () => m.parseRegion(JSON.stringify({ ...regionExample, ...patch })),
+      /У буфері немає коректного/,
+    );
+  assert.throws(
+    () => m.parseRegion("private clipboard text"),
+    (error) => !error.message.includes("private"),
+  );
+  assert.throws(() => m.parseRegion(" ".repeat(512 * 1024 + 1)));
+});
+test("clipboard canonicalization removes data outside the mask without changing the source", () => {
+  const region = m.parseRegion(JSON.stringify(regionExample));
+  region.pixels.fill(1);
+  const before = region.pixels.slice();
+  const decoded = m.parseRegion(m.serializeRegion(region));
+  assert.equal(decoded.pixels[0], 0);
+  assert.equal(decoded.mask[0], 0);
+  assert.deepEqual(region.pixels, before);
+});
+test("cross-font region provenance survives undo and does not remap a foreign glyph ID", () => {
+  const state = m.newDraft(summary, catalog.snapshot),
+    doc = new m.Document(state),
+    g = letter("A");
+  const added = m.blankGlyph(summary, "g000300", "Ґ");
+  added.rows = [...g.rows];
+  doc.commit(added.id, added, undefined);
+  const after = m.transformed(g, "invert"),
+    recipe = {
+      kind: "geometry",
+      transform: "region-paste",
+      recipeVersion: 1,
+      sourceFontId: "other-font",
+      sourceGlyphId: "g000300",
+      sourceSha256: summary.sha256,
+      sourceLicenseId: "CC0-1.0",
+      sourceChar: "B",
+      targetChar: "A",
+    };
+  doc.commitBatch([{ id: g.id, glyph: after, source: g, derivation: recipe }]);
+  const exported = m.exportRecord(source, state);
+  validateFont(exported);
+  assert.equal(
+    exported.modifications.at(-1).derivations[0].sourceGlyphId,
+    "g000300",
+  );
+  doc.undo();
+  assert.equal(state.derivations[g.id], undefined);
+  doc.redo();
+  assert.deepEqual(state.derivations[g.id], recipe);
+});
+test("guides use actual baseline, bearings, advance, cell and measured reference glyphs", () => {
+  const g = structuredClone(letter("A"));
+  g.height = 8;
+  g.metrics = { ...g.metrics, leftBearing: 2, rightBearing: 0, shiftUp: -1 };
+  g.advanceX = 10;
+  const guides = m.glyphGuides(g, summary, { cap: 7, x: 5 });
+  const named = Object.fromEntries(guides.map((g) => [g.label, g.value]));
+  assert.equal(named.Baseline, 7);
+  assert.equal(named["Початок"], -2);
+  assert.equal(named["Крок"], 8);
+  assert.equal(named["Великі H/Н"], 0);
+  assert.equal(named["Малі x/х"], 2);
+  const h = letter("H"),
+    b = m.createRasterMutation(h).bounds;
+  assert.equal(m.referenceHeight(h), h.height + h.metrics.shiftUp - b.y);
+  assert.equal(
+    m.glyphGuides(g, summary).some((g) => g.label === "Малі x/х"),
+    false,
+  );
 });

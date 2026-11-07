@@ -127,6 +127,10 @@
                   title="Перетягування масштабує растр у межах комірки"
                 >
                   Масштаб <kbd>S</kbd></button
+                ><button id="rect" title="Прямокутне виділення">
+                  Рамка <kbd>R</kbd></button
+                ><button id="lasso" title="Виділення довільної форми">
+                  Ласо <kbd>L</kbd></button
                 ><button id="undo">↶ <kbd>⌘Z</kbd></button
                 ><button id="redo">↷</button>
               </div>
@@ -140,6 +144,8 @@
                   </select></label
                 ><label class="inline"
                   ><input id="grid" type="checkbox" checked />Сітка</label
+                ><label class="inline"
+                  ><input id="guides" type="checkbox" checked />Гайди</label
                 ><button id="fit">Умістити</button
                 ><label class="inline"
                   >Вигляд
@@ -153,11 +159,40 @@
                 >
               </div>
             </div>
+            <div class="selection-toolbar" aria-label="Операції з виділенням">
+              <button
+                id="region-copy"
+                title="⌘C · копіює Para Glyph Region JSON"
+              >
+                Копія
+              </button>
+              <button id="region-cut" title="⌘X">Вирізати</button>
+              <button
+                id="region-paste"
+                title="⌘V · вставляє Para Glyph Region JSON"
+              >
+                Вставити
+              </button>
+              <button id="region-all" title="⌘A">Усе</button>
+              <button id="region-none" title="⌘D">Зняти</button>
+              <button id="region-apply" disabled title="Enter">
+                Закріпити
+              </button>
+              <label class="inline"
+                ><input
+                  id="region-transparent"
+                  type="checkbox"
+                  checked
+                />Прозоро</label
+              >
+              <span id="region-status" role="status">Немає виділення</span>
+            </div>
+            <div id="guide-legend" aria-label="Орієнтири гліфа"></div>
             <div
               id="canvas-stage"
               tabindex="0"
               role="group"
-              aria-label="Піксельний редактор. B — олівець, E — гумка, M — зсув гліфа, S — масштаб растра."
+              aria-label="Піксельний редактор. B — олівець, E — гумка, M — зсув, S — масштаб, R — прямокутник, L — ласо; стрілки рухають рисунок або виділення."
             >
               <canvas
                 id="canvas"
@@ -373,8 +408,8 @@
         <footer>
           <span id="progress"></span
           ><span class="muted"
-            >[ / ] — гліфи · PageUp / PageDown — шрифти · ↵ — переглянути й далі
-            · B / E / M / S — інструмент · ⌘Z — скасувати</span
+            >[ / ] — гліфи · стрілки — зсув · Shift — 10 px · R / L — виділення
+            · ⌘C/X/V — буфер · ⌘Z — скасувати</span
           >
         </footer>
       </main>

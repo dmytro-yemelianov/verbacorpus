@@ -1,4 +1,5 @@
 import Foundation
+import AppKit
 import CryptoKit
 import Darwin
 
@@ -20,6 +21,7 @@ final class EditorStore {
     let byID: [String: [String: Any]]
     let snapshot: String
     private let lockHandle: FileHandle
+    private let clipboardName = NSPasteboard.Name("org.verbacorpus.glyph-test." + UUID().uuidString)
     init(corpus: URL, project: URL?) throws {
         self.corpus = corpus.standardizedFileURL.resolvingSymlinksInPath()
         catalog = try object(Data(contentsOf: self.corpus.appendingPathComponent("font-corpus/catalog.json")))
@@ -130,8 +132,24 @@ final class EditorStore {
         try jsonData(document).write(to: url, options: .atomic)
         return ["path": url.path]
     }
+    func clipboard(_ action: String, _ text: String?) throws -> Any {
+        let access = { () throws -> Any in
+            let board = CommandLine.arguments.contains("--isolated-clipboard") ? NSPasteboard(name: self.clipboardName) : NSPasteboard.general
+            if action == "writeClipboard" {
+                guard let text = text, text.utf8.count <= 512*1024 else { throw fail("Завелике виділення для буфера") }
+                board.clearContents()
+                guard board.setString(text, forType: .string) else { throw fail("Не вдалося записати буфер обміну") }
+                return true
+            }
+            guard let text = board.string(forType: .string) else { return NSNull() }
+            guard text.utf8.count <= 512*1024 else { throw fail("Завеликий вміст буфера обміну") }
+            return text
+        }
+        return try Thread.isMainThread ? access() : DispatchQueue.main.sync(execute: access)
+    }
     func command(_ action: String, _ args: [String: Any]) throws -> Any {
         switch action {
+        case "readClipboard", "writeClipboard": return try clipboard(action, args["text"] as? String)
         case "uiReady": return true
         case "bootstrap": return bootstrap()
         case "summary": return try summary(args["id"] as? String ?? "")

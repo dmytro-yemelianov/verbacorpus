@@ -1,21 +1,42 @@
+import { createRegionEditor } from "./region-editor";
+import { glyphGuides, paintGuides, type ReferenceHeights } from "./guides";
+import type { RegionOrigin } from "./pixel-regions";
+import { mutatedRaster } from "./raster-mutation";
 import {
   createRasterMutation,
   type RasterMutation,
   type RasterPreview,
   type Anchor,
 } from "./raster-mutation";
-import type { Glyph } from "./model";
+import type { Glyph, FontSummary } from "./model";
 import { unpack, pack, line } from "./model";
 const $ = <T extends HTMLElement>(id: string) =>
   document.getElementById(id) as T;
 /** Owns only raster presentation and pointer gestures; mutations are transactions. */
 export function createCanvas(model: {
-  get: () => { glyph?: Glyph; original?: Glyph; editable: boolean };
-  commit: (glyph: Glyph) => void;
+  get: () => {
+    glyph?: Glyph;
+    original?: Glyph;
+    editable: boolean;
+    key: string;
+    font?: FontSummary;
+    references: ReferenceHeights;
+    origin?: RegionOrigin;
+  };
+  commit: (glyph: Glyph, origin?: RegionOrigin) => void;
 }) {
   const canvas = $<HTMLCanvasElement>("canvas"),
     stage = $<HTMLElement>("canvas-stage"),
     zoom = $<HTMLInputElement>("zoom");
+  const regions = createRegionEditor({
+    get: () => ({
+      ...model.get(),
+      editable:
+        model.get().editable && $<HTMLSelectElement>("view").value === "edit",
+    }),
+    commit: model.commit,
+    changed: scheduleDraw,
+  });
   let frame = 0,
     tool = "pencil",
     stroke:
@@ -77,7 +98,8 @@ export function createCanvas(model: {
     return c;
   }
   function draw() {
-    const { glyph: current, original } = model.get();
+    const { glyph: current, original, font, references } = model.get();
+    const regionPreview = regions.preview();
     const mutation = mutationPreview();
     if (gesture) {
       const o = gesture.options;
@@ -85,6 +107,7 @@ export function createCanvas(model: {
         `Зсув ${o.dx}, ${o.dy} · растр ${o.width}×${o.height}${mutation?.clipped ? " · обрізання на краю" : ""}`;
     }
     const pixels =
+      regionPreview?.pixels ??
       mutation?.pixels ??
       stroke?.pixels ??
       (current ? unpack(current) : new Uint8Array());
@@ -151,7 +174,28 @@ export function createCanvas(model: {
       }
       context.stroke();
     }
-    if ((tool === "move" || tool === "scale") && view === "edit") {
+    const guides = $<HTMLInputElement>("guides").checked
+      ? glyphGuides(current, font, references)
+      : [];
+    paintGuides(context, z, current.width, current.height, guides);
+    $("guide-legend").replaceChildren(
+      ...guides.map((g) => {
+        const item = document.createElement("span");
+        item.style.color = g.color;
+        item.textContent = `${g.label}: ${g.axis}=${g.value}`;
+        item.title =
+          g.value < 0 ||
+          g.value > (g.axis === "x" ? current.width : current.height)
+            ? "Поза растром гліфа"
+            : "";
+        return item;
+      }),
+    );
+    if (
+      (tool === "move" || tool === "scale") &&
+      view === "edit" &&
+      !regions.selected()
+    ) {
       const b = mutation?.bounds ?? createRasterMutation(current).bounds;
       if (b) {
         context.strokeStyle = mutation?.clipped ? "#ffa294" : "#d4b76e";
@@ -175,6 +219,7 @@ export function createCanvas(model: {
         }
       }
     }
+    if (view === "edit") regions.paint(context, z);
     for (const [id, g, data] of [
       ["original-preview", original, undefined],
       ["edited-preview", current, pixels],
@@ -218,10 +263,16 @@ export function createCanvas(model: {
       !current.height
     )
       return;
-    if (stroke || gesture || event.button > 2) return;
+    if (stroke || gesture || regions.active() || event.button > 2) return;
     event.preventDefault();
     stage.focus();
     const p = pointer(event);
+    if (event.button === 0 && regions.pointerDown(tool, p)) {
+      canvas.setPointerCapture(event.pointerId);
+      scheduleDraw();
+      return;
+    }
+    if (tool === "rect" || tool === "lasso") return;
     if (tool === "move" || tool === "scale") {
       if (event.button !== 0) return;
       const raster = createRasterMutation(current),
@@ -261,6 +312,10 @@ export function createCanvas(model: {
   canvas.onpointermove = (event) => {
     const p = pointer(event);
     $("coordinates").textContent = `x ${p.x} · y ${p.y}`;
+    if (regions.active()) {
+      regions.pointerMove(p, event.shiftKey);
+      return;
+    }
     if (gesture) {
       const b = gesture.raster.bounds!,
         dx = p.x - gesture.start.x,
@@ -304,7 +359,7 @@ export function createCanvas(model: {
       scheduleDraw();
     }
   };
-  function finishStroke() {
+  function finishRasterGesture() {
     const current = model.get().glyph;
     if (gesture) {
       const active = gesture,
@@ -336,37 +391,108 @@ export function createCanvas(model: {
     stroke = undefined;
     model.commit(after);
   }
+  function finishStroke() {
+    finishRasterGesture();
+    regions.finish();
+  }
   canvas.onpointerup = (event) => {
+    if (regions.active()) {
+      regions.pointerMove(pointer(event), event.shiftKey);
+      regions.pointerUp();
+      return;
+    }
     if (gesture) canvas.onpointermove?.call(canvas, event);
-    finishStroke();
+    finishRasterGesture();
   };
   canvas.onpointercancel = () => cancel();
-  canvas.onlostpointercapture = () => finishStroke();
+  canvas.onlostpointercapture = () => {
+    if (regions.active()) regions.pointerUp();
+    else finishRasterGesture();
+  };
   function cancel() {
     stroke = undefined;
     gesture = undefined;
+    regions.cancel();
     delete canvas.dataset.gesture;
     $("coordinates").textContent = "Дію скасовано";
     draw();
   }
 
+  function setTool(value: string) {
+    finishRasterGesture();
+    if (regions.active()) regions.pointerUp();
+    if (value === "pencil" || value === "eraser") regions.deselect();
+    tool = value;
+    canvas.dataset.tool = value;
+    for (const id of ["pencil", "eraser", "move", "scale", "rect", "lasso"])
+      $(id).classList.toggle("selected", id === value);
+    $("coordinates").textContent =
+      value === "rect"
+        ? "Тягніть прямокутник; усередині виділення — рухати"
+        : value === "lasso"
+          ? "Обведіть довільну область; усередині — рухати"
+          : value === "move"
+            ? "Тягніть рисунок або виділення · стрілки — 1 px, Shift — 10 px"
+            : value === "scale"
+              ? "Тягніть ↘ / ↖ · Shift — вільні пропорції"
+              : "ЛКМ — малювати · ПКМ — стирати";
+    draw();
+  }
+  function nudge(dx: number, dy: number) {
+    if (!model.get().editable || $<HTMLSelectElement>("view").value !== "edit")
+      return;
+    finishRasterGesture();
+    if (regions.nudge(dx, dy)) return;
+    const current = model.get().glyph;
+    if (!current) return;
+    const b = createRasterMutation(current).bounds;
+    if (!b) return;
+    model.commit(
+      mutatedRaster(current, {
+        dx,
+        dy,
+        width: b.width,
+        height: b.height,
+        anchor: "top-left",
+      }),
+    );
+  }
+  const transfers = new Set<Promise<void>>();
+  async function regionAction(value: string) {
+    finishRasterGesture();
+    const task = regions.action(value);
+    transfers.add(task);
+    try {
+      await task;
+      if (value === "paste") setTool("move");
+      if (value === "selectAll") setTool("rect");
+      scheduleDraw();
+    } finally {
+      transfers.delete(task);
+    }
+  }
+  function finishViewGesture() {
+    finishRasterGesture();
+    if (regions.active()) regions.pointerUp();
+  }
+  async function flushRegions() {
+    await Promise.all([...transfers]);
+    finishStroke();
+  }
   return {
     draw,
     fitZoom,
     scheduleDraw,
     finishStroke,
-    setTool: (value: string) => {
-      finishStroke();
-      tool = value;
-      canvas.dataset.tool = value;
-      $("coordinates").textContent =
-        value === "move"
-          ? "Тягніть гліф · прив’язка до пікселів · Esc — скасувати"
-          : value === "scale"
-            ? "Тягніть ↘ для збільшення, ↖ для зменшення · Shift — вільні пропорції"
-            : "ЛКМ — малювати · ПКМ — стирати";
-      draw();
-    },
+    setTool,
+    flushRegions,
+    finishViewGesture,
+    nudge,
+    regionAction,
+    hasSelection: regions.selected,
+    pendingSelection: regions.pending,
+    finishNudge: regions.finishNudge,
+    invalidateSelection: regions.invalidate,
     cancel,
   };
 }
