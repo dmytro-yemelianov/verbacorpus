@@ -1,5 +1,6 @@
 import Cocoa
 import WebKit
+import Carbon.HIToolbox
 
 final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKScriptMessageHandler, WKNavigationDelegate {
     let store: EditorStore
@@ -8,6 +9,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
     var window: NSWindow!
     var webView: WKWebView!
     var approvedClose = false
+    var keyboardMonitor: Any?
     init(store: EditorStore, resources: URL) { self.store = store; self.resources = resources }
     func applicationDidFinishLaunching(_ notification: Notification) {
         let configuration = WKWebViewConfiguration()
@@ -22,7 +24,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
             window.setContentSize(NSSize(width:max(1000,min(1420,screen.visibleFrame.width-50)),height:max(760,min(920,screen.visibleFrame.height-70))))
             window.center()
         }
-        createMenus(); window.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true)
+        createMenus(); installPhysicalShortcuts(); window.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true)
+    }
+    func installPhysicalShortcuts() {
+        let commands: [UInt16:String] = [
+            UInt16(kVK_ANSI_S):"save", UInt16(kVK_ANSI_E):"export",
+            UInt16(kVK_ANSI_Z):"undo", UInt16(kVK_ANSI_C):"copy", UInt16(kVK_ANSI_X):"cut",
+            UInt16(kVK_ANSI_V):"paste", UInt16(kVK_ANSI_A):"selectAll", UInt16(kVK_ANSI_D):"deselect",
+            UInt16(kVK_ANSI_LeftBracket):"previous", UInt16(kVK_ANSI_RightBracket):"next", UInt16(kVK_ANSI_0):"fit",
+            UInt16(kVK_ANSI_Q):"quit", UInt16(kVK_ANSI_W):"close", UInt16(kVK_ANSI_M):"minimize"
+        ]
+        keyboardMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard let self = self, self.window.isKeyWindow,
+                  event.modifierFlags.contains(.command), !event.modifierFlags.contains(.option),
+                  !event.modifierFlags.contains(.control), var action = commands[event.keyCode] else { return event }
+            if action == "undo" && event.modifierFlags.contains(.shift) { action = "redo" }
+            let item = NSMenuItem(); item.representedObject = action; self.menuAction(item)
+            return nil
+        }
     }
     func createMenus() {
         let main = NSMenu()
@@ -54,6 +73,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
     }
     @objc func menuAction(_ sender: NSMenuItem) {
         let action = sender.representedObject as? String ?? ""
+        if action == "close" { window.performClose(nil); return }
+        if action == "minimize" { window.performMiniaturize(nil); return }
         if action == "quit" { NSApp.terminate(nil); return }
         if action == "about" { NSApp.orderFrontStandardAboutPanel(nil); return }
         if action == "project" { NSWorkspace.shared.open(store.project); return }

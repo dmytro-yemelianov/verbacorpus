@@ -1,3 +1,4 @@
+import { createPixelStroke } from "./pixel-stroke";
 import { createRegionEditor } from "./region-editor";
 import { glyphGuides, paintGuides, type ReferenceHeights } from "./guides";
 import type { RegionOrigin } from "./pixel-regions";
@@ -13,7 +14,7 @@ import {
   type Anchor,
 } from "./raster-mutation";
 import type { Glyph, FontSummary } from "./model";
-import { unpack, pack, line, transformed } from "./model";
+import { unpack, pack, transformed } from "./model";
 const $ = <T extends HTMLElement>(id: string) =>
   document.getElementById(id) as T;
 /** Owns only raster presentation and pointer gestures; mutations are transactions. */
@@ -46,10 +47,7 @@ export function createCanvas(model: {
     stroke:
       | {
           before: Glyph;
-          pixels: Uint8Array;
-          value: number;
-          x: number;
-          y: number;
+          brush: ReturnType<typeof createPixelStroke>;
         }
       | undefined;
   let gesture:
@@ -114,7 +112,7 @@ export function createCanvas(model: {
     const pixels =
       regionPreview?.pixels ??
       mutation?.pixels ??
-      stroke?.pixels ??
+      stroke?.brush.pixels ??
       (current ? unpack(current) : new Uint8Array());
     if (!current) {
       canvas.width = canvas.height = 1;
@@ -245,18 +243,6 @@ export function createCanvas(model: {
       y: Math.floor((event.clientY - r.top) / z),
     };
   }
-  function dot(x: number, y: number) {
-    const current = model.get().glyph;
-    if (
-      stroke &&
-      current &&
-      x >= 0 &&
-      y >= 0 &&
-      x < current.width &&
-      y < current.height
-    )
-      stroke.pixels[y * current.width + x] = stroke.value;
-  }
   canvas.oncontextmenu = (event) => event.preventDefault();
   canvas.onpointerdown = (event) => {
     const current = model.get().glyph;
@@ -307,11 +293,16 @@ export function createCanvas(model: {
     }
     stroke = {
       before: structuredClone(current),
-      pixels: unpack(current),
-      value: event.button === 2 || tool === "eraser" ? 0 : 1,
-      ...p,
+      brush: createPixelStroke(
+        current,
+        event.button === 2 || tool === "eraser"
+          ? "eraser"
+          : tool === "flip"
+            ? "flip"
+            : "pencil",
+      ),
     };
-    dot(p.x, p.y);
+    stroke.brush.moveTo(p.x, p.y);
     canvas.setPointerCapture(event.pointerId);
     scheduleDraw();
   };
@@ -349,9 +340,7 @@ export function createCanvas(model: {
         `Зсув ${o.dx}, ${o.dy} · растр ${o.width}×${o.height}`;
       scheduleDraw();
     } else if (stroke) {
-      line(stroke.x, stroke.y, p.x, p.y, dot);
-      stroke.x = p.x;
-      stroke.y = p.y;
+      stroke.brush.moveTo(p.x, p.y);
       scheduleDraw();
     }
   };
@@ -382,7 +371,7 @@ export function createCanvas(model: {
     }
     const after = {
       ...stroke.before,
-      rows: pack(stroke.pixels, current.width, current.height),
+      rows: pack(stroke.brush.pixels, current.width, current.height),
     };
     stroke = undefined;
     model.commit(after);
@@ -398,6 +387,10 @@ export function createCanvas(model: {
       return;
     }
     if (gesture) canvas.onpointermove?.call(canvas, event);
+    if (stroke) {
+      const p = pointer(event);
+      stroke.brush.moveTo(p.x, p.y);
+    }
     finishRasterGesture();
   };
   canvas.onpointercancel = () => cancel();
@@ -417,10 +410,19 @@ export function createCanvas(model: {
   function setTool(value: string) {
     finishRasterGesture();
     if (regions.active()) regions.pointerUp();
-    if (value === "pencil" || value === "eraser") regions.deselect();
+    if (value === "pencil" || value === "eraser" || value === "flip")
+      regions.deselect();
     tool = value;
     canvas.dataset.tool = value;
-    for (const id of ["pencil", "eraser", "move", "scale", "rect", "lasso"])
+    for (const id of [
+      "pencil",
+      "eraser",
+      "flip",
+      "move",
+      "scale",
+      "rect",
+      "lasso",
+    ])
       $(id).classList.toggle("selected", id === value);
     $("coordinates").textContent =
       value === "rect"
@@ -431,7 +433,9 @@ export function createCanvas(model: {
             ? "Тягніть рисунок або виділення · стрілки — 1 px, Shift — 10 px"
             : value === "scale"
               ? "Тягніть ↘ / ↖ · Shift — вільні пропорції"
-              : "ЛКМ — малювати · ПКМ — стирати";
+              : value === "flip"
+                ? "ЛКМ — 0 ↔ 1 · ПКМ — стирати"
+                : "ЛКМ — малювати · ПКМ — стирати";
     draw();
   }
   function nudge(dx: number, dy: number) {

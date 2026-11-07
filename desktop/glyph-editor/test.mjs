@@ -12,7 +12,7 @@ const require = createRequire(join(app, "package.json")),
 const compiled = await build({
   stdin: {
     contents:
-      'export * from "./ui/model"; export * from "./ui/autofill"; export * from "./ui/raster-mutation"; export * from "./ui/regions"; export * from "./ui/pixel-regions"; export * from "./ui/guides";',
+      'export * from "./ui/model"; export * from "./ui/autofill"; export * from "./ui/raster-mutation"; export * from "./ui/regions"; export * from "./ui/pixel-regions"; export * from "./ui/guides"; export * from "./ui/pixel-stroke"; export * from "./ui/shortcuts";',
     resolveDir: join(root, "desktop/glyph-editor"),
     sourcefile: "model-tests.ts",
   },
@@ -1268,4 +1268,103 @@ test("mirroring a lifted region preserves target metrics and unselected pixels",
     raster("A", g.id, ["#...#", "..##.", ".....", "#...#"]).rows,
   );
   assert.deepEqual({ ...result, rows: g.rows }, g);
+});
+
+test("flipper toggles both bit values exactly once when a stroke backtracks", () => {
+  const g = raster("A", "g000065", ["#.#", ".#."]),
+    before = structuredClone(g);
+  const brush = m.createPixelStroke(g, "flip");
+  brush.moveTo(0, 0);
+  brush.moveTo(2, 0);
+  brush.moveTo(0, 0);
+  brush.moveTo(0, 0);
+  assert.deepEqual([...brush.pixels], [0, 1, 0, 0, 1, 0]);
+  assert.deepEqual(g, before);
+});
+test("flipper bridges fast pointer samples and preserves row padding across separate strokes", () => {
+  const g = raster("A", "g000065", [".........", ".........", "........."]),
+    brush = m.createPixelStroke(g, "flip");
+  brush.moveTo(-2, 1);
+  brush.moveTo(12, 1);
+  brush.moveTo(-2, 1);
+  const rows = m.pack(brush.pixels, 9, 3);
+  assert.deepEqual(rows, ["0000", "FF80", "0000"]);
+  const after = { ...g, rows },
+    second = m.createPixelStroke(after, "flip");
+  second.moveTo(-2, 1);
+  second.moveTo(12, 1);
+  assert.deepEqual(m.pack(second.pixels, 9, 3), g.rows);
+});
+test("shared stroke handling keeps pencil and eraser continuous and idempotent", () => {
+  const g = raster("A", "g000065", [".....", "....."]),
+    pencil = m.createPixelStroke(g, "pencil");
+  pencil.moveTo(0, 0);
+  pencil.moveTo(4, 0);
+  pencil.moveTo(0, 0);
+  assert.deepEqual([...pencil.pixels], [1, 1, 1, 1, 1, 0, 0, 0, 0, 0]);
+  const erased = m.createPixelStroke(
+    { ...g, rows: m.pack(pencil.pixels, 5, 2) },
+    "eraser",
+  );
+  erased.moveTo(1, 0);
+  erased.moveTo(3, 0);
+  erased.moveTo(1, 0);
+  assert.deepEqual([...erased.pixels], [1, 0, 0, 0, 1, 0, 0, 0, 0, 0]);
+});
+test("a flipper stroke is one undo step and a second stroke can restore the original", () => {
+  const g = letter("A"),
+    state = m.newDraft(summary, catalog.snapshot),
+    doc = new m.Document(state);
+  const apply = (glyph) => {
+    const brush = m.createPixelStroke(glyph, "flip");
+    brush.moveTo(0, 0);
+    brush.moveTo(4, 2);
+    brush.moveTo(0, 0);
+    return { ...glyph, rows: m.pack(brush.pixels, glyph.width, glyph.height) };
+  };
+  const after = apply(g);
+  doc.commit(g.id, after, g);
+  assert.equal(state.revision, 1);
+  validateFont(m.exportRecord(source, state));
+  doc.undo();
+  assert.deepEqual(state.edits, {});
+  doc.redo();
+  assert.deepEqual(state.edits[g.id].rows, after.rows);
+  doc.commit(g.id, apply(after), g);
+  assert.deepEqual(state.edits, {});
+  doc.undo();
+  assert.deepEqual(state.edits[g.id].rows, after.rows);
+});
+
+test("physical shortcut keys stay the same for Ukrainian, Latin and dead-key layouts", () => {
+  for (const [code, key, expected] of [
+    ["KeyB", "и", "b"],
+    ["KeyE", "у", "e"],
+    ["KeyF", "а", "f"],
+    ["KeyM", "ь", "m"],
+    ["KeyS", "і", "s"],
+    ["KeyR", "к", "r"],
+    ["KeyL", "д", "l"],
+    ["KeyC", "с", "c"],
+    ["KeyX", "ч", "x"],
+    ["KeyV", "м", "v"],
+    ["KeyZ", "я", "z"],
+    ["KeyA", "ф", "a"],
+    ["KeyD", "в", "d"],
+    ["BracketLeft", "х", "["],
+    ["BracketRight", "ї", "]"],
+    ["KeyE", "Dead", "e"],
+    ["KeyZ", "y", "z"],
+  ])
+    assert.equal(m.shortcutKey({ code, key }), expected);
+});
+test("shortcut resolution preserves editing/navigation keys and does not guess letters without a physical code", () => {
+  assert.equal(m.shortcutKey({ code: "NumpadEnter", key: "Enter" }), "Enter");
+  assert.equal(
+    m.shortcutKey({ code: "ArrowLeft", key: "ArrowLeft" }),
+    "ArrowLeft",
+  );
+  assert.equal(m.shortcutKey({ code: "", key: "Escape" }), "Escape");
+  assert.equal(m.shortcutKey({ code: "", key: "f" }), "");
+  assert.equal(m.shortcutKey({ code: "KeyF", key: "s" }), "f");
 });

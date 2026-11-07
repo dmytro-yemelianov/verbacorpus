@@ -1,3 +1,4 @@
+import { shortcutKey } from "./shortcuts";
 import { referenceHeight, type ReferenceHeights } from "./guides";
 import type { RegionOrigin } from "./pixel-regions";
 import {
@@ -122,6 +123,7 @@ function busy(value: boolean) {
     "restore",
     "pencil",
     "eraser",
+    "flip",
     "undo",
     "redo",
   ])
@@ -967,6 +969,8 @@ async function action(value: string) {
 window.glyphEditorAction = async (value) => {
   try {
     const active = document.activeElement;
+    if (value === "deselect" && active?.matches("input,textarea,select"))
+      return;
     if (
       (value === "undo" || value === "redo") &&
       active?.matches("input,textarea")
@@ -1111,10 +1115,18 @@ for (const button of document.querySelectorAll<HTMLButtonElement>(
       error(reason);
     }
   };
-for (const t of ["pencil", "eraser", "move", "scale", "rect", "lasso"])
+for (const t of ["pencil", "eraser", "flip", "move", "scale", "rect", "lasso"])
   on(t, () => {
     canvasUI.setTool(t);
-    for (const id of ["pencil", "eraser", "move", "scale", "rect", "lasso"])
+    for (const id of [
+      "pencil",
+      "eraser",
+      "flip",
+      "move",
+      "scale",
+      "rect",
+      "lasso",
+    ])
       $(id).classList.toggle("selected", id === t);
   });
 on("raster-apply", () => {
@@ -1226,11 +1238,12 @@ document.addEventListener("keydown", (event) => {
   const editing =
     event.target instanceof HTMLElement &&
     event.target.matches("input,textarea,select");
+  const key = shortcutKey(event);
   const cmd = event.metaKey || event.ctrlKey;
   let run: (() => Promise<void> | void) | undefined;
-  if (cmd && event.key.toLowerCase() === "s") run = () => action("save");
+  if (cmd && key.toLowerCase() === "s") run = () => action("save");
   else if (editing) return;
-  else if (cmd && ["c", "x", "v", "a", "d"].includes(event.key.toLowerCase())) {
+  else if (cmd && ["c", "x", "v", "a", "d"].includes(key.toLowerCase())) {
     const operations: Record<string, string> = {
       c: "copy",
       x: "cut",
@@ -1238,10 +1251,10 @@ document.addEventListener("keydown", (event) => {
       a: "selectAll",
       d: "deselect",
     };
-    run = () => action(operations[event.key.toLowerCase()]);
+    run = () => action(operations[key.toLowerCase()]);
   } else if (
     !cmd &&
-    ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)
+    ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(key)
   ) {
     const direction: Record<string, [number, number]> = {
       ArrowLeft: [-1, 0],
@@ -1249,61 +1262,63 @@ document.addEventListener("keydown", (event) => {
       ArrowUp: [0, -1],
       ArrowDown: [0, 1],
     };
-    const [dx, dy] = direction[event.key],
+    const [dx, dy] = direction[key],
       step = event.shiftKey ? 10 : 1;
     run = () => canvasUI.nudge(dx * step, dy * step);
-  } else if (!cmd && (event.key === "Delete" || event.key === "Backspace"))
+  } else if (!cmd && (key === "Delete" || key === "Backspace"))
     run = () => action("delete-selection");
-  else if (event.key === "Enter" && canvasUI.pendingSelection())
+  else if (key === "Enter" && canvasUI.pendingSelection())
     run = () => action("apply-selection");
-  else if (cmd && event.key.toLowerCase() === "z")
+  else if (cmd && key.toLowerCase() === "z")
     run = () => history(event.shiftKey);
-  else if (cmd && event.key === "Enter") run = completeFont;
-  else if (event.key === "]") run = () => move(1);
-  else if (event.key === "[") run = () => move(-1);
-  else if (event.key === "PageDown") run = () => nextFont(1);
-  else if (event.key === "PageUp") run = () => nextFont(-1);
-  else if (event.key === "Enter") run = review;
-  else if (event.key.toLowerCase() === "b")
+  else if (cmd && key === "Enter") run = completeFont;
+  else if (key === "]") run = () => move(1);
+  else if (key === "[") run = () => move(-1);
+  else if (key === "PageDown") run = () => nextFont(1);
+  else if (key === "PageUp") run = () => nextFont(-1);
+  else if (key === "Enter") run = review;
+  else if (key.toLowerCase() === "b")
     run = () => {
       $("pencil").click();
     };
-  else if (event.key.toLowerCase() === "e")
+  else if (key.toLowerCase() === "e")
     run = () => {
       $("eraser").click();
     };
-  else if (!cmd && !event.altKey && event.key.toLowerCase() === "r")
+  else if (!cmd && !event.altKey && key.toLowerCase() === "f")
+    run = () => {
+      $("flip").click();
+    };
+  else if (!cmd && !event.altKey && key.toLowerCase() === "r")
     run = () => {
       $("rect").click();
     };
-  else if (!cmd && !event.altKey && event.key.toLowerCase() === "l")
+  else if (!cmd && !event.altKey && key.toLowerCase() === "l")
     run = () => {
       $("lasso").click();
     };
-  else if (!cmd && !event.altKey && event.key.toLowerCase() === "m")
+  else if (!cmd && !event.altKey && key.toLowerCase() === "m")
     run = () => {
       $("move").click();
     };
-  else if (!cmd && !event.altKey && event.key.toLowerCase() === "s")
+  else if (!cmd && !event.altKey && key.toLowerCase() === "s")
     run = () => {
       $("scale").click();
     };
-  else if (event.key === "Escape")
+  else if (key === "Escape")
     run = () => {
       canvasUI.cancel();
       clearError();
     };
   if (run) {
     event.preventDefault();
-    if (
-      !exporting &&
-      (!editingBusy || (cmd && event.key.toLowerCase() === "s"))
-    )
+    if (!exporting && (!editingBusy || (cmd && key.toLowerCase() === "s")))
       Promise.resolve().then(run).catch(error);
   }
 });
 document.addEventListener("keyup", (event) => {
-  if (event.key.startsWith("Arrow")) canvasUI.finishNudge();
+  const key = shortcutKey(event);
+  if (key.startsWith("Arrow")) canvasUI.finishNudge();
 });
 window.addEventListener("blur", () => canvasUI.finishNudge());
 function buildRegionNavigation() {
