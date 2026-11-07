@@ -2,7 +2,7 @@ import Cocoa
 import WebKit
 import Carbon.HIToolbox
 
-final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKScriptMessageHandler, WKNavigationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKScriptMessageHandler, WKNavigationDelegate, WKUIDelegate {
     let store: EditorStore
     let resources: URL
     let io = DispatchQueue(label: "verba.glyph.files")
@@ -16,6 +16,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
         let configuration = WKWebViewConfiguration()
         configuration.userContentController.add(self, name: "glyphEditor")
         webView = WKWebView(frame: .zero, configuration: configuration)
+        webView.uiDelegate = self
         webView.navigationDelegate = self
         window = NSWindow(contentRect: NSRect(x: 100,y: 100,width: 1420,height: 920), styleMask: [.titled,.closable,.miniaturizable,.resizable], backing: .buffered, defer: false)
         window.title = "Verba — редактор гліфів"; window.minSize = NSSize(width: 1000,height: 760)
@@ -44,6 +45,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
             let item = NSMenuItem(); item.representedObject = action; self.menuAction(item)
             return nil
         }
+    }
+    func webView(_ webView: WKWebView, runOpenPanelWith parameters: WKOpenPanelParameters, initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping ([URL]?) -> Void) {
+        guard frame.isMainFrame else { completionHandler(nil); return }
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true; panel.canChooseDirectories = parameters.allowsDirectories
+        panel.allowsMultipleSelection = parameters.allowsMultipleSelection
+        panel.beginSheetModal(for:window) { response in completionHandler(response == .OK ? panel.urls : nil) }
     }
     func createMenus() {
         let main = NSMenu()
@@ -98,7 +106,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, WKSc
             print("EDITOR_READY " + ((try? String(data: jsonData(args), encoding: .utf8)) ?? "")); fflush(stdout)
             reply(["id":id,"ok":true,"value":true])
             if demoLatin {
-                webView.callAsyncJavaScript("document.querySelector('#style-latin-open').click()", arguments: [:], in: nil, in: .page, completionHandler: nil)
+                webView.callAsyncJavaScript("document.body.dataset.demo = 'true'; document.querySelector('#style-latin-open').click()", arguments: [:], in: nil, in: .page, completionHandler: nil)
             }
             if CommandLine.arguments.contains("--smoke") {
                 let prepared = CommandLine.arguments.contains("--isolated-clipboard")

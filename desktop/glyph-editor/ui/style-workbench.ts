@@ -488,6 +488,11 @@ export function createStyleWorkbench(options: {
         if (batch) {
           $("style-first").click();
           $("style-results").scrollIntoView({ block: "start" });
+        } else if (
+          document.body.dataset.demo === "true" &&
+          $("style-error").hidden
+        ) {
+          dialog.close();
         }
       }
     } catch (reason) {
