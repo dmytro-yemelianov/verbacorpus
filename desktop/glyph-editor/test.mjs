@@ -12,7 +12,7 @@ const require = createRequire(join(app, "package.json")),
 const compiled = await build({
   stdin: {
     contents:
-      'export * from "./ui/model"; export * from "./ui/autofill"; export * from "./ui/raster-mutation"; export * from "./ui/regions"; export * from "./ui/pixel-regions"; export * from "./ui/guides"; export * from "./ui/pixel-stroke"; export * from "./ui/shortcuts"; export * from "./ui/font-guides"; export * from "./ui/comparison"; export * from "./ui/candidates"; export * from "./ui/style-plan"; export * from "./ui/font-profile"; export * from "./ui/auto-guides"; export * from "./ui/ascii-mapping"; export * from "./ui/group-selection"; export * from "./ui/monospace"; export * from "./ui/glyph-gallery";',
+      'export * from "./ui/model"; export * from "./ui/autofill"; export * from "./ui/raster-mutation"; export * from "./ui/regions"; export * from "./ui/pixel-regions"; export * from "./ui/guides"; export * from "./ui/pixel-stroke"; export * from "./ui/shortcuts"; export * from "./ui/font-guides"; export * from "./ui/comparison"; export * from "./ui/candidates"; export * from "./ui/style-plan"; export * from "./ui/font-profile"; export * from "./ui/auto-guides"; export * from "./ui/ascii-mapping"; export * from "./ui/group-selection"; export * from "./ui/monospace"; export * from "./ui/font-coverage"; export * from "./ui/latin-references"; export * from "./ui/glyph-gallery"; export * from "./ui/library-gallery";',
     resolveDir: join(root, "desktop/glyph-editor"),
     sourcefile: "model-tests.ts",
   },
@@ -2069,4 +2069,84 @@ test("baseline alignment and centering use padding instead of per-letter raster 
     bits.reduce((n, v) => n + v, 0),
     9,
   );
+});
+
+test("corrupt source ascent does not inflate an ordinary Oberon font cell", async () => {
+  const font = catalog.fonts.find(
+    (f) => f.id === "hoard-oberon-greeksyntax10-300dpi",
+  );
+  const record = JSON.parse(
+    await readFile(join(app, "public", font.url), "utf8"),
+  );
+  const cell = m.fixedCell(font, record.glyphs);
+  assert.ok(cell.height < 80);
+  assert.ok(cell.baseline < 60);
+  const underscore = record.glyphs.find((g) => g.character === "_");
+  const normalized = m.normalizeCell(underscore, cell),
+    points = [...m.unpack(normalized).entries()].filter(([, v]) => v);
+  assert.ok(points.every(([i]) => Math.floor(i / cell.width) >= cell.baseline));
+  const profile = m.editingProfile(font, record.glyphs, cell);
+  assert.ok(profile.metrics.ascent < 80);
+  assert.ok(profile.metrics.lineGap >= 0);
+});
+
+test("saved draft coverage counts actual ink, aliases and created Ukrainian glyphs", async () => {
+  const state = m.newDraft(summary, catalog.snapshot),
+    a = m.blankGlyph(summary, "g000256", "А");
+  state.created = [a.id];
+  state.edits[a.id] = a;
+  let coverage = await m.ukrainianCoverage(state, {}, async () => undefined);
+  assert.equal(coverage.present, 0);
+  a.rows[0] = "80";
+  state.revision++;
+  coverage = await m.ukrainianCoverage(state, {}, async () => undefined);
+  assert.equal(coverage.present, 1);
+  assert.equal(coverage.checkedRevision, state.revision);
+  assert.ok(!coverage.missing.includes("А"));
+});
+
+test("missing Latin case groups block Ukrainian generation instead of inferring proxies", () => {
+  const g = (char, rows = ["80"]) => ({
+    ...source.glyphs[0],
+    labels: [{ kind: "unicode", value: char }],
+    rows,
+  });
+  assert.deepEqual(m.latinReferences([g("Н"), g("Α"), g("A", ["00"])]), {
+    upper: 0,
+    lower: 0,
+  });
+  assert.equal(m.latinSupportedTargets({ upper: 0, lower: 0 }).length, 0);
+  const upper = m.latinSupportedTargets({ upper: 26, lower: 0 });
+  assert.equal(upper.length, 33);
+  assert.ok(upper.every((c) => c === c.toUpperCase()));
+  assert.throws(() => m.requireLatinReferences([g("H")], ["б"]), /латинських/);
+  m.requireLatinReferences([g("h")], ["б"]);
+});
+
+test("library cards use fewer columns and rows accommodate natural card heights", () => {
+  assert.equal(m.libraryColumns(978), 1);
+  assert.equal(m.libraryColumns(1618), 2);
+  assert.equal(m.libraryColumns(300), 1);
+  const plan = m.libraryRows([400, 650, 900, 300, 1200], 2);
+  assert.deepEqual(
+    plan.rows.map((r) => r.height),
+    [662, 912, 1212],
+  );
+  for (let i = 1; i < plan.rows.length; i++)
+    assert.equal(
+      plan.rows[i].top,
+      plan.rows[i - 1].top + plan.rows[i - 1].height,
+    );
+  assert.equal(plan.height, 2786);
+  for (const [width, height] of [
+    [8, 8],
+    [12, 24],
+    [770, 144],
+    [32, 64],
+  ]) {
+    const size = m.glyphThumbnailSize(width, height);
+    assert.ok(size.width <= 56);
+    assert.ok(size.height <= 32);
+    assert.ok(size.width > 0 && size.height > 0);
+  }
 });

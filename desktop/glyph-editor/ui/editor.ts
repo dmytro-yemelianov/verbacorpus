@@ -1,4 +1,11 @@
 import {
+  latinReferences,
+  latinSupportedTargets,
+  requireLatinReferences,
+  type LatinReferences,
+} from "./latin-references";
+import { ukrainianCoverage } from "./font-coverage";
+import {
   fixedCell,
   normalizeCell,
   cellNeedsFit,
@@ -49,7 +56,6 @@ import {
 } from "../../../app/src/client/font-painter";
 import {
   Document as GlyphDocument,
-  UKRAINIAN,
   codepoint,
   newDraft,
   blankGlyph,
@@ -66,8 +72,14 @@ const $ = <T extends HTMLElement>(id: string) =>
 type Light = Pick<
   FontSummary,
   "id" | "name" | "family" | "cell" | "coverage" | "collection" | "licenseId"
->;
-type Progress = { edits: number; reviewed: number; done: boolean };
+> & { latinReferences?: LatinReferences };
+type Progress = {
+  edits: number;
+  reviewed: number;
+  done: boolean;
+  ukrainianPresent?: number;
+  latinReferences?: LatinReferences;
+};
 type Boot = {
   snapshot: string;
   fonts: Light[];
@@ -109,6 +121,7 @@ let current: Glyph | undefined,
   original: Glyph | undefined,
   rawOriginal: Glyph | undefined;
 let referenceHeights: ReferenceHeights = {};
+let latinReferenceCounts: LatinReferences = { upper: 0, lower: 0 };
 let profileSamples: Glyph[] = [];
 let cachedProfile:
   | { document: GlyphDocument; revision: number; font: FontSummary }
@@ -177,6 +190,14 @@ function progressUpdate() {
       (doc.state.fontCell ? 1 : 0),
     reviewed: doc.state.reviewed.length,
     done: doc.state.done,
+    latinReferences:
+      doc.state.latinReferences?.checkedRevision === doc.state.revision
+        ? doc.state.latinReferences
+        : fonts.find((f) => f.id === font!.id)?.latinReferences,
+    ukrainianPresent:
+      doc.state.ukrainianCoverage?.checkedRevision === doc.state.revision
+        ? doc.state.ukrainianCoverage.present
+        : boot.progress[font.id]?.ukrainianPresent,
   };
   const done = Object.values(boot.progress).filter((p) => p.done).length,
     changed = Object.values(boot.progress).filter((p) => p.edits > 0).length;
@@ -196,13 +217,42 @@ async function persist() {
   if (!doc || !font || !dirty) return saving;
   const state = structuredClone(doc.state),
     id = font.id,
-    revision = state.revision;
+    revision = state.revision,
+    targetFace = face!,
+    targetCount = font.coverage.glyphCount;
   dirty = false;
   const task = saving
     .catch(() => {})
     .then(async () => {
+      state.ukrainianCoverage = await ukrainianCoverage(
+        state,
+        targetFace.index.unicodeIndex,
+        async (gid) =>
+          Number(gid.slice(1)) < targetCount
+            ? (await targetFace.glyphs([Number(gid.slice(1))]))[0]
+            : undefined,
+      );
+      const refIndex = effectiveIndex(targetFace.index.unicodeIndex, state);
+      const refGlyphs = await Promise.all(
+        [..."ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"]
+          .flatMap((c) => refIndex.get(c) ?? [])
+          .map(
+            async (gid) =>
+              state.edits[gid] ??
+              (Number(gid.slice(1)) < targetCount
+                ? (await targetFace.glyphs([Number(gid.slice(1))]))[0]
+                : undefined),
+          ),
+      );
+      state.latinReferences = {
+        ...latinReferences(refGlyphs.filter((g): g is Glyph => !!g)),
+        checkedRevision: revision,
+      };
       await native("saveState", { id, state });
       if (doc?.state.fontId === id && doc.state.revision === revision) {
+        doc.state.ukrainianCoverage = state.ukrainianCoverage;
+        doc.state.latinReferences = state.latinReferences;
+        progressUpdate();
         $("save-status").textContent = "Збережено локально";
       }
     });
@@ -267,8 +317,12 @@ function filterFonts() {
       (!collection || f.collection === collection) &&
       (filter === "all" ||
         (filter === "pending" && !p?.done) ||
-        (filter === "ua" && !f.coverage.ukrainian.complete) ||
+        (filter === "ua" &&
+          (p?.ukrainianPresent ?? f.coverage.ukrainian.present ?? 0) < 66) ||
         (filter === "changed" && (p?.edits ?? 0) > 0) ||
+        (filter === "latin-missing" &&
+          (!(p?.latinReferences ?? f.latinReferences)?.upper ||
+            !(p?.latinReferences ?? f.latinReferences)?.lower)) ||
         (filter === "done" && p?.done))
     );
   });
@@ -302,7 +356,7 @@ function renderFonts() {
       meta = document.createElement("small");
     name.textContent = f.name;
     const dimensions = font?.id === f.id ? currentCell() : f.cell;
-    meta.textContent = `${dimensions.width}×${dimensions.height} · UA ${f.coverage.ukrainian.present ?? "?"}/66${p?.done ? " · ✓" : ""}${p?.edits ? " · правок: " + p.edits : ""}`;
+    meta.textContent = `${dimensions.width}×${dimensions.height} · UA ${p?.ukrainianPresent ?? f.coverage.ukrainian.present ?? "?"}/66${p?.done ? " · ✓" : ""}${p?.edits ? " · правок: " + p.edits : ""}`;
     if (p?.edits) meta.className = "edited";
     button.append(name, meta);
     button.onclick = () =>
@@ -323,6 +377,7 @@ async function openFont(id: string, resume?: string) {
   styleWorkbench.reset();
   guideEditor.close();
   referenceHeights = {};
+  latinReferenceCounts = { upper: 0, lower: 0 };
   cachedProfile = undefined;
   selectionRevision++;
   queueRevision++;
@@ -568,20 +623,46 @@ async function draftCoverage() {
   const token = ++coverageRevision,
     id = font.id;
   const effective = effectiveIndex(face.index.unicodeIndex, doc.state);
-  let present = 0;
-  const glyphs = await Promise.all(
-    UKRAINIAN.map(async (char) => {
-      const id = effective.get(char)?.[0];
-      return id ? glyph(id) : undefined;
-    }),
+  const latinGlyphs = await Promise.all(
+    [..."ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"]
+      .flatMap((c) => effective.get(c) ?? [])
+      .map(glyph),
   );
-  for (const value of glyphs)
-    if (value?.rows.some((row) => /[1-9A-Fa-f]/.test(row))) present++;
+  if (token !== coverageRevision || font?.id !== id) return;
+  latinReferenceCounts = latinReferences(
+    latinGlyphs.filter((g): g is Glyph => !!g),
+  );
+  const listing = fonts.find((f) => f.id === id);
+  if (listing) listing.latinReferences = latinReferenceCounts;
+  if (boot.progress[id])
+    boot.progress[id].latinReferences = latinReferenceCounts;
+  $("latin-reference-notice").hidden =
+    !!latinReferenceCounts.upper && !!latinReferenceCounts.lower;
+  $("latin-reference-notice").textContent =
+    !latinReferenceCounts.upper && !latinReferenceCounts.lower
+      ? "Немає латинських референсів. Українська генерація заблокована: спочатку перевірте Unicode-мапу або додайте латинку."
+      : `Латинські референси: ${latinReferenceCounts.upper} великих, ${latinReferenceCounts.lower} малих. Група без референсів не генерується.`;
+  updateButtons();
+  const coverage = await ukrainianCoverage(
+    doc.state,
+    face.index.unicodeIndex,
+    async (gid) => glyph(gid),
+  );
+  const present = coverage.present;
   if (token !== coverageRevision || font?.id !== id) return;
   const mapped = [...effective.values()].some((ids) => ids.length);
+  if (boot.progress[id]) boot.progress[id].ukrainianPresent = present;
   const frame = currentCell();
+  $("generation-notice").hidden = !doc.state.bulkGeneration?.needsVisualReview;
+  $("generation-notice").textContent =
+    "Українські гліфи доповнено автоматично. Нові літери очікують візуального перегляду.";
   $("font-meta").textContent =
     `Комірка ${frame.width}×${frame.height} · моноширинний крок ${frame.advanceX} · ${font.coverage.glyphCount.toLocaleString("uk")} вихідних гліфів · українська: джерело ${font.coverage.ukrainian.present ?? "?"}/66 → правка ${mapped ? present : "?"}/66`;
+  if (
+    ["latin-missing", "ua"].includes($<HTMLSelectElement>("font-filter").value)
+  )
+    filterFonts();
+  else renderFonts();
   scheduleProof();
 }
 function inspect() {
@@ -622,6 +703,8 @@ function inspect() {
     `${selected + 1}/${slots.length} · правок: ${Object.keys(doc.state.edits).length} · позначок перегляду: ${doc.state.reviewed.length}`;
 }
 function updateButtons() {
+  $<HTMLButtonElement>("style-latin-open").disabled =
+    editingBusy || (!latinReferenceCounts.upper && !latinReferenceCounts.lower);
   $<HTMLButtonElement>("undo").disabled = !doc?.canUndo;
   $<HTMLButtonElement>("redo").disabled = !doc?.canRedo;
   $<HTMLButtonElement>("previous").disabled = !slots.length || selected === 0;
@@ -730,6 +813,7 @@ $("ascii-map-open").onclick = () =>
     $<HTMLSelectElement>("mode").value = "latin";
     rebuildSlots();
     await select(0, true);
+    await draftCoverage();
     $("autofill-status").textContent =
       `Додано ASCII-мапу: ${edits.length} знаків. Тепер можна доповнювати українську з латинки.`;
   })().catch(error);
@@ -863,6 +947,7 @@ let styleSession:
     }
   | undefined;
 const styleWorkbench = createStyleWorkbench({
+  latinTargets: () => latinSupportedTargets(latinReferenceCounts),
   fonts: () => fonts,
   before: async () => {
     candidateChooser.reset();
@@ -946,6 +1031,7 @@ const styleWorkbench = createStyleWorkbench({
     };
   },
   prepare: async (characters, onlyMissing, reference, mode, preferLatin) => {
+    requireLatinReferences(reference.glyphs, characters);
     await canvasUI.flushRegions();
     if (!doc || !font || !face || exporting || editingBusy) return;
     const document = doc,
@@ -1907,6 +1993,7 @@ const libraryGallery = createLibraryGallery({
         );
         return {
           title: section.title,
+          characters: section.chars,
           glyphs: values.filter((g): g is Glyph => !!g),
           missing: values.filter((g) => !g).length,
         };
@@ -1928,8 +2015,9 @@ const libraryGallery = createLibraryGallery({
         unmapped: true,
         cell: frame,
         sections: [
+          ...result,
           {
-            title: "Вихідні гліфи · числові коди",
+            title: "Перші 12 вихідних гліфів · числові коди",
             glyphs: raw.map((g) =>
               normalizeCell(state?.edits[g.id] ?? g, frame),
             ),
@@ -1945,7 +2033,6 @@ const libraryGallery = createLibraryGallery({
       .then(() => switchWorkspace("font"))
       .catch(error);
   },
-  error,
 });
 async function start() {
   busy(true);

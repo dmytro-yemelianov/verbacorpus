@@ -5,7 +5,7 @@ import time
 
 import numpy as np
 from native_templates import templates
-from request import validate_request
+from request import require_latin_references, validate_request
 
 from data import (
     REFS,
@@ -45,6 +45,8 @@ class Generator:
 
     def candidates(self, request, evaluation=False):
         validate_request(request)
+        if not evaluation:
+            require_latin_references(request)
         start = time.perf_counter()
         ds = self.ds
         character = request["character"]

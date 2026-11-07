@@ -46,6 +46,9 @@
               <option value="pending">Не переглянуті</option>
               <option value="ua">Бракує українських</option>
               <option value="changed">З правками</option>
+              <option value="latin-missing">
+                Бракує латинських референсів
+              </option>
               <option value="done">Переглянуті</option>
             </select></label
           >
@@ -82,6 +85,8 @@
             <p class="eyebrow" id="font-source">Локальний корпус</p>
             <h2 id="font-name">Завантаження…</h2>
             <p id="font-meta" class="muted"></p>
+            <p id="latin-reference-notice" class="muted" hidden></p>
+            <p id="generation-notice" class="muted" hidden></p>
             <p id="mapping-notice" class="muted" hidden>
               Вихідні гліфи є, але Unicode-мапу не задано. Показано оригінальні
               коди. <button id="ascii-map-open">Задати ASCII-мапу…</button>

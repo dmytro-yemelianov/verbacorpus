@@ -27,9 +27,15 @@ final class PreviewServer {
             guard let end = buffer.range(of: Data("\r\n\r\n".utf8)), let header = String(data: buffer[..<end.lowerBound], encoding: .utf8) else {
                 if !complete && error == nil { self.receive(connection, data: buffer) } else { connection.cancel() }; return
             }
+            guard header.utf8.count <= 65536 else { self.reply(connection,status:413,body:Data()); return }
             let lines = header.components(separatedBy: "\r\n"), request = lines[0].components(separatedBy: " ")
-            let length = lines.dropFirst().first { $0.lowercased().hasPrefix("content-length:") }.flatMap { Int($0.split(separator: ":", maxSplits: 1)[1].trimmingCharacters(in: .whitespaces)) } ?? 0
-            if buffer.count - end.upperBound < length { self.receive(connection, data: buffer); return }
+            let lengths = lines.dropFirst().filter { $0.lowercased().hasPrefix("content-length:") }
+            let length = lengths.first.flatMap { Int($0.dropFirst("content-length:".count).trimmingCharacters(in:.whitespaces)) } ?? (lengths.isEmpty ? 0 : -1)
+            guard lengths.count <= 1, length >= 0, length <= 20*1024*1024 else { self.reply(connection,status:400,body:Data()); return }
+            if buffer.count - end.upperBound < length {
+                if complete || error != nil { connection.cancel() } else { self.receive(connection, data: buffer) }
+                return
+            }
             guard request.count >= 2 else { connection.cancel(); return }
             do {
                 if request[0] == "POST" && request[1] == "/bridge" {

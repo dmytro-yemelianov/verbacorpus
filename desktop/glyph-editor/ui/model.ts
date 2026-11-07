@@ -1,3 +1,4 @@
+import release from "../package.json";
 import { detectFontGuides } from "./auto-guides";
 import { pack, unpack } from "./glyph-bitmap";
 import {
@@ -76,6 +77,17 @@ export interface Draft {
   notes: string;
   fontGuides?: FontGuideOverrides;
   fontCell?: FontCell;
+  bulkGeneration?: {
+    runId: string;
+    added: number;
+    needsVisualReview: boolean;
+  };
+  latinReferences?: { upper: number; lower: number; checkedRevision: number };
+  ukrainianCoverage?: {
+    present: number;
+    missing: string[];
+    checkedRevision: number;
+  };
 }
 export function newDraft(font: FontSummary, snapshot: string): Draft {
   return {
@@ -527,7 +539,7 @@ export function exportRecord(base: FontRecord, state: Draft): FontRecord {
       ...base.modifications,
       {
         type: "manual-glyph-edit",
-        tool: "Verba Glyph Editor 0.13.0",
+        tool: `Verba Glyph Editor ${release.version}`,
         baseFontId: base.id,
         baseSha256: state.baseSha256,
         sourceSnapshot: state.snapshot,

@@ -402,7 +402,7 @@ class LargeNativeGlyphTests(unittest.TestCase):
         }
         self.assertIs(validate_request(req), req)
         self.assertEqual(SIZE, 32)
-        req["target"] = {**glyph, "width": 257}
+        req["target"] = {**glyph, "width": 1025}
         with self.assertRaises(ValueError):
             validate_request(req)
 
@@ -474,3 +474,26 @@ class OpticalFeedbackTests(unittest.TestCase):
             self.assertEqual(len(feedback.cache), count)
         finally:
             feedback.close()
+
+
+class LatinReferenceGateTests(unittest.TestCase):
+    def test_generation_requires_ink_in_actual_latin_references_of_matching_case(self):
+        from request import require_latin_references
+
+        def ref(char, rows):
+            return {"labels": [{"kind": "unicode", "value": char}], "rows": rows}
+
+        with self.assertRaisesRegex(ValueError, "uppercase Latin"):
+            require_latin_references(
+                {"character": "Б", "references": [ref("Н", ["FF"]), ref("Α", ["FF"])]}
+            )
+        with self.assertRaisesRegex(ValueError, "lowercase Latin"):
+            require_latin_references(
+                {"character": "б", "references": [ref("A", ["FF"])]}
+            )
+        with self.assertRaisesRegex(ValueError, "uppercase Latin"):
+            require_latin_references(
+                {"character": "Б", "references": [ref("A", ["00"])]}
+            )
+        require_latin_references({"character": "Б", "references": [ref("A", ["FF"])]})
+        require_latin_references({"character": "б", "references": [ref("a", ["FF"])]})

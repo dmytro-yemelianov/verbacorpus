@@ -123,20 +123,35 @@ export function fixedCell(
   let width = Math.max(advanceX, ...widths);
   if (font.cell.monospace && font.cell.width <= width * 2)
     width = Math.max(width, font.cell.width);
-  const baseline = Math.max(
+  const sampleHeight = Math.max(1, ...usable.map(({ g }) => g.height));
+  const vertical = usable.filter(
+    ({ g }) => Math.abs(g.metrics.shiftUp) <= Math.max(8, sampleHeight * 3),
+  );
+  const above = Math.max(
     0,
-    Math.round(font.metrics.baseline),
-    ...usable.map(({ g, b }) =>
+    ...vertical.map(({ g, b }) =>
       Math.ceil(g.height + g.metrics.shiftUp - b.top),
     ),
   );
+  const suppliedBaseline = Math.round(font.metrics.baseline);
+  const baseline = Math.max(
+    above,
+    suppliedBaseline <= Math.max(8, sampleHeight * 3) ? suppliedBaseline : 0,
+  );
   const descent = Math.max(
     0,
-    ...usable.map(({ g, b }) =>
+    ...vertical.map(({ g, b }) =>
       Math.ceil(b.bottom + 1 - g.height - g.metrics.shiftUp),
     ),
   );
-  const height = Math.max(1, font.cell.height, baseline + descent);
+  const nominal = Number(font.metrics.lineHeight);
+  const sourceHeight =
+    font.cell.height <= sampleHeight * 3
+      ? font.cell.height
+      : Number.isFinite(nominal) && nominal > 0 && nominal <= sampleHeight * 3
+        ? nominal
+        : 0;
+  const height = Math.max(1, sourceHeight, baseline + descent);
   return validateCell({
     width,
     height,
@@ -205,7 +220,15 @@ export function normalizeCell(glyph: Glyph, cell: FontCell): Glyph {
         -b.top,
         Math.min(
           cell.height - 1 - b.bottom,
-          Math.round(cell.baseline - glyph.height - glyph.metrics.shiftUp),
+          Math.round(
+            cell.baseline -
+              glyph.height -
+              (glyph.metrics.shiftUp >= 128 &&
+              glyph.metrics.shiftUp <= 255 &&
+              glyph.metrics.shiftUp > cell.height * 2
+                ? glyph.metrics.shiftUp - 256
+                : glyph.metrics.shiftUp),
+          ),
         ),
       );
       for (let y = b.top; y <= b.bottom; y++)

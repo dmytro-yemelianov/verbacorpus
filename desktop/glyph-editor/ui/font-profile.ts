@@ -13,7 +13,7 @@ export function editingProfile(
     ...cellFont(font, cell),
     metrics: {
       ...font.metrics,
-      ...detectFontGuides(font, samples),
+      ...detectFontGuides(cellFont(font, cell), samples),
       baseline: cell.baseline,
       advanceX: cell.advanceX,
     },

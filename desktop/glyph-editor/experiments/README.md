@@ -28,7 +28,7 @@ Custom batches support a different catalog font, a selected set of explicitly
 mapped glyphs, or imported Para/glyph JSON, Para Glyph Region, Unicode BDF and
 TTF/OTF files. Outline import uses fontTools cmap and Pillow's 1-bit rasterizer;
 there is no antialiased output. Import is local, bounded to 8 MiB input and
-32×32 cells/glyphs. Reference files without explicit license metadata retain
+256×256 reference cells/glyphs. Reference files without explicit license metadata retain
 NOASSERTION rather than inheriting a donor's license. No font/reference is
 uploaded or added to the corpus.
 
@@ -77,7 +77,10 @@ cell/metrics; target glyph geometry; revision/signature; character; up to 64
 reference glyphs; count. The target's bitmap is zeroed in the request and is
 never used by inference. Reference groups are H/Н, x/х, o/о, n/п, k/к, p/р;
 the currently edited glyph is excluded. Two groups are required. Current
-font cells and glyphs must be 1–32 pixels in each dimension. No Unicode mapping
+font cells and glyphs support up to 1024 pixels per axis and 262144 pixels
+per bitmap. The model’s canonical representation and training dataset remain
+32×32. Ukrainian generation requires explicitly mapped, nonempty Latin references
+of the matching case; absent Latin groups block generation. No Unicode mapping
 is guessed. Supported targets: Ukrainian, Latin and digits.
 
 ## Dataset and protocol

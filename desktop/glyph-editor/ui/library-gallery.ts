@@ -1,16 +1,47 @@
 import { groupSections, type GroupSelection } from "./group-selection";
 import { glyphCaption } from "./regions";
-import { unpack, type Glyph } from "./model";
+import type { Glyph } from "./model";
 export interface PreviewFont {
   id: string;
   name: string;
   cell: { width: number; height: number };
 }
+export interface LibrarySection {
+  title: string;
+  glyphs: Glyph[];
+  missing: number;
+  characters?: string[];
+}
 export interface LibraryPreview {
   cell?: { width: number; height: number; advanceX: number };
-  sections: { title: string; glyphs: Glyph[]; missing: number }[];
+  sections: LibrarySection[];
   unmapped: boolean;
 }
+export function libraryColumns(width: number) {
+  return Math.max(1, Math.min(2, Math.floor(width / 550)));
+}
+export function glyphThumbnailSize(width: number, height: number) {
+  const fit = Math.min(2, 56 / Math.max(1, width), 32 / Math.max(1, height));
+  const scale = fit >= 1 ? Math.floor(fit) : fit;
+  return {
+    width: Math.max(1, Math.floor(width * scale)),
+    height: Math.max(1, Math.floor(height * scale)),
+  };
+}
+export function libraryRows(heights: number[], columns: number) {
+  const rows: { top: number; height: number; start: number; end: number }[] =
+    [];
+  let top = 0;
+  for (let start = 0; start < heights.length; start += columns) {
+    const end = Math.min(heights.length, start + columns),
+      height = Math.max(...heights.slice(start, end)) + 12;
+    rows.push({ top, height, start, end });
+    top += height;
+  }
+  return { rows, height: top };
+}
+/** Cards own their natural content height. Only visible rows are mounted, and
+ * row positions follow measured heights as glyphs arrive or the window changes. */
 export function createLibraryGallery(options: {
   load: (
     id: string,
@@ -18,31 +49,50 @@ export function createLibraryGallery(options: {
     signal: AbortSignal,
   ) => Promise<LibraryPreview>;
   open: (id: string) => void;
-  error: (reason: unknown) => void;
 }) {
   const host = document.getElementById("library-cards")!,
     inner = document.createElement("div");
-  host.append(inner);
   inner.className = "library-cards-inner";
+  host.append(inner);
   let fonts: PreviewFont[] = [],
     selection: GroupSelection = { groups: [], upper: true, lower: true },
     active = false,
     epoch = 0,
-    frame: ReturnType<typeof setTimeout> | undefined;
-  let controller = new AbortController();
+    timer: ReturnType<typeof setTimeout> | undefined,
+    controller = new AbortController(),
+    lastPlan: ReturnType<typeof libraryRows> | undefined;
   const previews = new Map<string, LibraryPreview>(),
+    heights = new Map<string, { width: number; height: number }>(),
     pending = new Map<
       string,
       { promise: Promise<LibraryPreview>; controller: AbortController }
     >();
-  function plan() {
-    const sections = groupSections(selection).map((s) => ({
-      ...s,
-      chars: s.chars.slice(0, 18),
-    }));
-    const columns = Math.max(1, Math.floor(host.clientWidth / 360)),
-      height = Math.max(156, 84 + sections.length * 60);
-    return { sections, columns, height, width: host.clientWidth / columns };
+  const schedule = () => {
+    if (timer !== undefined) return;
+    timer = setTimeout(() => {
+      timer = undefined;
+      render();
+    }, 16);
+  };
+  const resize = new ResizeObserver((entries) => {
+    let changed = false;
+    for (const e of entries) {
+      const card = e.target as HTMLElement;
+      if (!card.isConnected) continue;
+      const id = card.dataset.font!;
+      const width = Math.round(e.contentRect.width),
+        height = Math.ceil(card.getBoundingClientRect().height);
+      const old = heights.get(id);
+      if (!old || old.width !== width || old.height !== height) {
+        heights.set(id, { width, height });
+        changed = true;
+      }
+    }
+    if (changed) schedule();
+  });
+  function remove(card: HTMLElement) {
+    resize.unobserve(card);
+    card.remove();
   }
   async function preview(
     id: string,
@@ -58,13 +108,13 @@ export function createLibraryGallery(options: {
     if (existing) return existing.promise;
     const child = new AbortController(),
       parent = controller.signal,
-      token = epoch;
-    const cancel = () => child.abort();
+      token = epoch,
+      cancel = () => child.abort();
     parent.addEventListener("abort", cancel, { once: true });
     const promise = options
       .load(id, sections, child.signal)
       .then((value) => {
-        if (epoch === token && !child.signal.aborted) {
+        if (token === epoch && !child.signal.aborted) {
           previews.set(id, value);
           while (previews.size > 32)
             previews.delete(previews.keys().next().value!);
@@ -78,126 +128,202 @@ export function createLibraryGallery(options: {
     pending.set(id, { promise, controller: child });
     return promise;
   }
-  function raster(glyphs: Glyph[]) {
-    const canvas = document.createElement("canvas"),
-      baseline = Math.max(
-        1,
-        ...glyphs.map((g) => g.height + g.metrics.shiftUp),
-      ),
-      descent = Math.max(0, ...glyphs.map((g) => -g.metrics.shiftUp)),
-      height = baseline + descent,
-      z = Math.max(1, Math.min(4, Math.floor(28 / height)));
-    canvas.width = Math.max(
-      1,
-      Math.min(
-        4096,
-        Math.ceil(glyphs.reduce((x, g) => x + Math.max(1, g.advanceX) + 1, 0)) *
-          z,
-      ),
-    );
-    canvas.height = Math.max(1, Math.ceil(height) * z);
-    const c = canvas.getContext("2d")!;
-    c.fillStyle = "#eee9d7";
-    let pen = 0;
-    for (const g of glyphs) {
-      const top = baseline - g.height - g.metrics.shiftUp;
-      unpack(g).forEach((v, i) => {
-        if (v)
-          c.fillRect(
-            Math.round(pen + g.metrics.leftBearing + (i % g.width)) * z,
-            Math.round(top + Math.floor(i / g.width)) * z,
-            z,
-            z,
+  function raster(g: Glyph) {
+    const size = glyphThumbnailSize(g.width, g.height),
+      canvas = document.createElement("canvas");
+    canvas.width = size.width;
+    canvas.height = size.height;
+    const c = canvas.getContext("2d")!,
+      image = c.createImageData(size.width, size.height);
+    for (let y = 0; y < size.height; y++)
+      for (let x = 0; x < size.width; x++) {
+        const sx = Math.min(
+            g.width - 1,
+            Math.floor(((x + 0.5) * g.width) / size.width),
+          ),
+          sy = Math.min(
+            g.height - 1,
+            Math.floor(((y + 0.5) * g.height) / size.height),
           );
-      });
-      pen += Math.max(1, g.advanceX) + 1;
-    }
+        if (
+          g.rows[sy] &&
+          parseInt(
+            g.rows[sy].slice(
+              Math.floor(sx / 8) * 2,
+              Math.floor(sx / 8) * 2 + 2,
+            ),
+            16,
+          ) &
+            (128 >> sx % 8)
+        )
+          image.data.set([238, 233, 215, 255], (y * size.width + x) * 4);
+      }
+    c.putImageData(image, 0, 0);
     canvas.setAttribute("role", "img");
-    canvas.setAttribute(
-      "aria-label",
-      glyphs.map((g) => glyphCaption(undefined, g)).join(", "),
-    );
+    canvas.setAttribute("aria-label", glyphCaption(undefined, g));
     return canvas;
   }
-  async function render() {
-    if (!active) return;
+  function sectionElement(section: LibrarySection, cell: PreviewFont["cell"]) {
+    const wrap = document.createElement("section"),
+      title = document.createElement("h4");
+    wrap.className = "library-glyph-section";
+    title.textContent =
+      section.title + (section.missing ? ` · відсутні ${section.missing}` : "");
+    wrap.append(title);
+    if (!section.glyphs.length) {
+      const empty = document.createElement("p");
+      empty.className = "muted";
+      empty.textContent = "Немає гліфів цієї групи";
+      wrap.append(empty);
+      return wrap;
+    }
+    const grid = document.createElement("div");
+    grid.className = "library-glyph-grid";
+    const size = glyphThumbnailSize(cell.width, cell.height);
+    grid.style.setProperty(
+      "--glyph-tile-width",
+      Math.max(24, size.width + 8) + "px",
+    );
+    const items =
+      section.characters?.map((char) => ({
+        char,
+        glyph: section.glyphs.find(
+          (g) =>
+            g.character === char ||
+            g.labels.some((l) => l.kind === "unicode" && l.value === char),
+        ),
+      })) ??
+      section.glyphs.map((g) => ({
+        char: g.character ?? String(g.sourceCode?.value ?? g.id),
+        glyph: g,
+      }));
+    for (const { char, glyph } of items) {
+      const tile = document.createElement("div"),
+        label = document.createElement("span");
+      tile.className = "library-glyph-tile" + (!glyph ? " missing" : "");
+      tile.title = glyph
+        ? glyphCaption(undefined, glyph)
+        : `${char} · відсутній`;
+      if (glyph) tile.append(raster(glyph));
+      else {
+        const absent = document.createElement("span");
+        absent.className = "missing-mark";
+        absent.textContent = "—";
+        tile.append(absent);
+      }
+      label.textContent = char === " " ? "␠" : char;
+      tile.append(label);
+      grid.append(tile);
+    }
+    wrap.append(grid);
+    return wrap;
+  }
+  function render() {
+    if (!active || !host.clientWidth) return;
     const token = epoch,
-      { sections, columns, height, width } = plan(),
-      start = Math.max(0, Math.floor(host.scrollTop / height) - 1) * columns,
-      end = Math.min(
-        fonts.length,
-        (Math.ceil((host.scrollTop + host.clientHeight) / height) + 1) *
-          columns,
-      );
-    inner.style.height = Math.ceil(fonts.length / columns) * height + "px";
-    const keep = new Set(fonts.slice(start, end).map((f) => f.id));
+      sections = groupSections(selection),
+      columns = libraryColumns(host.clientWidth),
+      width = host.clientWidth / columns,
+      cardWidth = width - 12;
+    const anchor = lastPlan?.rows.find(
+        (r) => r.top <= host.scrollTop && r.top + r.height > host.scrollTop,
+      ),
+      anchorID = anchor ? fonts[anchor.start]?.id : undefined,
+      offset = anchor ? host.scrollTop - anchor.top : 0;
+    const plan = libraryRows(
+      fonts.map((f) => {
+        const measured = heights.get(f.id);
+        return measured && Math.abs(measured.width - (cardWidth - 22)) < 2
+          ? measured.height
+          : 100 +
+              sections.reduce(
+                (n, s) =>
+                  n +
+                  28 +
+                  Math.ceil(
+                    s.chars.length /
+                      Math.max(1, Math.floor((cardWidth - 22) / 68)),
+                  ) *
+                    48,
+                0,
+              );
+      }),
+      columns,
+    );
+    // Grow the scroll extent before restoring an anchor near the end; otherwise
+    // the browser clamps scrollTop against the previous, shorter extent.
+    inner.style.height = plan.height + "px";
+    if (lastPlan && anchorID) {
+      const idx = fonts.findIndex((f) => f.id === anchorID),
+        row = plan.rows.find((r) => r.start <= idx && r.end > idx);
+      if (row) host.scrollTop = Math.max(0, row.top + offset);
+    }
+    lastPlan = plan;
+    const shown = plan.rows.filter(
+        (r) =>
+          r.top + r.height >= host.scrollTop - 450 &&
+          r.top <= host.scrollTop + host.clientHeight + 450,
+      ),
+      indices = shown.flatMap((r) =>
+        Array.from({ length: r.end - r.start }, (_, i) => r.start + i),
+      ),
+      keep = new Set(indices.map((i) => fonts[i].id));
     for (const [id, entry] of pending)
       if (!keep.has(id)) {
         entry.controller.abort();
         pending.delete(id);
       }
-    for (let i = start; i < end; i++) {
-      const font = fonts[i];
-      keep.add(font.id);
+    for (const card of inner.querySelectorAll<HTMLElement>("[data-font]"))
+      if (!keep.has(card.dataset.font!)) remove(card);
+    for (const i of indices) {
+      const font = fonts[i],
+        row = shown.find((r) => i >= r.start && i < r.end)!;
       let card = inner.querySelector<HTMLElement>(`[data-font="${font.id}"]`);
-      if (card) continue;
+      if (card) {
+        card.style.top = row.top + "px";
+        card.style.left = (i % columns) * width + "px";
+        card.style.width = cardWidth + "px";
+        continue;
+      }
       card = document.createElement("article");
-      card.dataset.font = font.id;
       card.className = "library-glyph-card";
-      card.style.cssText = `position:absolute;top:${Math.floor(i / columns) * height}px;left:${(i % columns) * width}px;width:${width - 10}px;height:${height - 10}px`;
-      const open = document.createElement("button");
-      open.textContent = font.name;
-      open.onclick = () => options.open(font.id);
-      card.append(open);
-      const meta = document.createElement("small");
-      meta.textContent = `${font.cell.width}×${font.cell.height} · завантаження гліфів…`;
-      card.append(meta);
+      card.dataset.font = font.id;
+      card.style.cssText = `position:absolute;top:${row.top}px;left:${(i % columns) * width}px;width:${cardWidth}px`;
+      const button = document.createElement("button"),
+        meta = document.createElement("small");
+      button.textContent = font.name;
+      button.onclick = () => options.open(font.id);
+      meta.textContent = "Завантаження гліфів…";
+      card.append(button, meta);
       inner.append(card);
       const target = card;
       void preview(font.id, sections)
         .then((value) => {
           if (token !== epoch || !target.isConnected) return;
-          meta.textContent = value.unmapped
-            ? "Вибрані групи без відповідників · вихідні гліфи"
-            : `Комірка ${value.cell?.width ?? font.cell.width}×${value.cell?.height ?? font.cell.height} · моноширинний крок ${value.cell?.advanceX ?? font.cell.width}`;
-          for (const section of value.sections) {
-            const line = document.createElement("div"),
-              title = document.createElement("small");
-            title.textContent =
-              section.title +
-              (section.missing ? ` · у зразку немає ${section.missing}` : "");
-            line.append(title);
-            if (section.glyphs.length) line.append(raster(section.glyphs));
-            else {
-              const text = document.createElement("span");
-              text.textContent = "Немає гліфів цієї групи";
-              line.append(text);
-            }
-            target.append(line);
-          }
+          const cell = value.cell ?? font.cell;
+          meta.textContent =
+            `Комірка ${cell.width}×${cell.height}` +
+            (value.unmapped
+              ? " · Unicode-мапу не задано"
+              : " · усі символи вибраних груп");
+          for (const section of value.sections)
+            target.append(sectionElement(section, cell));
+          resize.observe(target);
         })
         .catch((reason) => {
-          if (token === epoch && !controller.signal.aborted) {
+          if (token === epoch && target.isConnected) {
             meta.textContent =
               reason instanceof Error ? reason.message : String(reason);
+            resize.observe(target);
           }
         });
     }
-    for (const node of inner.querySelectorAll<HTMLElement>("[data-font]"))
-      if (!keep.has(node.dataset.font!)) node.remove();
     document.getElementById("library-gallery-count")!.textContent =
-      `${fonts.length.toLocaleString("uk")} шрифтів · вибрані групи · клік на назві відкриває всі гліфи`;
+      `${fonts.length.toLocaleString("uk")} шрифтів · усі гліфи вибраних груп · клік на назві відкриває шрифт`;
   }
-  const schedule = () => {
-    if (frame !== undefined) return;
-    frame = setTimeout(() => {
-      frame = undefined;
-      void render().catch(options.error);
-    }, 16);
-  };
   host.addEventListener("scroll", schedule);
   new ResizeObserver(() => {
-    inner.replaceChildren();
+    heights.clear();
     schedule();
   }).observe(host);
   return {
@@ -214,21 +340,19 @@ export function createLibraryGallery(options: {
       active = visible;
       fonts = values;
       selection = structuredClone(groups);
-      if (changed || invalidate) {
+      if (changed || invalidate || !visible) {
         epoch++;
         controller.abort();
         controller = new AbortController();
-        previews.clear();
         pending.clear();
-        inner.replaceChildren();
+        for (const card of inner.querySelectorAll<HTMLElement>("[data-font]"))
+          remove(card);
+        lastPlan = undefined;
+        if (changed || invalidate) {
+          previews.clear();
+          heights.clear();
+        }
         if (changed) host.scrollTop = 0;
-      }
-      if (!visible) {
-        epoch++;
-        controller.abort();
-        controller = new AbortController();
-        pending.clear();
-        inner.replaceChildren();
       }
       schedule();
     },

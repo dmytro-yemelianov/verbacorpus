@@ -1,13 +1,14 @@
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import { resolve, dirname, join } from "node:path";
-import { mkdir, copyFile, writeFile } from "node:fs/promises";
+import { mkdir, copyFile, writeFile, readFile } from "node:fs/promises";
 import { execFileSync } from "node:child_process";
 const home = dirname(fileURLToPath(import.meta.url)),
   root = resolve(home, "../.."),
   app = join(root, "app");
 const require = createRequire(join(app, "package.json")),
   { build } = require("esbuild");
+const release = JSON.parse(await readFile(join(home, "package.json"), "utf8"));
 const bundle = join(home, "dist/Verba Glyph Editor.app"),
   contents = join(bundle, "Contents"),
   resources = join(contents, "Resources");
@@ -84,7 +85,7 @@ execFileSync("iconutil", [
 ]);
 await writeFile(
   join(contents, "Info.plist"),
-  `<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><dict><key>CFBundleIdentifier</key><string>org.verbacorpus.glyph-editor</string><key>CFBundleName</key><string>Verba Glyph Editor</string><key>CFBundleDisplayName</key><string>Редактор гліфів Verba</string><key>CFBundleExecutable</key><string>VerbaGlyphEditor</string><key>CFBundlePackageType</key><string>APPL</string><key>CFBundleShortVersionString</key><string>0.13.0</string><key>CFBundleVersion</key><string>15</string><key>CFBundleIconFile</key><string>VerbaGlyphEditor</string><key>LSMinimumSystemVersion</key><string>14.0</string><key>NSHighResolutionCapable</key><true/><key>NSPrincipalClass</key><string>NSApplication</string></dict></plist>`,
+  `<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><dict><key>CFBundleIdentifier</key><string>org.verbacorpus.glyph-editor</string><key>CFBundleName</key><string>Verba Glyph Editor</string><key>CFBundleDisplayName</key><string>Редактор гліфів Verba</string><key>CFBundleExecutable</key><string>VerbaGlyphEditor</string><key>CFBundlePackageType</key><string>APPL</string><key>CFBundleShortVersionString</key><string>${release.version}</string><key>CFBundleVersion</key><string>${release.buildNumber}</string><key>CFBundleIconFile</key><string>VerbaGlyphEditor</string><key>LSMinimumSystemVersion</key><string>14.0</string><key>NSHighResolutionCapable</key><true/><key>NSPrincipalClass</key><string>NSApplication</string></dict></plist>`,
 );
 execFileSync(
   "swiftc",
@@ -104,9 +105,12 @@ execFileSync(
     "Network",
     "-o",
     join(contents, "MacOS/VerbaGlyphEditor"),
-    ...["Store.swift", "CandidateJobs.swift", "PreviewServer.swift", "main.swift"].map((f) =>
-      join(home, "Sources", f),
-    ),
+    ...[
+      "Store.swift",
+      "CandidateJobs.swift",
+      "PreviewServer.swift",
+      "main.swift",
+    ].map((f) => join(home, "Sources", f)),
   ],
   { stdio: "inherit" },
 );

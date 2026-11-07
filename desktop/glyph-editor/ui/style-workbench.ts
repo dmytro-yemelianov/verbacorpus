@@ -30,6 +30,7 @@ export interface StyleBatch {
   results: (CandidateResult | { character: string; error: string })[];
 }
 export function createStyleWorkbench(options: {
+  latinTargets?: () => string[];
   fonts: () => {
     id: string;
     name: string;
@@ -83,7 +84,6 @@ export function createStyleWorkbench(options: {
         `${font.name} · ${font.cell.width}×${font.cell.height}`,
         font.id,
       );
-      option.disabled = font.cell.width > 256 || font.cell.height > 256;
       select.append(option);
     }
   }
@@ -415,7 +415,6 @@ export function createStyleWorkbench(options: {
       `${font.name} · ${font.cell.width}×${font.cell.height}`,
       font.id,
     );
-    option.disabled = font.cell.width > 256 || font.cell.height > 256;
     select.append(option);
   }
   $("style-load").onclick = () => void loadReference();
@@ -496,7 +495,9 @@ export function createStyleWorkbench(options: {
       $("style-font-controls").hidden = false;
       $<HTMLInputElement>("style-reference-chars").value =
         "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
-      $<HTMLTextAreaElement>("style-characters").value = UKRAINIAN.join("");
+      $<HTMLTextAreaElement>("style-characters").value = (
+        options.latinTargets?.() ?? UKRAINIAN
+      ).join("");
       $<HTMLInputElement>("style-missing").checked = true;
       $<HTMLInputElement>("style-latin-first").checked = true;
       $<HTMLSelectElement>("style-method").value = "retrieval";

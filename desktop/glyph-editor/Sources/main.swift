@@ -187,6 +187,27 @@ func selfTest(_ store: EditorStore) throws {
         guard try store.command("readClipboard", [:]) as? String == sample else { throw fail("Clipboard round trip failed") }
         print("PASS: isolated native clipboard round trip")
     }
+    let refsURL = store.project.appendingPathComponent("reference-coverage.json")
+    try jsonData(["snapshot":"wrong", "fonts":[id:["upper":26,"lower":26]]]).write(to:refsURL,options:.atomic)
+    guard ((store.bootstrap()["fonts"] as? [[String:Any]])?.first?["latinReferences"]) == nil else { throw fail("Stale reference snapshot accepted") }
+    try jsonData(["snapshot":store.snapshot, "fonts":[id:["upper":26,"lower":0]]]).write(to:refsURL,options:.atomic)
+    var updated = state; updated["revision"] = 3; updated["done"] = true
+    updated["latinReferences"] = ["upper":0,"lower":26,"checkedRevision":2]
+    updated["ukrainianCoverage"] = ["present":66,"missing":[],"checkedRevision":3] as [String:Any]
+    _ = try store.saveState(id,state:updated)
+    let cached = store.projectSummary().0[id] as? [String:Any]
+    guard cached?["done"] as? Bool == true, cached?["ukrainianPresent"] as? Int == 66,
+          (cached?["latinReferences"] as? [String:Any])?["upper"] as? Int == 26 else { throw fail("Summary invalidation or reference revision guard failed") }
+    try Data("broken cache".utf8).write(to:store.project.appendingPathComponent(".summary-cache.json"),options:.atomic)
+    guard (store.projectSummary().0[id] as? [String:Any])?["done"] as? Bool == true else { throw fail("Summary cache recovery failed") }
+    try FileManager.default.removeItem(at:store.stateURL(id))
+    guard store.projectSummary().0[id] == nil else { throw fail("Deleted draft remains cached") }
+    _ = try store.saveState(id,state:updated)
+    var legacy = state; legacy["revision"] = 4; legacy["created"] = ["g999999"]
+    legacy["edits"] = ["g999999":["id":"g999999","width":1,"height":1,"rowBytes":1,"rows":["80"],"labels":[["kind":"unicode","value":"А"]]]] as [String:Any]
+    _ = try store.saveState(id,state:legacy)
+    guard ((store.projectSummary().0[id] as? [String:Any])?["ukrainianPresent"] as? Int ?? 0) >= 1 else { throw fail("Legacy draft coverage ignored") }
+    print("PASS: summary cache invalidation, deletion, corrupt-cache recovery and reference snapshot/revision guards")
     print("PASS: native atomic persistence, stale-write/source guards, path confinement, exclusive project lock")
 }
 do {

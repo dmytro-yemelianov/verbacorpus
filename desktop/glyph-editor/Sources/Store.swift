@@ -100,26 +100,90 @@ final class EditorStore {
         try data.write(to: url, options: .atomic)
         return ["revision": state["revision"]!, "path": url.path]
     }
+    private func referenceCounts() -> [String:Any] {
+        guard let data = try? object(Data(contentsOf:project.appendingPathComponent("reference-coverage.json"))),
+              data["snapshot"] as? String == snapshot else { return [:] }
+        return data["fonts"] as? [String:Any] ?? [:]
+    }
+    private func progress(_ state: [String:Any], id:String) throws -> [String:Any] {
+        let guides = (state["fontGuides"] as? [String:Any])?.isEmpty == false ? 1 : 0
+        var present:Int, inferredReferences:[String:Any]?
+        if let coverage = state["ukrainianCoverage"] as? [String:Any],
+           coverage["checkedRevision"] as? Int == state["revision"] as? Int,
+           let actual = coverage["present"] as? Int, (0...66).contains(actual) { present = actual }
+        else {
+            // Older drafts predate coverage metadata. Count effective labels and
+            // ink once, rather than displaying the unedited source's coverage.
+            guard let path = try summary(id)["url"] as? String else { throw fail("Немає ресурсу шрифту") }
+            let source = try object(Data(asset(path).utf8))
+            let edits = state["edits"] as? [String:[String:Any]] ?? [:]
+            let glyphs = ((source["glyphs"] as? [[String:Any]]) ?? []).filter { edits[$0["id"] as? String ?? ""] == nil } + Array(edits.values)
+            var chars:Set<String> = []
+            for glyph in glyphs {
+                guard let rows = glyph["rows"] as? [String], rows.contains(where:{$0.contains(where:{"123456789abcdefABCDEF".contains($0)})}) else { continue }
+                for label in glyph["labels"] as? [[String:Any]] ?? [] where label["kind"] as? String == "unicode" {
+                    if let value = label["value"] as? String { chars.insert(value) }
+                }
+            }
+            present = "АБВГҐДЕЄЖЗИІЇЙКЛМНОПРСТУФХЦЧШЩЬЮЯабвгґдеєжзиіїйклмнопрстуфхцчшщьюя".filter { chars.contains(String($0)) }.count
+            inferredReferences = ["upper":"ABCDEFGHIJKLMNOPQRSTUVWXYZ".filter { chars.contains(String($0)) }.count,
+                                  "lower":"abcdefghijklmnopqrstuvwxyz".filter { chars.contains(String($0)) }.count]
+        }
+        var result: [String:Any] = ["edits":((state["edits"] as? [String:Any])?.count ?? 0) + guides + (state["fontCell"] == nil ? 0 : 1),
+                                   "reviewed":(state["reviewed"] as? [String])?.count ?? 0,
+                                   "done":state["done"] as? Bool ?? false, "ukrainianPresent":present]
+        if let refs = state["latinReferences"] as? [String:Any], refs["checkedRevision"] as? Int == state["revision"] as? Int {
+            result["latinReferences"] = refs
+        } else { result["latinReferences"] = inferredReferences }
+        return result
+    }
     func projectSummary() -> ([String: Any], [String]) {
-        var summaries: [String: Any] = [:], errors: [String] = []
+        var summaries: [String: Any] = [:], errors: [String] = [], entries:[String:Any] = [:]
+        let cacheURL = project.appendingPathComponent(".summary-cache.json")
+        let cache = (try? object(Data(contentsOf:cacheURL))) ?? [:]
+        let previous = cache["snapshot"] as? String == snapshot && cache["schemaVersion"] as? Int == 2
+            ? (cache["entries"] as? [String:Any] ?? [:]) : [:]
+        let references = referenceCounts()
         let urls = (try? FileManager.default.contentsOfDirectory(at: project.appendingPathComponent("fonts"), includingPropertiesForKeys: nil)) ?? []
         for url in urls where url.pathExtension == "json" {
             let id = url.deletingPathExtension().lastPathComponent
             do {
-                guard let state = try readState(id) as? [String: Any] else { continue }
-                let guideChanges = (state["fontGuides"] as? [String: Any])?.isEmpty == false ? 1 : 0
-                summaries[id] = ["edits": ((state["edits"] as? [String: Any])?.count ?? 0) + guideChanges + (state["fontCell"] == nil ? 0 : 1),
-                                 "reviewed": (state["reviewed"] as? [String])?.count ?? 0,
-                                 "done": state["done"] as? Bool ?? false]
+                _ = try summary(id)
+                let attrs = try FileManager.default.attributesOfItem(atPath:url.path)
+                guard let size = attrs[.size] as? NSNumber, let modified = attrs[.modificationDate] as? Date,
+                      let inode = attrs[.systemFileNumber] as? NSNumber else { throw fail("Не вдалося прочитати атрибути файлу правок") }
+                let fingerprint:[String:Any] = ["size":size, "modified":modified.timeIntervalSince1970, "inode":inode]
+                var item:[String:Any]
+                if let old = previous[id] as? [String:Any], let stamp = old["fingerprint"] as? [String:Any],
+                   NSDictionary(dictionary:stamp).isEqual(to:fingerprint), let cached = old["summary"] as? [String:Any],
+                   cached["edits"] is Int, cached["reviewed"] is Int, cached["done"] is Bool, cached["ukrainianPresent"] is Int {
+                    item = cached
+                } else {
+                    guard let state = try readState(id) as? [String:Any] else { continue }
+                    item = try progress(state,id:id)
+                }
+                entries[id] = ["fingerprint":fingerprint,"summary":item]
+                // Source reference coverage is snapshot-scoped and is not part
+                // of the draft fingerprint cache, so mapping updates stay live.
+                if item["latinReferences"] == nil { item["latinReferences"] = references[id] }
+                summaries[id] = item
             } catch { errors.append(id + ": " + error.localizedDescription) }
+        }
+        // This is disposable metadata. A failed cache write cannot fail startup
+        // or a draft save; changed/replaced/deleted files are checked next time.
+        if !NSDictionary(dictionary:previous).isEqual(to:entries),
+           let data = try? jsonData(["schemaVersion":2,"snapshot":snapshot,"entries":entries]) {
+            try? data.write(to:cacheURL,options:.atomic)
         }
         return (summaries, errors)
     }
     func bootstrap() -> [String: Any] {
         let (progress, errors) = projectSummary()
+        let references = referenceCounts()
         let light = fonts.map { font -> [String: Any] in
             var item: [String: Any] = [:]
             for key in ["id", "name", "family", "cell", "coverage", "collection", "licenseId"] { item[key] = font[key] }
+            item["latinReferences"] = references[font["id"] as? String ?? ""]
             return item
         }
         return ["snapshot": snapshot, "counts": catalog["counts"] ?? [:], "fonts": light,

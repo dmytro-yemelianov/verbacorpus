@@ -15,8 +15,9 @@ def metric(v):
 def validate_glyph(glyph):
     w, h = glyph.get("width"), glyph.get("height")
     if (
-        not integer(w, 1, 256)
-        or not integer(h, 1, 256)
+        not integer(w, 1, 1024)
+        or not integer(h, 1, 1024)
+        or (integer(w, 1, 1024) and integer(h, 1, 1024) and w * h > 262144)
         or glyph.get("rowBytes") != (w + 7) // 8
     ):
         raise ValueError("Invalid glyph dimensions")
@@ -65,14 +66,14 @@ def validate_request(request):
         "[a-z0-9][a-z0-9._-]{0,159}", str(font.get("id", ""))
     ) or not re.fullmatch("[a-f0-9]{64}", str(font.get("sha256", ""))):
         raise ValueError("Invalid source font identity")
-    if not all(integer(cell.get(k), 1, 256) for k in ["width", "height"]):
-        raise ValueError("Prototype supports 1–256 px font cells")
+    if not all(integer(cell.get(k), 1, 1024) for k in ["width", "height"]):
+        raise ValueError("Prototype supports 1–1024 px font cells")
 
     if not metric(font.get("metrics", {}).get("baseline")):
         raise ValueError("Invalid font baseline")
     reference_font = request.get("referenceFont", font)
     if not all(
-        integer(reference_font.get("cell", {}).get(k), 1, 256)
+        integer(reference_font.get("cell", {}).get(k), 1, 1024)
         for k in ["width", "height"]
     ) or not metric(reference_font.get("metrics", {}).get("baseline")):
         raise ValueError("Invalid reference font metrics")
@@ -93,3 +94,29 @@ def validate_request(request):
     if not isinstance(request.get("character"), str) or len(request["character"]) != 1:
         raise ValueError("Invalid target character")
     return request
+
+
+UKRAINIAN = set("АБВГҐДЕЄЖЗИІЇЙКЛМНОПРСТУФХЦЧШЩЬЮЯабвгґдеєжзиіїйклмнопрстуфхцчшщьюя")
+
+
+def require_latin_references(request):
+    character = request.get("character", "")
+    if character not in UKRAINIAN:
+        return
+    upper = character.isupper()
+    for glyph in request.get("references", []):
+        if not any(int(row, 16) for row in glyph.get("rows", []) if row):
+            continue
+        for label in glyph.get("labels", []):
+            char = label.get("value", "")
+            if (
+                label.get("kind") == "unicode"
+                and len(char) == 1
+                and (("A" <= char <= "Z") if upper else ("a" <= char <= "z"))
+            ):
+                return
+    raise ValueError(
+        "Missing mapped uppercase Latin reference glyphs"
+        if upper
+        else "Missing mapped lowercase Latin reference glyphs"
+    )
