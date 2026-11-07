@@ -1,0 +1,55 @@
+{
+  "format": "para-style-benchmark",
+  "schemaVersion": 1,
+  "snapshot": "14207bd33f178d91ea4c18dd1f3f4ae5a83427c0c87b3bc332899baf2c214fed",
+  "normalization": "32x32 nearest cell, font baseline + glyph bearings; output resampled at native pixel centers",
+  "testPolicy": "Cozette/Spleen families + exact normalized Latin duplicates held out; no test-based checkpoint selection",
+  "summary": {
+    "retrieval": {
+      "casesWithCandidates": 90,
+      "meanBestPixelEdits": 31.733333333333334,
+      "exactBest": 6
+    },
+    "cnn": {
+      "casesWithCandidates": 90,
+      "meanBestPixelEdits": 29.044444444444444,
+      "exactBest": 0
+    }
+  },
+  "humanAcceptability": "Not yet rated; pixel distance is not a legibility/style score",
+  "topK": "Best-of-returned, up to 8 total interleaved CNN/retrieval candidates; deduplication may reduce counts. No test-based model/threshold tuning.",
+  "training": {
+    "model": "para-style-cnn-v1",
+    "parameters": 39057,
+    "steps": 1000,
+    "seed": 1729,
+    "device": "mps",
+    "seconds": 9.754515207999999,
+    "snapshot": "14207bd33f178d91ea4c18dd1f3f4ae5a83427c0c87b3bc332899baf2c214fed",
+    "testFontIds": [
+      "cozette-13x15",
+      "spleen-12x24",
+      "spleen-16x32",
+      "spleen-5x8",
+      "spleen-6x12",
+      "spleen-8x16",
+      "texted-spleen_6x12",
+      "texted-spleen_8x16"
+    ],
+    "checkpointSha256": "4e7901e9a2993ba13d2ae74e615c5638787c1b12819863e4b070f31bad3921a6",
+    "testUsedForCheckpointSelection": false,
+    "donorPolicy": "Different font, same character, training split only; same-family training pairs allowed; test families never used",
+    "trainingFonts": 310,
+    "testFonts": 8
+  },
+  "caseCount": 90,
+  "casesPerFont": {
+    "cozette-13x15": 14,
+    "spleen-12x24": 12,
+    "spleen-16x32": 12,
+    "spleen-6x12": 12,
+    "spleen-8x16": 12,
+    "texted-spleen_6x12": 14,
+    "texted-spleen_8x16": 14
+  }
+}

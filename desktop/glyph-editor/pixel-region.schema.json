@@ -1,0 +1,164 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:para:glyph-region:1.0.0",
+  "title": "Para Glyph Region 1.0",
+  "description": "Clipboard/file interchange for a masked monochrome glyph fragment. Semantic validation also checks dimensions, rowBytes, row counts, zero padding and a nonempty mask.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "format",
+    "schemaVersion",
+    "bitmap",
+    "width",
+    "height",
+    "rowBytes",
+    "rows",
+    "maskRows"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "format": {
+      "const": "para-glyph-region"
+    },
+    "schemaVersion": {
+      "const": "1.0.0"
+    },
+    "bitmap": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "encoding",
+        "bitOrder",
+        "bitsPerPixel"
+      ],
+      "properties": {
+        "encoding": {
+          "const": "hex-rows"
+        },
+        "bitOrder": {
+          "const": "msb-first"
+        },
+        "bitsPerPixel": {
+          "const": 1
+        }
+      }
+    },
+    "width": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1024
+    },
+    "height": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1024
+    },
+    "rowBytes": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 128
+    },
+    "rows": {
+      "$ref": "#/$defs/rows"
+    },
+    "maskRows": {
+      "$ref": "#/$defs/rows"
+    },
+    "origin": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "fontId",
+        "glyphId",
+        "sha256",
+        "licenseId"
+      ],
+      "properties": {
+        "fontId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "glyphId": {
+          "type": "string",
+          "pattern": "^g[0-9]{6}$"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "licenseId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 256
+        },
+        "char": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1
+        },
+        "baseline": {
+          "type": "number",
+          "minimum": -16384,
+          "maximum": 16384
+        },
+        "advanceX": {
+          "type": "number",
+          "minimum": -16384,
+          "maximum": 16384
+        },
+        "draftRevision": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "rectangle": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "x",
+            "y",
+            "width",
+            "height"
+          ],
+          "properties": {
+            "x": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1023
+            },
+            "y": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 1023
+            },
+            "width": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1024
+            },
+            "height": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1024
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "rows": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 1024,
+      "items": {
+        "type": "string",
+        "pattern": "^(?:[0-9a-fA-F]{2})+$",
+        "minLength": 2,
+        "maxLength": 256
+      }
+    }
+  }
+}

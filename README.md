@@ -176,3 +176,10 @@ sharded NDJSON export. The corpus preserves native dimensions, bearings,
 advances, source labels and original notices. Unmapped glyphs remain accessible
 by stable native IDs. No metadata-only placeholders remain; license status is
 tracked separately. See the [corpus contract and verification](docs/PARA-FONT-CORPUS.md).
+
+### Локальний редактор гліфів
+
+[Verba Glyph Editor](desktop/glyph-editor/README.md) — окремий macOS-застосунок
+для проходження корпусу, ручного малювання, українських адаптацій і збереження
+прогресу. Правки зберігаються поза джерелами; експорт — канонічний Para 2.0 JSON.
+Збірка: `node desktop/glyph-editor/build.mjs`.

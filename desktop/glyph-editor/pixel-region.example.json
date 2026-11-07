@@ -1,0 +1,22 @@
+{
+  "format": "para-glyph-region",
+  "schemaVersion": "1.0.0",
+  "bitmap": {
+    "encoding": "hex-rows",
+    "bitOrder": "msb-first",
+    "bitsPerPixel": 1
+  },
+  "width": 3,
+  "height": 3,
+  "rowBytes": 1,
+  "rows": [
+    "40",
+    "E0",
+    "40"
+  ],
+  "maskRows": [
+    "40",
+    "E0",
+    "40"
+  ]
+}

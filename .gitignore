@@ -17,3 +17,7 @@ node_modules/
 
 # Agent tooling caches (antigravity / hf-cli skill install), not project source
 .agents/
+
+# Local macOS glyph editor builds and test projects
+desktop/glyph-editor/dist/
+desktop/glyph-editor/.build/

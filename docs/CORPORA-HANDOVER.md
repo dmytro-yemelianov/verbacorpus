@@ -317,3 +317,240 @@ npm test
 - статистика і статус кожного корпусу відповідають його фактичній версії;
 - новинний cron вимкнений, а прислів’я дня не вимкнене випадково;
 - UPA має адресу, атрибуцію та посилання на походження після публікації.
+
+## Десктопний редактор гліфів — 6 листопада 2026
+
+`desktop/glyph-editor/` містить локальний AppKit/WKWebView-застосунок macOS 14+.
+Окремий native bridge читає pinned корпус і атомарно зберігає перешрифтові
+правки/прогрес у Application Support. Вихідні assets не перезаписуються.
+JS-модель підтримує пікселі, undo/redo, нові Unicode-гліфи, копіювання основи,
+перегляд і експорт похідних Para 2.0 JSON зі збереженням ліцензій/походження.
+Є native store self-test, справжній WKWebView smoke з close/save barrier,
+вісім модельних Node-тестів і desktop typecheck у CI. Докладно:
+[desktop/glyph-editor/README.md](../desktop/glyph-editor/README.md).
+
+### Двійники й геометричні заготовки — 6 листопада 2026
+
+Desktop 0.2 додає `ui/autofill.ts` (чистий планувальник) і
+`ui/autofill-dialog.ts` (явний вибір геометричних варіантів). Поточний шрифт:
+20 пар Latin/Cyrillic, дзеркала `R/Я`, `p/ь` тощо, повороти 90/180/270°,
+редагування bearings/shiftUp. Наявні непорожні й усі редаговані цілі захищені;
+лише справжні Unicode-мапи використовуються як основи. `Document.commitBatch`
+дає одну undo-операцію, початкові рецепти зберігаються в необов’язковому
+`Draft.derivations`, export remap враховує прогалини створених ID. Старі drafts v1
+читаються без міграції. 15 Node-тестів, strict tsc, build, native self-test і
+WKWebView smoke пройшли. Browser QA в окремому тимчасовому проєкті:
+Acer 8×8 отримав 20 двійників, undo/redo всього пакета, повтор без дублів,
+перегляд і вибір R→Я/p→ь/L→Г, експорт проходить `validateFont`;
+SHA джерела незмінний. Робочий корпус/знімок/API не змінювалися.
+
+### Складені гліфи — 6 листопада 2026
+
+Desktop 0.3: додані V/Л, U/П (і малі варіанти), h/ч (180°), модуль
+`ui/composition.ts` для к+дзеркало(к)→ж та н+о→ю з великими варіантами.
+Латинські k/K, o, H+O доступні як явно підписані альтернативи. Ж має спільний
+центральний штрих, ю зберігає ніжку/перемичку та вирівнює овал по baseline;
+горизонтальна підгонка без AA зберігає advance. Планувальник готує кінцевий
+растр до перегляду; застосування використовує той самий растр. Немає зворотного
+розкладання композицій або каскадного синтезу. `Derivation.components` і
+`recipeVersion: 1` сумісні зі старими drafts, експорт перенумеровує всі посилання.
+20 Node-тестів покривають також композиції, повороти та захист цілей.
+Native build/self-test/WKWebView smoke пройшли. Browser QA в окремому проєкті:
+перегляд обох основ ж/Ю, вибір V→Л/U→П/h→ч/k+дзеркало(k)→ж/H+O→Ю,
+undo/redo одного пакета, захист уже створених цілей, канонічний Para 2.0 export
+і незмінний SHA джерела. Правки QA не переносилися до робочого проєкту.
+
+### Мутабельні pan/zoom та канонічні регіони — 7 листопада 2026
+
+Desktop 0.4 додає `ui/raster-mutation.ts`: move M і scale S працюють із
+рисунком у фіксованій комірці, без змін метрик/мап, із nearest-neighbor,
+прив’язкою до пікселів, опорою center/top-left/baseline, пропорціями/Shift,
+попереднім переглядом обрізання та однією undo-операцією на жест. Escape і
+pointercancel відкидають жест; flush/зміна гліфа/close його завершують.
+Семплиться вихідний snapshot жесту, а не попередній результат; проміжні
+віртуальні 8192×8192 не виділяються в пам’яті. У правій панелі є точні X/Y
+та окремі масштаби у відсотках. Масштаб вигляду залишається окремим.
+
+`ui/regions.ts` задає 233 слоти в шести іменованих групах: цифри, латиниця,
+українська, пунктуація, математика/валюти, рамки/блоки. Є навігаційні кнопки,
+секційні заголовки й звичайні підписи на плитках з розрізненням лат./укр./кир.
+U+ та ID залишені в tooltip/деталях. Відсутні місця не створюють draft до
+першої мутації; сирі коди не вгадуються. Обидва регістри української (66)
+показуються на одній сторінці. Raw/all і canonical/all пагіновані по 64.
+
+31 Node-тест і strict desktop tsc проходять. Native build і WKWebView smoke
+з close/save barrier пройшли. QA на окремому проєкті перевірив реальні trusted
+pointer drag для зсуву та масштабу (одна revision на жест), Escape без запису,
+точні параметри, усі групи/підписи, 66 українських слотів без накладання плиток,
+відсутність створення порожніх гліфів від вибору, коректний Para 2.0 export.
+
+### Виділення, гайди й Para Glyph Region — 7 листопада 2026
+
+Desktop 0.5: стрілки рухають рисунок/виділення, Shift дає 10 px;
+`[`/`]` зберігають навігацію. `ui/guides.ts` показує baseline, origin/advance,
+межі комірки й виміряні H/Н, x/х. R — прямокутник, L — ласо; довільна форма
+зберігається бітовою маскою. Окремі `pixel-regions.ts` та `region-editor.ts`
+керують копією/вирізанням/вставленням/рухом/масштабом, плаваючою вставкою,
+Enter/Escape, прозорим/непрозорим фоном і одним undo на операцію.
+
+Системний буфер — звичайний JSON `para-glyph-region` / `schemaVersion: 1.0.0`,
+1-bpp hex MSB-first rows + maskRows + необов’язковий origin. Формат має
+`desktop/glyph-editor/PIXEL-REGION.md`, JSON Schema й готовий приклад.
+Працює між гліфами/шрифтами та з JSON, створеним вручну. Необрані пікселі
+не потрапляють у payload. Clipboard RPC — NSPasteboard, на main queue;
+`--isolated-clipboard` дає окремий буфер для QA. Нативні меню залишають
+звичайну поведінку для текстових полів. Save/close/nav чекають transfers і
+закріплюють preview. Походження вставки з іншого шрифту зберігається в
+експорті, foreign glyph IDs не перенумеровуються як локальні.
+
+43 Node-тести, strict tsc, build, native store/clipboard self-test пройшли.
+UI QA в окремому проєкті: реальні pointer drag для прямокутника й ласо,
+маска діагоналі, рух і масштаб виділення, стрілки, текстовий caret без зміни
+растра, A→B, копія в новий Ґ іншого шрифту з baseline alignment, copy/cut,
+undo/redo, вставлення ручного JSON у Є, Escape без запису, затриманий clipboard
+RPC + flush без втрати вставки. Реальні експорти пройшли validateFont;
+обидва джерельні SHA не змінилися. QA використовував ізольований буфер.
+Native WKWebView smoke з ізольованим буфером також пройшов реальні
+copy/paste RPC, перевірив повернення до текстового responder та close/save.
+
+### Масштаб H/V та дзеркала — 7 листопада 2026
+
+Desktop 0.6 додає вибір H+V/H/V біля S. Спільний pure helper dragScaledSize
+керує обома шляхами: цілий растр і виділення. H/V зберігають другу розмірність
+точно, незалежно від aspect lock та перпендикулярного руху. Точні відсотки
+в інспекторі застосовуються до активного виділення або всього рисунка;
+неактивне числове поле заблоковане. Mirror H/V є явними кнопками полотна,
+дзеркалять дані та маску разом. Старі inspector flip buttons маршрутизовані
+тим самим шляхом. Плаваюча вставка зберігає preview; зміна виділення — одна
+undo-операція. No-op операції з порожнім виділенням не створюють гліфа.
+
+49 Node-тестів, strict tsc, build і WKWebView/clipboard/close smoke пройшли.
+Browser QA (окремий проєкт/буфер): реальні H/V drags для всього рисунка,
+7×7→5×7 та 7×7→7×5; дзеркала порівняні з очікуваними бітами; mirror pending
+paste без коміту; H 3×3→5×3 числом для виділення; V 5×3→5×5 мишею;
+відображення і rows, і maskRows; mirror порожнього слота без revision/created.
+Реальний export пройшов validateFont, SHA джерела незмінний, console без помилок.
+
+### Фліпер та фізичні клавіші — 7 листопада 2026
+
+Desktop 0.7 додає «Фліпер F» поруч з олівцем і гумкою. Клітинка
+перемикається 0 ↔ 1 один раз за жест, включно з повторним проходом;
+швидкий штрих інтерполюється, ПКМ стирає, один жест має один undo.
+Новий pure helper pixel-stroke спільний для всіх трьох пензлів.
+
+Гарячі клавіші UI використовують KeyboardEvent.code. Нативні Cmd-команди
+перехоплюються за macOS hardware keyCode перед меню; збережені текстові
+copy/cut/paste та undo в полях. Звичайне введення не перемикає інструменти.
+
+55 Node-тестів, strict tsc, native build і WKWebView/clipboard/close smoke
+пройшли. Browser QA підтвердив Flipper drag з очікуваними бітами й undo/redo,
+а також перемикання B/E/F/M/S/R/L з українськими event.key та захист поля
+введення. Версію 0.7 встановлено й запущено; три користувацькі файли правок
+збережено без зміни SHA, резервна копія створена перед заміною пакета.
+
+### Підкладка, гайди шрифту та дослідження моделей — 7 листопада 2026
+
+Desktop 0.8: read-only snapshot іншого гліфа поточного шрифту у правому
+інспекторі; додавання через символ/U+/ID, поточний гліф або Shift+клік черги.
+Блакитний растр кешується, вирівнюється за baseline/pen origin або raster top,
+має opacity/visibility/X/Y. Навігація лишає підкладку; зміна шрифту прибирає.
+Це лише сеанс; ні undo, ні clipboard/export не включають підкладку.
+
+Кнопка «Гайди шрифту…» відкриває шість редагованих метрик з піксельними
+схемами: baseline/capHeight/xHeight/ascent/descent/lineGap. Optional fontGuides
+у Draft schema1 сумісний зі старими правками. Модель має font-wide undo;
+Store валідує ключі, типи й межі. Експорт переносить метрики й journal та
+підтримує зміни лише метрик; changed-фільтр/export-all бачать їх після reload.
+Наявні bitmap/metrics гліфів незмінні; нові blank glyphs беруть effective baseline.
+
+61 Node-тест, strict tsc, native self-test і WKWebView/clipboard/close smoke
+пройшли. Browser QA: pinned H під A/B, opacity hide/show, Shift+клік без
+навігації, реальний Flipper drag з очікуваними бітами й без перенесення
+підкладки в bitmap, font-wide undo/redo, reload saved values, Escape modal,
+font switch reset. Реальний metrics-only export пройшов validateFont.
+
+У README редактора додано дослідження few-shot перенесення стилю: MX/CNN,
+FontDiffuser, MSD-Font, обмеження 1-bit/Ukrainian/MPS, ліцензійні невизначеності
+та гібридний benchmark/інтеграційний план. Моделей не встановлювали й не
+запускали, генерацію в UI не додавали. Каталог: 122 записи з UA>0, 62 UA66,
+110 UA≥60; train/test розділяти за сімейством/походженням, не за варіантами.
+
+### Локальні кандидати стилю — 7 листопада 2026
+
+Desktop 0.9 встановлено й запущено. Новий «Варіанти гліфа…» запускає
+окремий Python/MPS процес через CandidateJobs (start/status/cancel), не
+блокує малювання чи збереження. До восьми різних 1-bit заготовок, retrieval
+першим за побажанням користувача; CNN явно експериментальна. Кандидат можна
+підкласти або застосувати одним undo. Розміри/метрики/Unicode залишаються,
+export journal зберігає source font/glyph/SHA/license text, модель/checkpoint
+та фактично використані style reference IDs. Foreign donor IDs не ремапляться,
+локальні reference IDs нових гліфів ремапляться. Є revision/signature guard,
+Cancel, bounds/bitmap/padding validation. Не вбудовано FontDiffuser/MX-Font.
+
+Власна мала CNN: 39 057 параметрів, 1000 fixed steps, seed1729, MPS, 9.75s
+навчання. Джерельні SHA перевірено: 318 verified-license records <=32px,
+129 family/duplicate groups, 310 train / 8 held-out records (Cozette/Spleen).
+Тільки три train records мають українські гліфи (IBM variants). Ваги,
+нормалізовані bitmaps, повні атрибуції й звіт HTML лишаються в ignored
+.build/style-transfer. Нічого не завантажувалось у зовнішній inference API.
+
+90 hidden-character cases (7 records / 2 related families), raw best-of-up-to4:
+retrieval 31.73 pixel corrections, 6 exact; CNN29.04, 0 exact. Це не human
+acceptance. Visual QA виявив втрату штрихів; UI відсіює CNN з <60% donor ink
+retention або >1.8x ink, raw benchmark не фільтрується. Для Cozette Ґ відсіяно
+8 CNN, лишилось6 retrieval. Користувачеві подобається retrieval; пріоритет
+далі — пошук/ранжування, CNN не вважати покращенням якості.
+
+65 Node tests, strict tsc, 6 optional Python tests/MPS, Ruff та native build
+пройшли. WKWebView smoke/clipboard/save barrier пройшов. Browser QA в окремому
+проєкті: реальна генерація MPS, backdrop без edits, apply/undo/redo, actual
+export validateFont з незмінними метриками/мапою та ліцензією донора; Cancel
+без помилки, stale response після навігації не відкривається/не застосовується.
+П'ять користувацьких draft files збережено без зміни SHA під час оновлення;
+backup .build/last-update.json. Відкрито benchmark.html у системному браузері;
+preview.png — три реальні приклади. Метод/протокол/results.json у experiments/.
+
+### Українська з латинки / власний референс — 7 листопада 2026
+
+Новий основний сценарій (побажання користувача): «Доповнити українську з
+латинки…». Бере52 Latin refs поточного шрифту з правками, пропонує66 UA;
+20 curated homographs копіюються на native baseline/origin без нормалізації,
+інші — retrieval. Перші кандидати обрані для перегляду, запис лише явним Apply.
+Existing ink UA пропускається, Latin незмінна; whole batch — один undo.
+Reference ranking кешований для всіх літер, без дотренування/PyTorch у retrieval.
+
+Generic «Інший референс / літери…»: каталог, вибір refs, JSON/Para region/BDF
+ISO10646/TTF/OTF local import, 64refs/128targets, клітинки≤32px. TTF/OTF через
+fontTools cmap + Pillow1bit, параметр6–24px. No guessed mappings. Окремі metrics
+referenceFont/destination font; журнал має sourceChar/targetChar, donor license,
+reference identity/hash of actual refs. Foreign ref IDs не ремапляться як local.
+
+69 Node tests, 11 Python tests, tsc/Ruff/build пройшли. Browser QA з окремим
+проєктом: native-startup ready, 66 UA /52refs, Apply revision1, created66;
+undo created0, redo; actual export validated, усі256 source glyphs незмінні,
+20 copies рівні Latin bitmap. Пакет1416KiB, provider≈0.196s без startup.
+JSON file-input/import job tested з synthetic glyphs; external source batch
+на2літери працює. BDF masks/baseline та реальний outline import перевірені
+Python-тестами. Whole source/reference rank computed once per batch.
+
+0.10 preview вже встановлений і відкритий, збережено8 user draft files за SHA;
+після sourceChar provenance fix фінальна збірка0.10.1. Додано demoLatin/projectRoot
+configuration/--demo-latin для окремого тестового вікна з автоматичним відкриттям
+перегляду без Apply; regular project не використовувати для демо-генерації.
+
+Фінальне встановлення0.10.1: normal app та окремий
+/Users/dmytro/Applications/Verba Ukrainian Demo.app. Demo config має власний
+projectRoot /Users/dmytro/Library/Application Support/VerbaGlyphEditor/Demo-Latin/
+(конкретний UUID у .build/demo.json), demoLatin=true. Нативне demo-вікно
+автоматично показало66 candidates; regular project не використовувалось.
+Main app теж відновлено, Demo активовано поверх. Під час patch update збережено
+вже11 user draft files за SHA. Не закривати Demo і не застосовувати його вибір
+автоматично: користувачеві відкрито саме перегляд для ручного тестування.
+Поточні існуючі приклади/corpus assets та ваги не змінювалися.
+
+0.10.2: explicit WKUIDelegate/NSOpenPanel для file-input на macOS (SDK каже,
+що без delegate macOS поводиться як Cancel; iOS має іншу поведінку). Проєкти
+й файли не переносяться. Demo вже має застосовані66 UA гліфів користувачем;
+обов'язково зберегти його projectRoot/state/session під час оновлення.
+Коли demo має всі66 літер, preset закриває порожній chooser і показує сам
+редактор, замість пропозиції повторного заповнення. Не скидати Demo project.
