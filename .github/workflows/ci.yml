@@ -34,6 +34,8 @@ jobs:
       - run: node build.mjs
       - run: npx tsc -p tsconfig.para.json
       - run: npx tsc -p tsconfig.corpora.json
+      - run: npx tsc -p ../desktop/glyph-editor/tsconfig.json
+      - run: node --test ../desktop/glyph-editor/test.mjs
       - run: npm test
 
   pytest:

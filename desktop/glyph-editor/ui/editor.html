@@ -1,0 +1,669 @@
+<!doctype html>
+<html lang="uk">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Verba · редактор гліфів</title>
+    <link rel="stylesheet" href="editor.css" />
+    <script defer src="editor.js"></script>
+  </head>
+  <body>
+    <header class="top">
+      <strong
+        ><span class="brand">para.</span>verba
+        <small>редактор гліфів</small></strong
+      >
+      <div class="top-actions">
+        <span id="save-status" role="status">Відкриття корпусу…</span
+        ><button id="save">Зберегти <kbd>⌘S</kbd></button
+        ><button id="export">Експорт шрифту</button
+        ><button id="export-all">Експорт усіх правок</button
+        ><button id="project">Папка правок ↗</button>
+      </div>
+    </header>
+    <div id="error" role="alert" hidden></div>
+    <div class="workspace">
+      <aside class="library">
+        <h1>Бібліотека <span id="font-total"></span></h1>
+        <label
+          >Пошук шрифтів<input
+            id="search"
+            type="search"
+            placeholder="IBM CGA, Amiga…"
+            autocomplete="off"
+        /></label>
+        <div class="two">
+          <label
+            >Колекція<select id="collection">
+              <option value="">Усі</option>
+              <option>hoard</option>
+              <option>nasinnia</option>
+              <option>texted</option>
+            </select></label
+          ><label
+            >Черга<select id="font-filter">
+              <option value="all">Усі шрифти</option>
+              <option value="pending">Не переглянуті</option>
+              <option value="ua">Бракує українських</option>
+              <option value="changed">З правками</option>
+              <option value="done">Переглянуті</option>
+            </select></label
+          >
+        </div>
+        <p id="library-count" class="muted"></p>
+        <div
+          id="font-list"
+          class="font-list"
+          role="listbox"
+          aria-label="Шрифти"
+        >
+          <div id="font-list-inner"></div>
+        </div>
+        <div class="library-footer">
+          <div class="two">
+            <button id="font-prev">← Шрифт</button
+            ><button id="font-next">Шрифт →</button>
+          </div>
+          <button id="font-done" class="primary">
+            Шрифт переглянуто → <kbd>⌘↵</kbd></button
+          ><span id="overall" class="muted"></span>
+        </div>
+      </aside>
+      <main>
+        <section class="font-heading">
+          <div>
+            <p class="eyebrow" id="font-source">Локальний корпус</p>
+            <h2 id="font-name">Завантаження…</h2>
+            <p id="font-meta" class="muted"></p>
+          </div>
+          <button id="font-guides-open">Гайди шрифту…</button>
+          <label
+            >Черга гліфів<select id="mode">
+              <optgroup label="Канонічні групи">
+                <option value="canonical" selected>Усі групи символів</option>
+                <option value="digits">Цифри · 0–9</option>
+                <option value="latin">Латинська абетка · 52</option>
+                <option value="ukrainian">Українська абетка · 66</option>
+                <option value="punctuation">Пробіли й пунктуація</option>
+                <option value="symbols">Математика й валюти</option>
+                <option value="drawing">Рамки й блоки</option>
+              </optgroup>
+              <option value="all">Усі вихідні гліфи</option>
+              <option value="unmapped">Без Unicode</option>
+              <option value="changed">Змінені / додані</option>
+            </select></label
+          >
+        </section>
+        <div class="work-controls">
+          <div>
+            <button id="previous" aria-label="Попередній гліф">←</button
+            ><button id="next" aria-label="Наступний гліф">→</button
+            ><button id="review" class="primary">
+              Переглянуто → <kbd>↵</kbd></button
+            ><label class="inline"
+              ><input id="unreviewed" type="checkbox" />Лише
+              непереглянуті</label
+            >
+          </div>
+          <form id="jump">
+            <input
+              id="lookup"
+              aria-label="Перейти до гліфа"
+              placeholder="Ґ / U+0490 / g000123"
+              autocomplete="off"
+            /><button>Перейти</button>
+          </form>
+        </div>
+        <div class="editing">
+          <section class="drawing">
+            <div class="canvas-toolbar">
+              <div>
+                <button id="pencil" class="selected">
+                  Олівець <kbd>B</kbd></button
+                ><button id="eraser">Гумка <kbd>E</kbd></button
+                ><button
+                  id="flip"
+                  title="Перемикає клітинку 0 ↔ 1, один раз за штрих"
+                >
+                  Фліпер <kbd>F</kbd></button
+                ><button id="move" title="Перетягування змінює пікселі гліфа">
+                  Зсув <kbd>M</kbd></button
+                ><button
+                  id="scale"
+                  title="Перетягування масштабує растр у межах комірки"
+                >
+                  Масштаб <kbd>S</kbd></button
+                ><label
+                  class="inline"
+                  title="H — тільки ширина, V — тільки висота"
+                  ><span>Вісь</span
+                  ><select id="scale-axis" aria-label="Осі масштабу">
+                    <option value="both">H+V</option>
+                    <option value="h">H ↔</option>
+                    <option value="v">V ↕</option>
+                  </select></label
+                >
+                <button id="mirror-h" title="Дзеркало H: ліво ↔ право">
+                  Дзеркало ↔
+                </button>
+                <button id="mirror-v" title="Дзеркало V: верх ↕ низ">
+                  Дзеркало ↕
+                </button>
+                <button id="rect" title="Прямокутне виділення">
+                  Рамка <kbd>R</kbd></button
+                ><button id="lasso" title="Виділення довільної форми">
+                  Ласо <kbd>L</kbd></button
+                ><button id="undo">↶ <kbd>⌘Z</kbd></button
+                ><button id="redo">↷</button>
+              </div>
+              <div>
+                <label class="inline"
+                  >Вигляд
+                  <select id="view">
+                    <option value="edit">Правка</option>
+                    <option value="original">Оригінал</option>
+                    <option value="diff">Різниця</option>
+                  </select></label
+                ><label class="inline"
+                  ><input id="grid" type="checkbox" checked />Сітка</label
+                ><label class="inline"
+                  ><input id="guides" type="checkbox" checked />Гайди</label
+                ><button id="fit">Умістити</button
+                ><label class="inline"
+                  >Вигляд
+                  <input
+                    id="zoom"
+                    type="range"
+                    min="1"
+                    max="64"
+                    value="32"
+                  /><output id="zoom-value">32×</output></label
+                >
+              </div>
+            </div>
+            <div class="selection-toolbar" aria-label="Операції з виділенням">
+              <button
+                id="region-copy"
+                title="⌘C · копіює Para Glyph Region JSON"
+              >
+                Копія
+              </button>
+              <button id="region-cut" title="⌘X">Вирізати</button>
+              <button
+                id="region-paste"
+                title="⌘V · вставляє Para Glyph Region JSON"
+              >
+                Вставити
+              </button>
+              <button id="region-all" title="⌘A">Усе</button>
+              <button id="region-none" title="⌘D">Зняти</button>
+              <button id="region-apply" disabled title="Enter">
+                Закріпити
+              </button>
+              <label class="inline"
+                ><input
+                  id="region-transparent"
+                  type="checkbox"
+                  checked
+                />Прозоро</label
+              >
+              <span id="region-status" role="status">Немає виділення</span>
+            </div>
+            <div id="guide-legend" aria-label="Орієнтири гліфа"></div>
+            <div
+              id="canvas-stage"
+              tabindex="0"
+              role="group"
+              aria-label="Піксельний редактор. B — олівець, E — гумка, F — фліпер, M — зсув, S — масштаб, R — прямокутник, L — ласо; стрілки рухають рисунок або виділення."
+            >
+              <canvas
+                id="canvas"
+                width="1"
+                height="1"
+                aria-label="Редагований гліф"
+              ></canvas>
+              <p id="empty">Виберіть гліф у черзі</p>
+            </div>
+            <div class="canvas-footer">
+              <span id="glyph-title"></span
+              ><span id="coordinates" class="muted"
+                >ЛКМ — малювати · ПКМ — стирати</span
+              >
+            </div>
+          </section>
+          <aside class="inspector">
+            <p class="eyebrow">Гліф</p>
+            <h3 id="character">—</h3>
+            <p id="glyph-meta" class="muted"></p>
+            <div class="previews">
+              <figure>
+                <canvas id="original-preview"></canvas>
+                <figcaption>Оригінал</figcaption>
+              </figure>
+              <figure>
+                <canvas id="edited-preview"></canvas>
+                <figcaption>Правка</figcaption>
+              </figure>
+            </div>
+            <details id="comparison-panel">
+              <summary>Підкладка / порівняння · цей шрифт</summary>
+              <div class="comparison-picker">
+                <button id="comparison-current" type="button">
+                  Додати поточний гліф
+                </button>
+                <form id="comparison-form">
+                  <input
+                    id="comparison-query"
+                    aria-label="Гліф підкладки"
+                    placeholder="Н / U+041D / g000072"
+                    autocomplete="off"
+                  />
+                  <button type="submit">Додати</button>
+                </form>
+                <button id="comparison-remove" hidden>Прибрати</button>
+              </div>
+              <p id="comparison-status" role="status">
+                Додайте гліф цього шрифту як підкладку.
+              </p>
+              <div id="comparison-controls" hidden>
+                <label class="inline"
+                  ><input
+                    id="comparison-visible"
+                    type="checkbox"
+                    checked
+                  />Показати</label
+                >
+                <label class="inline"
+                  >Непрозорість
+                  <input
+                    id="comparison-opacity"
+                    type="range"
+                    min="0"
+                    max="100"
+                    value="35"
+                  /><output id="comparison-opacity-value">35%</output></label
+                >
+                <label class="inline"
+                  >Вирівнювання
+                  <select id="comparison-alignment">
+                    <option value="baseline">Baseline + початок</option>
+                    <option value="raster">Верхній лівий кут растра</option>
+                  </select></label
+                >
+                <label class="inline"
+                  >X
+                  <input
+                    id="comparison-dx"
+                    type="number"
+                    step="1"
+                    min="-16384"
+                    max="16384"
+                    value="0"
+                /></label>
+                <label class="inline"
+                  >Y
+                  <input
+                    id="comparison-dy"
+                    type="number"
+                    step="1"
+                    min="-16384"
+                    max="16384"
+                    value="0"
+                /></label>
+              </div>
+              <p class="muted">
+                Shift+клік у черзі також додає підкладку. Блакитний знімок
+                залишається під рисунком під час навігації. Поза растром
+                обрізається. Видимий у режимі «Правка»; не входить у копію та
+                експорт.
+              </p>
+            </details>
+            <button id="style-latin-open" class="primary">
+              Доповнити українську з латинки…
+            </button>
+            <button
+              id="autofill"
+              title="Заповнити відсутні латинські й кириличні двійники в поточному шрифті"
+            >
+              Автозаповнити А ↔ A
+            </button>
+            <button id="geometry">Дзеркала й повороти…</button
+            ><button id="candidate-generate">Варіанти гліфа…</button
+            ><button id="candidate-cancel" hidden>Скасувати генерацію</button>
+            <button id="style-open">Інший референс / літери…</button>
+            <p id="candidate-status" class="muted" role="status"></p>
+            <p id="autofill-status" class="muted" role="status"></p>
+            <label
+              >Взяти за основу<input
+                id="copy-from"
+                placeholder="Г / U+0413 / g000030" /></label
+            ><button id="copy">Скопіювати гліф</button>
+            <div class="transform">
+              <button
+                data-transform="left"
+                title="Зсув обрізає пікселі на краю"
+              >
+                ←</button
+              ><button data-transform="up" title="Зсув обрізає пікселі на краю">
+                ↑</button
+              ><button
+                data-transform="down"
+                title="Зсув обрізає пікселі на краю"
+              >
+                ↓</button
+              ><button
+                data-transform="right"
+                title="Зсув обрізає пікселі на краю"
+              >
+                →</button
+              ><button data-transform="flip-x" title="Дзеркало: ліво ↔ право">
+                ↔</button
+              ><button data-transform="flip-y" title="Дзеркало: верх ↕ низ">
+                ↕</button
+              ><button
+                data-transform="rotate90"
+                title="За годинниковою стрілкою; ширина й висота міняються місцями"
+              >
+                90° ↻</button
+              ><button data-transform="rotate180">180°</button
+              ><button data-transform="rotate270">270° ↻</button
+              ><button data-transform="invert">Інверсія</button
+              ><button data-transform="clear">Очистити</button>
+            </div>
+            <details id="raster-controls" open>
+              <summary>Зсув і масштаб растра</summary>
+              <div class="two">
+                <label
+                  >Зсув X, px<input
+                    id="raster-dx"
+                    type="number"
+                    step="1"
+                    min="-16384"
+                    max="16384"
+                    value="0"
+                /></label>
+                <label
+                  >Зсув Y, px<input
+                    id="raster-dy"
+                    type="number"
+                    step="1"
+                    min="-16384"
+                    max="16384"
+                    value="0"
+                /></label>
+              </div>
+              <div class="two">
+                <label
+                  >Ширина, %<input
+                    id="raster-sx"
+                    type="number"
+                    min="12.5"
+                    max="800"
+                    step="0.5"
+                    value="100"
+                /></label>
+                <label
+                  >Висота, %<input
+                    id="raster-sy"
+                    type="number"
+                    min="12.5"
+                    max="800"
+                    step="0.5"
+                    value="100"
+                /></label>
+              </div>
+              <label class="inline"
+                ><input id="raster-lock" type="checkbox" checked />Зберігати
+                пропорції</label
+              >
+              <label
+                >Опора<select id="raster-anchor">
+                  <option value="center">Центр рисунка</option>
+                  <option value="top-left">Верхній лівий кут</option>
+                  <option value="baseline">Базова лінія</option>
+                </select></label
+              >
+              <button id="raster-apply">Застосувати до растра</button>
+              <p class="muted">
+                Комірка й метрики зберігаються. Пікселі за краєм обрізаються; ⌘Z
+                повертає їх.
+              </p>
+            </details>
+            <details>
+              <summary>Розмір і метрики</summary>
+              <div class="two">
+                <label
+                  >Ширина<input
+                    id="width"
+                    type="number"
+                    min="0"
+                    max="1024" /></label
+                ><label
+                  >Висота<input id="height" type="number" min="0" max="1024"
+                /></label>
+              </div>
+              <button id="resize">Застосувати розмір</button
+              ><label
+                >Крок по горизонталі<input
+                  id="advance"
+                  type="number"
+                  min="0"
+                  max="4096"
+                  step="0.5" /></label
+              ><button id="advance-apply">Застосувати крок</button>
+              <div class="two">
+                <label
+                  >Лівий відступ<input id="bearing" type="number" step="0.5"
+                /></label>
+                <label
+                  >Зсув угору<input id="shift-up" type="number" step="0.5"
+                /></label>
+              </div>
+              <button id="placement-apply">Застосувати розміщення</button>
+            </details>
+            <label
+              >Додати Unicode-мапу<input
+                id="mapping"
+                placeholder="Ґ або U+0490" /></label
+            ><button id="map">Додати відповідник</button
+            ><button id="new">Новий гліф для символу</button>
+            <p id="labels" class="muted"></p>
+            <button id="restore">Відновити оригінал</button
+            ><label
+              >Нотатки до шрифту<textarea
+                id="notes"
+                rows="2"
+                maxlength="4000"
+              ></textarea>
+            </label>
+          </aside>
+        </div>
+        <details id="proof-panel" open>
+          <summary>Текстовий зразок з урахуванням правок</summary>
+          <div class="proof-controls">
+            <input
+              id="proof-text"
+              aria-label="Текст для перевірки шрифту"
+              maxlength="120"
+              value="Ґава, їжак і єнот. Є Ґ І Ї"
+            /><span id="proof-status" class="muted"></span>
+          </div>
+          <div id="proof-stage">
+            <canvas
+              id="proof-canvas"
+              width="1"
+              height="1"
+              role="img"
+              aria-label="Зразок шрифту"
+            ></canvas>
+          </div>
+        </details>
+        <section class="queue">
+          <div class="queue-heading">
+            <p id="queue-count" role="status"></p>
+            <div>
+              <button id="page-prev">← Сторінка</button
+              ><button id="page-next">Сторінка →</button>
+            </div>
+          </div>
+          <nav id="glyph-regions" aria-label="Групи символів"></nav>
+          <div id="glyphs" role="group" aria-label="Черга гліфів"></div>
+        </section>
+        <footer>
+          <span id="progress"></span
+          ><span class="muted"
+            >[ / ] — гліфи · стрілки — зсув · Shift — 10 px · R / L — виділення
+            · ⌘C/X/V — буфер · ⌘Z — скасувати</span
+          >
+        </footer>
+      </main>
+    </div>
+    <dialog id="geometry-dialog" aria-labelledby="geometry-title">
+      <form method="dialog">
+        <h2 id="geometry-title">Геометрія та складання · поточний шрифт</h2>
+        <p>
+          Оберіть варіанти для відсутніх символів. Це заготовки для ручного
+          перегляду; форма й базова лінія можуть потребувати правки. Складені
+          гліфи підганяються по ширині без згладжування. Золота риска — базова
+          лінія.
+        </p>
+        <div id="geometry-list"></div>
+        <div class="dialog-actions">
+          <button value="cancel">Скасувати</button>
+          <button id="geometry-apply" class="primary" value="apply" disabled>
+            Застосувати (0)
+          </button>
+        </div>
+      </form>
+    </dialog>
+    <dialog id="style-dialog" aria-labelledby="style-title">
+      <h2 id="style-title">Референс → потрібні літери</h2>
+      <p class="muted">
+        Оберіть референсний шрифт або набір гліфів і потрібні символи. Retrieval
+        добирає наявні форми схожих шрифтів, без дотренування. Можна вибрати до
+        64 гліфи референсу; результат додається у відкритий шрифт.
+      </p>
+      <details id="style-setup" open>
+        <summary>Референс і параметри</summary>
+        <fieldset id="style-settings">
+          <div class="two">
+            <label
+              >Джерело<select id="style-source">
+                <option value="catalog">Каталог / поточний шрифт</option>
+                <option value="file">Локальний файл</option>
+              </select></label
+            ><label
+              >Референсні символи<input
+                id="style-reference-chars"
+                value="Hxonkp"
+                placeholder="HАохнк"
+            /></label>
+          </div>
+          <label id="style-font-controls"
+            >Референсний шрифт<select id="style-font"></select
+          ></label>
+          <div id="style-file-controls" hidden>
+            <label
+              >Файл шрифту / гліфів<input
+                id="style-file"
+                type="file"
+                accept=".json,.bdf,.ttf,.otf" /></label
+            ><label
+              >TTF/OTF: розмір растрування, px<input
+                id="style-raster-size"
+                type="number"
+                min="6"
+                max="24"
+                step="1"
+                value="16"
+            /></label>
+            <p class="muted">
+              JSON: Para Font, набір glyphs або Para Glyph Region. BDF:
+              ISO10646. TTF/OTF перетворюється на 1-bit растр без згладжування.
+              Файл до 8 MiB; комірка й гліфи до 32 px. Для регіону без підпису
+              введіть один референсний символ.
+            </p>
+          </div>
+          <button id="style-load" type="button">Завантажити референс</button>
+          <p id="style-reference-info" class="muted"></p>
+          <details>
+            <summary>Вибрати референсні гліфи</summary>
+            <div id="style-reference-glyphs"></div>
+          </details>
+          <label
+            >Потрібні літери<textarea
+              id="style-characters"
+              rows="2"
+              placeholder="ҐЄІЇґєії"
+            >
+ҐЄІЇґєії</textarea>
+          </label>
+          <div class="two">
+            <label class="inline"
+              ><input id="style-missing" type="checkbox" checked />Лише відсутні
+              / порожні</label
+            ><label
+              >Метод<select id="style-method">
+                <option value="retrieval">Retrieval · без навчання</option>
+                <option value="hybrid">Retrieval + CNN · експеримент</option>
+              </select></label
+            >
+          </div>
+          <label class="inline"
+            ><input id="style-latin-first" type="checkbox" checked />Спочатку
+            точні латинські двійники A→А, H→Н, I→І…</label
+          >
+        </fieldset>
+      </details>
+      <p id="style-error" role="alert" hidden></p>
+      <p id="style-status" role="status"></p>
+      <div id="style-results" hidden>
+        <div id="style-targets"></div>
+        <div class="style-choice-actions">
+          <button id="style-first">Вибрати перший варіант кожної</button
+          ><button id="style-clear">Зняти вибір</button>
+        </div>
+        <div id="style-candidates"></div>
+      </div>
+      <div class="dialog-actions">
+        <button id="style-run" class="primary">Знайти варіанти</button
+        ><button id="style-stop" hidden>Скасувати завдання</button
+        ><button id="style-apply" disabled>Застосувати вибрані (0)</button
+        ><button id="style-close">Закрити</button>
+      </div>
+    </dialog>
+    <dialog id="candidate-dialog" aria-labelledby="candidate-title">
+      <h2 id="candidate-title">Варіанти гліфа</h2>
+      <p id="candidate-info" class="muted"></p>
+      <p class="muted">
+        CNN і пошук схожого шрифту — експериментальні заготовки. Перевірте
+        українську форму, діакритики й товщину штрихів. «Вибрати» замінює
+        пікселі поточного гліфа одним undo; підкладка лишає його без змін.
+      </p>
+      <div id="candidate-list"></div>
+      <div class="dialog-actions">
+        <button id="candidate-again">Повторити</button
+        ><button id="candidate-close">Закрити</button>
+      </div>
+    </dialog>
+    <dialog id="font-guides-dialog" aria-labelledby="font-guides-title">
+      <form id="font-guides-form">
+        <h2 id="font-guides-title">Типографічні гайди шрифту</h2>
+        <p id="font-guides-name"></p>
+        <p class="muted">
+          Усі значення у пікселях шрифту. Порожнє поле — метрика джерела або
+          вимір H/Н та x/х. Кольорові стрілки показують відстань на схемі; 0 —
+          базова лінія. Застосовується до всього шрифту, зберігається у правках
+          та експорті. Растри й метрики окремих гліфів не пересуваються.
+        </p>
+        <div id="font-guide-fields"></div>
+        <div class="dialog-actions">
+          <button type="button" id="font-guides-reset">
+            Скинути поля до авто</button
+          ><button type="button" id="font-guides-close">Скасувати</button
+          ><button type="submit" class="primary">Застосувати</button>
+        </div>
+      </form>
+    </dialog>
+  </body>
+</html>
