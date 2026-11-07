@@ -74,7 +74,7 @@ export function candidateExplanation(candidate: Candidate) {
 function validRecipe(value: RecipeInfo | undefined): boolean {
   if (
     !value ||
-    value.version !== "native-recipes-v1" ||
+    !["native-recipes-v1", "native-recipes-v2"].includes(value.version) ||
     !["strict", "compact"].includes(value.policy) ||
     typeof value.id !== "string" ||
     !/^[a-z-]{1,80}$/.test(value.id) ||
@@ -208,6 +208,10 @@ export function candidateGlyph(target: Glyph, candidate: Candidate): Glyph {
     ...structuredClone(target),
     rows: candidate.rows.map((row) => row.toUpperCase()),
   };
+}
+export function candidateChanges(target: Glyph, candidate: Candidate) {
+  const after = candidateGlyph(target, candidate);
+  return after.rows.some((row, i) => row !== target.rows[i].toUpperCase());
 }
 export function candidateDerivation(
   target: Glyph,

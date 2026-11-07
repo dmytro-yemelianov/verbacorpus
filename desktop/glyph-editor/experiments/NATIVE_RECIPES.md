@@ -88,3 +88,11 @@ safe. There is no claim of an OCR recognition improvement or universal 66/66
 coverage across the library. The wider native-grid domain is guarded by bounds,
 with targeted multi-byte/padding tests and corpus examples, not universal
 proof of stylistic adequacy.
+
+## Source-part refinement (0.15.1)
+
+Recipe v2 preserves additional F/A/b/U/X/O source fragments and handles uncial N
+without blindly mirroring an arch into И. It coexists with v1 provenance.
+[The seven-family quality audit](../UKRAINIAN_QUALITY.md) distinguishes existing
+retrieval drafts from newly proposed native candidates and documents remaining
+small-grid failures.

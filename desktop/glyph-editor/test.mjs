@@ -3063,3 +3063,14 @@ test("native recipe candidates validate and preserve measured lineage through ex
     assert.throws(() => m.candidateGlyph(target, { ...candidate, recipe }));
   }
 });
+
+test("replacement preview ignores identical pixels so a correct homograph is not replaced by a foreign alternative", () => {
+  const target = letter("A"),
+    same = {
+      ...generatedCandidate(target),
+      rows: target.rows.map((r) => r.toLowerCase()),
+    };
+  assert.equal(m.candidateChanges(target, same), false);
+  assert.equal(m.candidateChanges(target, generatedCandidate(target)), true);
+  assert.throws(() => m.candidateChanges(target, { ...same, width: 999 }));
+});

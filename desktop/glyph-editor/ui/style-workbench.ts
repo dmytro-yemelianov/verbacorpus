@@ -3,6 +3,7 @@ import { native } from "./bridge";
 import { unpack, type Glyph } from "./model";
 import {
   candidateGlyph,
+  candidateChanges,
   type Candidate,
   type CandidateResult,
 } from "./candidates";
@@ -333,6 +334,26 @@ export function createStyleWorkbench(options: {
       b.type = "button";
       b.textContent =
         characterLabel(r.character) + (chosen.has(r.character) ? " ✓" : "");
+      if (!$<HTMLInputElement>("style-missing").checked) {
+        const target = plan.find((t) => t.character === r.character);
+        if (target) {
+          const pair = document.createElement("span");
+          pair.className = "style-pair";
+          pair.title = "Ліворуч поточна літера, праворуч перший новий варіант";
+          const old = thumbnail(target.target, 40);
+          old.setAttribute("aria-label", "Поточна літера");
+          pair.append(old, document.createTextNode("→"));
+          if ("candidates" in r && r.candidates[0]) {
+            const proposed = thumbnail(
+              candidateGlyph(target.target, r.candidates[0]),
+              40,
+            );
+            proposed.setAttribute("aria-label", "Перший новий варіант");
+            pair.append(proposed);
+          } else pair.append(document.createTextNode("немає"));
+          b.append(pair);
+        }
+      }
       b.setAttribute("aria-pressed", String(active === r.character));
       b.onclick = () => {
         active = r.character;
@@ -346,7 +367,7 @@ export function createStyleWorkbench(options: {
       target = plan.find((t) => t.character === active);
     if (!r || !target) return;
     const title = document.createElement("h3");
-    title.textContent = `${active} · ${target.source ? "замінить наявний гліф" : "додасть гліф"}`;
+    title.textContent = `${active} · ${target.target.rows.some((row) => /[1-9a-f]/i.test(row)) ? "порівняння з поточною літерою" : "додавання гліфа"}`;
     box.append(title);
     if ("error" in r) {
       const p = document.createElement("p");
@@ -359,6 +380,37 @@ export function createStyleWorkbench(options: {
       message.className = "muted";
       message.textContent = `Рецепт: ${r.recipeStatus.reason}`;
       box.append(message);
+    }
+    if (target.target.rows.some((row) => /[1-9a-f]/i.test(row))) {
+      const comparison = document.createElement("div");
+      comparison.className = "style-current-comparison";
+      const label = document.createElement("strong");
+      label.textContent =
+        "Поточна літера · залишиться без змін, поки не вибрано нову";
+      const donorChars = new Set(
+        r.candidates.flatMap(
+          (c) =>
+            c.recipe?.donors ??
+            (c.sourceFontId === reference?.font.id &&
+            ["homograph", "geometry"].includes(c.method)
+              ? (c.sourceChar ?? "").split("+")
+              : []),
+        ),
+      );
+      const sources = (reference?.glyphs ?? [])
+        .filter((g) =>
+          g.labels.some((l) => l.kind === "unicode" && donorChars.has(l.value)),
+        )
+        .slice(0, 6);
+      comparison.append(label, thumbnail(target.target, 110));
+      for (const source of sources) {
+        const figure = document.createElement("figure"),
+          caption = document.createElement("figcaption");
+        caption.textContent = `Донор ${source.character ?? source.labels.find((l) => l.kind === "unicode")?.value ?? source.id}`;
+        figure.append(thumbnail(source, 110), caption);
+        comparison.append(figure);
+      }
+      box.append(comparison);
     }
     const clear = document.createElement("button");
     clear.textContent = "Пропустити цю літеру";
@@ -379,7 +431,10 @@ export function createStyleWorkbench(options: {
       );
       const label = document.createElement("strong"),
         source = document.createElement("small");
-      label.textContent = candidateLabel(candidate);
+      const changes = candidateChanges(target.target, candidate);
+      button.disabled = !changes;
+      label.textContent =
+        candidateLabel(candidate) + (changes ? "" : " · уже збігається");
       source.textContent =
         candidate.sourceFontId + " · " + candidate.sourceLicenseId;
       const feedback = document.createElement("small");
@@ -469,7 +524,13 @@ export function createStyleWorkbench(options: {
     $(id).oninput = invalidate;
   $("style-first").onclick = () => {
     batch?.results.forEach((r) => {
-      if ("candidates" in r && r.candidates[0])
+      const target = plan.find((t) => t.character === r.character);
+      if (
+        target &&
+        "candidates" in r &&
+        r.candidates[0] &&
+        candidateChanges(target.target, r.candidates[0])
+      )
         chosen.set(r.character, r.candidates[0]);
     });
     renderResults();
@@ -494,12 +555,14 @@ export function createStyleWorkbench(options: {
       .catch(localError)
       .finally(() => setBusy(false));
   };
-  async function openLatin() {
+  async function openLatin(rebuild = false) {
     try {
       await options.before();
       fillFonts();
       invalidate();
-      $("style-title").textContent = "Українська з наявної латинки";
+      $("style-title").textContent = rebuild
+        ? "Порівняння українських варіантів із латинкою"
+        : "Українська з наявної латинки";
       $<HTMLSelectElement>("style-source").value = "catalog";
       $<HTMLSelectElement>("style-font").value = "";
       $("style-file-controls").hidden = true;
@@ -509,16 +572,18 @@ export function createStyleWorkbench(options: {
       $<HTMLTextAreaElement>("style-characters").value = (
         options.latinTargets?.() ?? UKRAINIAN
       ).join("");
-      $<HTMLInputElement>("style-missing").checked = true;
+      $<HTMLInputElement>("style-missing").checked = !rebuild;
       $<HTMLInputElement>("style-latin-first").checked = true;
-      $<HTMLSelectElement>("style-method").value = "retrieval";
+      $<HTMLSelectElement>("style-method").value = rebuild
+        ? "native"
+        : "retrieval";
       $("style-error").hidden = true;
       if (!dialog.open) dialog.showModal();
       if ((await loadReference()) && dialog.open) {
         $<HTMLDetailsElement>("style-setup").open = false;
         await generate();
         if (batch) {
-          $("style-first").click();
+          if (!rebuild) $("style-first").click();
           $("style-results").scrollIntoView({ block: "start" });
         } else if (
           document.body.dataset.demo === "true" &&

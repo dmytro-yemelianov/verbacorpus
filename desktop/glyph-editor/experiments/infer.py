@@ -4,7 +4,7 @@ import json
 import time
 
 import numpy as np
-from native_recipes import NativeRecipes
+from native_recipes import VERSION, NativeRecipes
 from native_templates import templates
 from request import require_latin_references, validate_request
 
@@ -182,7 +182,7 @@ class Generator:
                         "reference": "reference-copy-v1",
                         "homograph": "latin-homograph-v1",
                         "geometry": "native-cyrillic-v1",
-                        "recipe": "native-recipes-v1",
+                        "recipe": VERSION,
                     }[method],
                     "checkpointSha256": self.training.get("checkpointSha256")
                     if method == "cnn"

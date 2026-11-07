@@ -280,5 +280,70 @@ class NativeRecipeTests(unittest.TestCase):
             self.assertEqual(_counter_count(output.glyphs[c]), 2)
 
 
+class SourcePartQualityTests(unittest.TestCase):
+    def test_uncial_n_arch_is_not_reflected_as_cyrillic_i(self):
+        from recipe_engine.synthesis import _has_diagonal
+
+        arch = Bitmap(8, 8, (0, 0x7C, 0x7E, 0x42, 0x42, 0x42, 0x42, 0))
+        font = Font(
+            8,
+            8,
+            {"N": arch, "H": Bitmap(8, 8, (0, 0x42, 0x42, 0x7E, 0x42, 0x42, 0x42, 0))},
+            Metrics(7, 1, 3),
+        )
+        self.assertFalse(_has_diagonal(arch, 1, 1))
+        output, report = generate(font, "strict")
+        self.assertNotEqual(output.glyphs["И"], arch.mirror_lr())
+        self.assertTrue(report["glyphs"]["И"]["adaptations"])
+        self.assertTrue(_has_diagonal(output.glyphs["И"], 1, 1))
+
+    def test_ghe_keeps_actual_f_pixels_and_removes_only_middle_arm(self):
+        from recipe_engine.source_parts import alternatives
+
+        font = fixture()
+        result, donors, name, _ = next(alternatives("Г", font, estimate_style(font)))
+        self.assertEqual(name, "source-f-without-middle-bar")
+        self.assertEqual(donors, ["F"])
+        self.assertTrue(
+            all(a & ~b == 0 for a, b in zip(result.rows, font.glyphs["F"].rows))
+        )
+        self.assertLess(result.count(), font.glyphs["F"].count())
+        self.assertEqual(result.bbox(), font.glyphs["F"].bbox())
+
+    def test_source_oval_ef_has_two_counters_and_independent_stem_width(self):
+        from recipe_engine.source_parts import alternatives
+
+        font = fixture()
+        before = copy.deepcopy(font.glyphs)
+        values = list(alternatives("Ф", font, estimate_style(font)))
+        self.assertTrue(values)
+        for result, donors, _, _ in values:
+            self.assertEqual(_counter_count(result), 2)
+            self.assertEqual((result.width, result.height), (8, 16))
+            self.assertEqual(set(donors), {"O", "I"})
+        self.assertEqual(font.glyphs, before)
+
+    def test_native_ascender_removal_works_for_four_row_lowercase(self):
+        from recipe_engine.source_parts import alternatives
+
+        source = Bitmap(5, 8, (0x10, 0x10, 0x10, 0x1C, 0x14, 0x14, 0x1C, 0))
+        font = Font(5, 8, {"b": source}, Metrics(7, 0, 3))
+        result, donors, _, _ = next(alternatives("ь", font, estimate_style(font)))
+        self.assertEqual(result.rows, (0, 0, 0, 0x1C, 0x14, 0x14, 0x1C, 0))
+        self.assertEqual(_counter_count(result), 1)
+        self.assertEqual(donors, ["b"])
+
+    def test_widening_keeps_source_ink_without_downsampling(self):
+        from recipe_engine.source_parts import widen
+
+        source = Bitmap(5, 3, (17, 10, 4))
+        result = widen(source, 8)
+        self.assertEqual((result.width, result.height), (8, 3))
+        self.assertGreaterEqual(result.count(), source.count())
+        self.assertEqual(result.rows[0], 0x81)
+        with self.assertRaises(ValueError):
+            widen(source, 4)
+
+
 if __name__ == "__main__":
     unittest.main()

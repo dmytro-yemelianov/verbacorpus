@@ -183,6 +183,7 @@ function busy(value: boolean) {
     "candidate-generate",
     "style-open",
     "style-latin-open",
+    "style-rebuild-open",
   ])
     $<HTMLButtonElement>(id).disabled = value;
 }
@@ -649,6 +650,8 @@ function inspect() {
     `${selected + 1}/${slots.length} · правок: ${Object.keys(doc.state.edits).length} · позначок перегляду: ${doc.state.reviewed.length}`;
 }
 function updateButtons() {
+  $<HTMLButtonElement>("style-rebuild-open").disabled =
+    editingBusy || (!latinReferenceCounts.upper && !latinReferenceCounts.lower);
   $<HTMLButtonElement>("style-latin-open").disabled =
     editingBusy || (!latinReferenceCounts.upper && !latinReferenceCounts.lower);
   $<HTMLButtonElement>("undo").disabled = editingBusy || !doc?.canUndo;
@@ -1085,6 +1088,7 @@ const styleWorkbench = createStyleWorkbench({
   error,
 });
 $("style-latin-open").onclick = () => void styleWorkbench.openLatin();
+$("style-rebuild-open").onclick = () => void styleWorkbench.openLatin(true);
 const canvasUI = createCanvas({
   get: () => ({
     glyph: current,

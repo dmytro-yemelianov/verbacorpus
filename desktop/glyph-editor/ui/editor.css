@@ -1289,3 +1289,42 @@ body.editor-open .glyph span {
 #library-cards {
   overflow-anchor: none;
 }
+
+.style-current-comparison {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: end;
+  padding: 12px;
+  border: 1px solid var(--rule);
+  margin: 10px 0;
+}
+.style-current-comparison > strong {
+  flex-basis: 100%;
+}
+.style-current-comparison figure {
+  margin: 0;
+  text-align: center;
+}
+.style-current-comparison canvas {
+  image-rendering: pixelated;
+  object-fit: contain;
+}
+
+#style-targets button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+.style-pair {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+}
+.style-pair canvas {
+  max-width: 64px;
+  max-height: 48px;
+  object-fit: contain;
+  image-rendering: pixelated;
+}

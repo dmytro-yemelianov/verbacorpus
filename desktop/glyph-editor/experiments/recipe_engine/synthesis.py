@@ -76,6 +76,30 @@ def _local_flip(bitmap: Bitmap, direction: str) -> Bitmap:
     return flipped.place(bitmap.width, bitmap.height, x0, y0)
 
 
+def _has_diagonal(bitmap: Bitmap, stroke: int, horizontal: int) -> bool:
+    """Require a moving interior stroke, not just a Latin N Unicode label.
+
+    Uncial N can be an arch. Reflecting that arch is not Cyrillic И.
+    Ignore outer spines, top connectors and bottom serifs while probing.
+    """
+    left, top, right, bottom = bitmap.bbox()
+    counts = [
+        sum(bitmap.get(x, y) for y in range(top, bottom)) for x in range(left, right)
+    ]
+    half = max(1, len(counts) // 2)
+    lx = left + max(range(half), key=lambda i: counts[i])
+    rx = left + half + max(range(len(counts) - half), key=lambda i: counts[i + half])
+    samples = []
+    for y in range(top + horizontal, bottom - horizontal):
+        xs = [x for x in range(lx + stroke, rx) if bitmap.get(x, y)]
+        if xs:
+            samples.append((y, sum(xs) / len(xs)))
+    return (
+        len(samples) >= 2
+        and max(x for _, x in samples) - min(x for _, x in samples) >= 1
+    )
+
+
 def _touches(first: Bitmap, second: Bitmap) -> bool:
     """Whether the two masks touch under eight-neighbour foreground topology."""
     for y in range(first.height):
@@ -564,6 +588,20 @@ class Builder:
         if target in FLIP_MAP:
             donor, direction = FLIP_MAP[target]
             if donor in self.glyphs and self.glyphs[donor].bbox():
+                if target == "И" and not _has_diagonal(
+                    self.glyphs[donor], self.v, self.h
+                ):
+                    self.use(donor)
+                    if "H" in self.glyphs:
+                        self.use("H")
+                    self.note(
+                        "Latin N has no diagonal (e.g. uncial arch); Cyrillic И constructed from measured stems and a diagonal instead of reflecting an arch."
+                    )
+                    return (
+                        self.reversed_n(self.dimensions(True)),
+                        "generated",
+                        "diagonal Cyrillic I from measured source stems",
+                    )
                 return (
                     _local_flip(self.use(donor), direction),
                     "generated",

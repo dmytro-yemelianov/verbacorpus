@@ -8,12 +8,13 @@ import numpy as np
 from recipe_engine.bitmap import Bitmap
 from recipe_engine.fragments import alternatives
 from recipe_engine.model import UK_ALPHABET, Font, Metrics
+from recipe_engine.source_parts import alternatives as source_parts
 from recipe_engine.style import estimate_style
 from recipe_engine.synthesis import generate
 
 from data import pixels
 
-VERSION = "native-recipes-v1"
+VERSION = "native-recipes-v2"
 # Explicit Unicode labels only: no guessing code pages or borrowing hidden targets.
 DONORS = set(
     "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.ÏïËëÜüÖöÄäÿĂăĞğŬŭ"
@@ -139,7 +140,9 @@ class NativeRecipes:
             entry = report["glyphs"][c]
             variants = []
             try:
-                fragments = list(alternatives(c, font, measured, output))
+                fragments = list(source_parts(c, font, measured)) + list(
+                    alternatives(c, font, measured, output)
+                )
             except ValueError:
                 fragments = []
             if c in output.glyphs:
