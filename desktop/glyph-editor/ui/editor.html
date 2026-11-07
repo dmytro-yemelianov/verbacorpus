@@ -78,8 +78,16 @@
           </div>
           <label
             >Черга гліфів<select id="mode">
-              <option value="ukrainian">Українська абетка · 66</option>
-              <option value="all" selected>Усі вихідні гліфи</option>
+              <optgroup label="Канонічні групи">
+                <option value="canonical" selected>Усі групи символів</option>
+                <option value="digits">Цифри · 0–9</option>
+                <option value="latin">Латинська абетка · 52</option>
+                <option value="ukrainian">Українська абетка · 66</option>
+                <option value="punctuation">Пробіли й пунктуація</option>
+                <option value="symbols">Математика й валюти</option>
+                <option value="drawing">Рамки й блоки</option>
+              </optgroup>
+              <option value="all">Усі вихідні гліфи</option>
               <option value="unmapped">Без Unicode</option>
               <option value="changed">Змінені / додані</option>
             </select></label
@@ -112,6 +120,13 @@
                 <button id="pencil" class="selected">
                   Олівець <kbd>B</kbd></button
                 ><button id="eraser">Гумка <kbd>E</kbd></button
+                ><button id="move" title="Перетягування змінює пікселі гліфа">
+                  Зсув <kbd>M</kbd></button
+                ><button
+                  id="scale"
+                  title="Перетягування масштабує растр у межах комірки"
+                >
+                  Масштаб <kbd>S</kbd></button
                 ><button id="undo">↶ <kbd>⌘Z</kbd></button
                 ><button id="redo">↷</button>
               </div>
@@ -127,7 +142,7 @@
                   ><input id="grid" type="checkbox" checked />Сітка</label
                 ><button id="fit">Умістити</button
                 ><label class="inline"
-                  >Масштаб
+                  >Вигляд
                   <input
                     id="zoom"
                     type="range"
@@ -142,7 +157,7 @@
               id="canvas-stage"
               tabindex="0"
               role="group"
-              aria-label="Піксельний редактор. Ліва кнопка малює, права стирає."
+              aria-label="Піксельний редактор. B — олівець, E — гумка, M — зсув гліфа, S — масштаб растра."
             >
               <canvas
                 id="canvas"
@@ -216,6 +231,65 @@
               ><button data-transform="invert">Інверсія</button
               ><button data-transform="clear">Очистити</button>
             </div>
+            <details id="raster-controls" open>
+              <summary>Зсув і масштаб растра</summary>
+              <div class="two">
+                <label
+                  >Зсув X, px<input
+                    id="raster-dx"
+                    type="number"
+                    step="1"
+                    min="-16384"
+                    max="16384"
+                    value="0"
+                /></label>
+                <label
+                  >Зсув Y, px<input
+                    id="raster-dy"
+                    type="number"
+                    step="1"
+                    min="-16384"
+                    max="16384"
+                    value="0"
+                /></label>
+              </div>
+              <div class="two">
+                <label
+                  >Ширина, %<input
+                    id="raster-sx"
+                    type="number"
+                    min="12.5"
+                    max="800"
+                    step="0.5"
+                    value="100"
+                /></label>
+                <label
+                  >Висота, %<input
+                    id="raster-sy"
+                    type="number"
+                    min="12.5"
+                    max="800"
+                    step="0.5"
+                    value="100"
+                /></label>
+              </div>
+              <label class="inline"
+                ><input id="raster-lock" type="checkbox" checked />Зберігати
+                пропорції</label
+              >
+              <label
+                >Опора<select id="raster-anchor">
+                  <option value="center">Центр рисунка</option>
+                  <option value="top-left">Верхній лівий кут</option>
+                  <option value="baseline">Базова лінія</option>
+                </select></label
+              >
+              <button id="raster-apply">Застосувати до растра</button>
+              <p class="muted">
+                Комірка й метрики зберігаються. Пікселі за краєм обрізаються; ⌘Z
+                повертає їх.
+              </p>
+            </details>
             <details>
               <summary>Розмір і метрики</summary>
               <div class="two">
@@ -293,13 +367,14 @@
               ><button id="page-next">Сторінка →</button>
             </div>
           </div>
+          <nav id="glyph-regions" aria-label="Групи символів"></nav>
           <div id="glyphs" role="group" aria-label="Черга гліфів"></div>
         </section>
         <footer>
           <span id="progress"></span
           ><span class="muted"
             >[ / ] — гліфи · PageUp / PageDown — шрифти · ↵ — переглянути й далі
-            · B / E — інструмент · ⌘Z — скасувати</span
+            · B / E / M / S — інструмент · ⌘Z — скасувати</span
           >
         </footer>
       </main>

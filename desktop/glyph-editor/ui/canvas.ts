@@ -1,3 +1,9 @@
+import {
+  createRasterMutation,
+  type RasterMutation,
+  type RasterPreview,
+  type Anchor,
+} from "./raster-mutation";
 import type { Glyph } from "./model";
 import { unpack, pack, line } from "./model";
 const $ = <T extends HTMLElement>(id: string) =>
@@ -21,6 +27,20 @@ export function createCanvas(model: {
           y: number;
         }
       | undefined;
+  let gesture:
+    | {
+        before: Glyph;
+        raster: ReturnType<typeof createRasterMutation>;
+        start: { x: number; y: number };
+        options: RasterMutation;
+        preview?: RasterPreview;
+      }
+    | undefined;
+  function mutationPreview() {
+    if (gesture && !gesture.preview)
+      gesture.preview = gesture.raster.render(gesture.options);
+    return gesture?.preview;
+  }
   function scheduleDraw() {
     if (!frame)
       frame = requestAnimationFrame(() => {
@@ -58,8 +78,16 @@ export function createCanvas(model: {
   }
   function draw() {
     const { glyph: current, original } = model.get();
+    const mutation = mutationPreview();
+    if (gesture) {
+      const o = gesture.options;
+      $("coordinates").textContent =
+        `Зсув ${o.dx}, ${o.dy} · растр ${o.width}×${o.height}${mutation?.clipped ? " · обрізання на краю" : ""}`;
+    }
     const pixels =
-      stroke?.pixels ?? (current ? unpack(current) : new Uint8Array());
+      mutation?.pixels ??
+      stroke?.pixels ??
+      (current ? unpack(current) : new Uint8Array());
     if (!current) {
       canvas.width = canvas.height = 1;
       $("empty").hidden = false;
@@ -79,14 +107,14 @@ export function createCanvas(model: {
     const view = $<HTMLSelectElement>("view").value,
       source = sourceCanvas(
         view === "original" ? original : current,
-        view === "original" ? undefined : (stroke?.pixels ?? pixels),
+        view === "original" ? undefined : pixels,
       );
     if (view === "diff" && original) {
       const before = unpack(original),
         image = source
           .getContext("2d")!
           .getImageData(0, 0, source.width, source.height),
-        live = stroke?.pixels ?? pixels;
+        live = pixels;
       for (let y = 0; y < current.height; y++)
         for (let x = 0; x < current.width; x++) {
           const i = y * current.width + x,
@@ -123,9 +151,33 @@ export function createCanvas(model: {
       }
       context.stroke();
     }
+    if ((tool === "move" || tool === "scale") && view === "edit") {
+      const b = mutation?.bounds ?? createRasterMutation(current).bounds;
+      if (b) {
+        context.strokeStyle = mutation?.clipped ? "#ffa294" : "#d4b76e";
+        context.lineWidth = 1;
+        context.setLineDash([4, 3]);
+        context.strokeRect(
+          b.x * z + 0.5,
+          b.y * z + 0.5,
+          b.width * z - 1,
+          b.height * z - 1,
+        );
+        context.setLineDash([]);
+        if (tool === "scale") {
+          context.fillStyle = context.strokeStyle;
+          context.fillRect(
+            (b.x + b.width) * z - 6,
+            (b.y + b.height) * z - 6,
+            6,
+            6,
+          );
+        }
+      }
+    }
     for (const [id, g, data] of [
       ["original-preview", original, undefined],
-      ["edited-preview", current, stroke?.pixels ?? pixels],
+      ["edited-preview", current, pixels],
     ] as const) {
       const target = $<HTMLCanvasElement>(id),
         small = sourceCanvas(g, data);
@@ -166,9 +218,36 @@ export function createCanvas(model: {
       !current.height
     )
       return;
+    if (stroke || gesture || event.button > 2) return;
     event.preventDefault();
     stage.focus();
     const p = pointer(event);
+    if (tool === "move" || tool === "scale") {
+      if (event.button !== 0) return;
+      const raster = createRasterMutation(current),
+        b = raster.bounds;
+      if (!b) {
+        $("coordinates").textContent =
+          "Порожній растр — немає що трансформувати";
+        return;
+      }
+      gesture = {
+        before: structuredClone(current),
+        raster,
+        start: p,
+        options: {
+          dx: 0,
+          dy: 0,
+          width: b.width,
+          height: b.height,
+          anchor: $<HTMLSelectElement>("raster-anchor").value as Anchor,
+        },
+      };
+      canvas.dataset.gesture = "true";
+      canvas.setPointerCapture(event.pointerId);
+      scheduleDraw();
+      return;
+    }
     stroke = {
       before: structuredClone(current),
       pixels: unpack(current),
@@ -182,7 +261,43 @@ export function createCanvas(model: {
   canvas.onpointermove = (event) => {
     const p = pointer(event);
     $("coordinates").textContent = `x ${p.x} · y ${p.y}`;
-    if (stroke) {
+    if (gesture) {
+      const b = gesture.raster.bounds!,
+        dx = p.x - gesture.start.x,
+        dy = p.y - gesture.start.y;
+      if (tool === "move") {
+        gesture.options.dx = Math.max(-16384, Math.min(16384, dx));
+        gesture.options.dy = Math.max(-16384, Math.min(16384, dy));
+      } else {
+        const multiplier = gesture.options.anchor === "top-left" ? 1 : 2;
+        const ratio = Math.max(
+          0.125,
+          Math.min(
+            8,
+            1 +
+              multiplier *
+                (Math.abs(dx / b.width) >= Math.abs(dy / b.height)
+                  ? dx / b.width
+                  : dy / b.height),
+          ),
+        );
+        const locked =
+          $<HTMLInputElement>("raster-lock").checked && !event.shiftKey;
+        const width = locked ? b.width * ratio : b.width + dx * multiplier;
+        const height = locked ? b.height * ratio : b.height + dy * multiplier;
+        gesture.options.width = Math.round(
+          Math.max(1, b.width / 8, Math.min(b.width * 8, width)),
+        );
+        gesture.options.height = Math.round(
+          Math.max(1, b.height / 8, Math.min(b.height * 8, height)),
+        );
+      }
+      gesture.preview = undefined;
+      const o = gesture.options;
+      $("coordinates").textContent =
+        `Зсув ${o.dx}, ${o.dy} · растр ${o.width}×${o.height}`;
+      scheduleDraw();
+    } else if (stroke) {
       line(stroke.x, stroke.y, p.x, p.y, dot);
       stroke.x = p.x;
       stroke.y = p.y;
@@ -191,6 +306,24 @@ export function createCanvas(model: {
   };
   function finishStroke() {
     const current = model.get().glyph;
+    if (gesture) {
+      const active = gesture,
+        preview = mutationPreview()!;
+      gesture = undefined;
+      delete canvas.dataset.gesture;
+      const rows = pack(
+        preview.pixels,
+        active.before.width,
+        active.before.height,
+      );
+      if (
+        current?.id === active.before.id &&
+        rows.some((row, i) => row !== active.before.rows[i])
+      )
+        model.commit({ ...active.before, rows });
+      else draw();
+      return;
+    }
     if (!stroke) return;
     if (!current || current.id !== stroke.before.id) {
       stroke = undefined;
@@ -203,8 +336,19 @@ export function createCanvas(model: {
     stroke = undefined;
     model.commit(after);
   }
-  canvas.onpointerup = () => finishStroke();
-  canvas.onpointercancel = () => finishStroke();
+  canvas.onpointerup = (event) => {
+    if (gesture) canvas.onpointermove?.call(canvas, event);
+    finishStroke();
+  };
+  canvas.onpointercancel = () => cancel();
+  canvas.onlostpointercapture = () => finishStroke();
+  function cancel() {
+    stroke = undefined;
+    gesture = undefined;
+    delete canvas.dataset.gesture;
+    $("coordinates").textContent = "Дію скасовано";
+    draw();
+  }
 
   return {
     draw,
@@ -212,11 +356,17 @@ export function createCanvas(model: {
     scheduleDraw,
     finishStroke,
     setTool: (value: string) => {
+      finishStroke();
       tool = value;
-    },
-    cancel: () => {
-      stroke = undefined;
+      canvas.dataset.tool = value;
+      $("coordinates").textContent =
+        value === "move"
+          ? "Тягніть гліф · прив’язка до пікселів · Esc — скасувати"
+          : value === "scale"
+            ? "Тягніть ↘ для збільшення, ↖ для зменшення · Shift — вільні пропорції"
+            : "ЛКМ — малювати · ПКМ — стирати";
       draw();
     },
+    cancel,
   };
 }

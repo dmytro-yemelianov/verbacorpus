@@ -1,3 +1,17 @@
+import {
+  REGIONS,
+  canonicalSlots,
+  regionFor,
+  characterLabel,
+  mappedCharacter,
+  glyphCaption,
+  type GlyphSlot as Slot,
+} from "./regions";
+import {
+  createRasterMutation,
+  mutatedRaster,
+  type Anchor,
+} from "./raster-mutation";
 import { propose, materialize } from "./autofill";
 import { chooseGeometry, choosingGeometry } from "./autofill-dialog";
 import { native } from "./bridge";
@@ -37,7 +51,6 @@ type Boot = {
   projectPath: string;
   warnings: string[];
 };
-type Slot = { key: string; char?: string; id?: string };
 const cache = new FontAssetCache(8 * 1024 * 1024, async (input, init) => {
   init?.signal?.throwIfAborted();
   const path =
@@ -92,6 +105,9 @@ function busy(value: boolean) {
     "autofill",
     "geometry",
     "placement-apply",
+    "raster-apply",
+    "move",
+    "scale",
     "previous",
     "next",
     "review",
@@ -319,18 +335,17 @@ function rebuildSlots(preferred = slots[selected]?.key) {
   ];
   const mapped = new Set([...index.values()].flat());
   slots =
-    mode === "ukrainian"
-      ? UKRAINIAN.map((char) => ({
-          key: codepoint(char),
-          char,
-          id: index.get(char)?.[0],
-        }))
-      : (mode === "changed"
-          ? Object.keys(doc.state.edits)
-          : mode === "unmapped"
-            ? ids.filter((id) => !mapped.has(id))
-            : ids
-        ).map((id) => ({ key: id, id }));
+    canonicalSlots(mode, index) ??
+    (mode === "changed"
+      ? Object.keys(doc.state.edits)
+      : mode === "unmapped"
+        ? ids.filter((id) => !mapped.has(id))
+        : ids
+    ).map((id) => ({ key: id, id }));
+  for (const button of document.querySelectorAll<HTMLButtonElement>(
+    "[data-region]",
+  ))
+    button.setAttribute("aria-pressed", String(button.dataset.region === mode));
   if ($<HTMLInputElement>("unreviewed").checked)
     slots = slots.filter((s) => !doc!.state.reviewed.includes(s.key));
   const found = slots.findIndex((s) => s.key === preferred);
@@ -452,13 +467,17 @@ async function draftCoverage() {
 function inspect() {
   if (!current || !doc) return;
   const slot = slots[selected];
-  $("character").textContent = slot?.char ?? current.character ?? current.id;
+  $("character").textContent = glyphCaption(slot?.char, current);
   $("glyph-meta").textContent =
     `${current.id} · ${original ? "джерельний" : "новий"} · ${current.width}×${current.height}${current.sourceCode?.value ? " · код " + String(current.sourceCode.value) : ""}`;
   $("glyph-title").textContent =
-    `${slot?.char ? codepoint(slot.char) + " · " : ""}${current.id} · ${current.width}×${current.height} · ${doc.state.reviewed.includes(slot?.key) ? "переглянуто" : "не переглянуто"}`;
+    `${glyphCaption(slot?.char, current)} · ${current.id} · ${current.width}×${current.height} · ${doc.state.reviewed.includes(slot?.key) ? "переглянуто" : "не переглянуто"}`;
   $<HTMLInputElement>("width").value = String(current.width);
   $<HTMLInputElement>("height").value = String(current.height);
+  for (const id of ["raster-dx", "raster-dy"])
+    $<HTMLInputElement>(id).value = "0";
+  for (const id of ["raster-sx", "raster-sy"])
+    $<HTMLInputElement>(id).value = "100";
   $<HTMLInputElement>("advance").value = String(current.advanceX);
   $<HTMLInputElement>("bearing").value = String(current.metrics.leftBearing);
   $<HTMLInputElement>("shift-up").value = String(current.metrics.shiftUp);
@@ -466,7 +485,10 @@ function inspect() {
   $("labels").textContent =
     current.labels
       .filter((l) => l.kind === "unicode")
-      .map((l) => `${l.value} (${[...l.value].map(codepoint).join(" ")})`)
+      .map(
+        (l) =>
+          `${characterLabel(l.value)} (${[...l.value].map(codepoint).join(" ")})`,
+      )
       .join(", ") || "Немає Unicode-мапи";
   $("progress").textContent =
     `${selected + 1}/${slots.length} · правок: ${Object.keys(doc.state.edits).length} · позначок перегляду: ${doc.state.reviewed.length}`;
@@ -515,11 +537,19 @@ function commit(after: Glyph | undefined) {
   void draftCoverage().catch(error);
   void renderQueue().catch(error);
 }
+function queuePageSize() {
+  return REGIONS.some(
+    (region) => region.id === $<HTMLSelectElement>("mode").value,
+  )
+    ? 128
+    : 64;
+}
 async function renderQueue() {
   if (!doc) return;
+  const size = queuePageSize();
   const token = ++queueRevision,
-    start = Math.floor(selected / 64) * 64,
-    shown = slots.slice(start, start + 64),
+    start = Math.floor(selected / size) * size,
+    shown = slots.slice(start, start + size),
     container = $("glyphs");
   container.replaceChildren();
   const values = await Promise.all(
@@ -530,14 +560,26 @@ async function renderQueue() {
   for (const [i, s] of shown.entries()) {
     const value = values[i],
       button = document.createElement("button");
+    if (s.section && (i === 0 || s.section !== shown[i - 1].section)) {
+      const heading = document.createElement("h3");
+      heading.className = "glyph-section";
+      heading.textContent = s.section;
+      fragment.append(heading);
+    }
     button.className =
       "glyph" +
       (!value ? " missing" : "") +
       (s.id && doc.state.edits[s.id] ? " changed" : "") +
       (doc.state.reviewed.includes(s.key) ? " reviewed" : "");
     button.setAttribute("aria-pressed", String(start + i === selected));
-    button.setAttribute("aria-label", s.char ?? value?.character ?? s.key);
-    button.title = s.key + " · " + (value?.id ?? "відсутній");
+    const char = s.char ?? mappedCharacter(value);
+    const caption = glyphCaption(s.char, value);
+    button.setAttribute("aria-label", (!value ? "Відсутній · " : "") + caption);
+    button.title =
+      caption +
+      " · " +
+      (char ? codepoint(char) + " · " : "") +
+      (value?.id ?? "відсутній");
     if (value) {
       const c = document.createElement("canvas");
       c.width = Math.max(1, value.width);
@@ -546,13 +588,12 @@ async function renderQueue() {
       button.append(c);
     } else {
       const text = document.createElement("strong");
-      text.textContent = s.char ?? "+";
+      text.textContent =
+        s.char === " " || s.char === "\u00a0" ? "␠" : (s.char ?? "+");
       button.append(text);
     }
     const label = document.createElement("span");
-    label.textContent = s.char
-      ? codepoint(s.char)
-      : (value?.codepoint ?? String(value?.sourceCode?.value ?? s.key));
+    label.textContent = caption;
     button.append(label);
     button.onclick = () => void select(start + i).catch(error);
     fragment.append(button);
@@ -572,7 +613,7 @@ async function renderQueue() {
     ? `${start + 1}–${start + shown.length} із ${slots.length.toLocaleString("uk")} · пунктир = відсутній · зелена риска = правка`
     : "Немає гліфів у цій черзі";
   $<HTMLButtonElement>("page-prev").disabled = start === 0;
-  $<HTMLButtonElement>("page-next").disabled = start + 64 >= slots.length;
+  $<HTMLButtonElement>("page-next").disabled = start + size >= slots.length;
 }
 async function nextFont(delta: number) {
   const i = visibleFonts.findIndex((f) => f.id === font?.id),
@@ -630,7 +671,8 @@ async function history(redo = false) {
   if (!id) return;
   const oldKey = slots[selected]?.key;
   rebuildSlots(oldKey);
-  const i = slots.findIndex((s) => s.id === id);
+  const kept = slots.findIndex((s) => s.key === oldKey && s.id === id);
+  const i = kept >= 0 ? kept : slots.findIndex((s) => s.id === id);
   scheduleSave();
   await select(i >= 0 ? i : selected);
   void draftCoverage().catch(error);
@@ -655,11 +697,15 @@ async function jump(value: string) {
     char = parseChar(value);
     id = index.get(char)?.[0];
   }
-  if (!id && char && UKRAINIAN.includes(char)) {
-    $<HTMLSelectElement>("mode").value = "ukrainian";
-    $<HTMLInputElement>("unreviewed").checked = false;
-    rebuildSlots(codepoint(char));
-    await select(selected);
+  if (char && regionFor(char)) {
+    let position = slots.findIndex((s) => s.char === char);
+    if (position < 0) {
+      $<HTMLSelectElement>("mode").value = regionFor(char)!.id;
+      $<HTMLInputElement>("unreviewed").checked = false;
+      rebuildSlots(codepoint(char));
+      position = slots.findIndex((s) => s.char === char);
+    }
+    await select(position);
     return;
   }
   if (!id) throw new Error("Немає такого гліфа");
@@ -946,15 +992,52 @@ for (const button of document.querySelectorAll<HTMLButtonElement>(
       error(reason);
     }
   };
-for (const t of ["pencil", "eraser"])
+for (const t of ["pencil", "eraser", "move", "scale"])
   on(t, () => {
     canvasUI.setTool(t);
-    for (const id of ["pencil", "eraser"])
+    for (const id of ["pencil", "eraser", "move", "scale"])
       $(id).classList.toggle("selected", id === t);
   });
-zoom.oninput = () => scheduleDraw();
+on("raster-apply", () => {
+  finishStroke();
+  if (!current) return;
+  const b = createRasterMutation(current).bounds;
+  if (!b) throw new Error("Порожній растр — немає що трансформувати");
+  const sx = Number($<HTMLInputElement>("raster-sx").value),
+    sy = Number($<HTMLInputElement>("raster-sy").value);
+  if (![sx, sy].every((n) => Number.isFinite(n) && n >= 12.5 && n <= 800))
+    throw new Error("Масштаб растра: 12,5–800 %");
+  commit(
+    mutatedRaster(current, {
+      dx: Number($<HTMLInputElement>("raster-dx").value),
+      dy: Number($<HTMLInputElement>("raster-dy").value),
+      width: Math.max(1, Math.round((b.width * sx) / 100)),
+      height: Math.max(1, Math.round((b.height * sy) / 100)),
+      anchor: $<HTMLSelectElement>("raster-anchor").value as Anchor,
+    }),
+  );
+});
+for (const id of ["raster-sx", "raster-sy"])
+  $<HTMLInputElement>(id).oninput = () => {
+    if ($<HTMLInputElement>("raster-lock").checked)
+      $<HTMLInputElement>(
+        id === "raster-sx" ? "raster-sy" : "raster-sx",
+      ).value = $<HTMLInputElement>(id).value;
+  };
+$<HTMLInputElement>("raster-lock").onchange = () => {
+  if ($<HTMLInputElement>("raster-lock").checked)
+    $<HTMLInputElement>("raster-sy").value =
+      $<HTMLInputElement>("raster-sx").value;
+};
+zoom.oninput = () => {
+  finishStroke();
+  scheduleDraw();
+};
 $<HTMLInputElement>("grid").onchange = () => scheduleDraw();
-$<HTMLSelectElement>("view").onchange = () => scheduleDraw();
+$<HTMLSelectElement>("view").onchange = () => {
+  finishStroke();
+  scheduleDraw();
+};
 $<HTMLFormElement>("jump").onsubmit = (event) => {
   event.preventDefault();
   clearError();
@@ -963,6 +1046,7 @@ $<HTMLFormElement>("jump").onsubmit = (event) => {
 for (const id of ["mode", "unreviewed"])
   $(id).onchange = () => {
     finishStroke();
+    if (id === "mode") selected = 0;
     rebuildSlots();
     void select(selected).catch(error);
     session();
@@ -987,15 +1071,21 @@ $<HTMLTextAreaElement>("notes").oninput = () => {
     scheduleSave();
   }
 };
-on("page-prev", () => select(Math.max(0, Math.floor(selected / 64) * 64 - 64)));
-on("page-next", () =>
-  select(Math.min(slots.length - 1, Math.floor(selected / 64) * 64 + 64)),
-);
+on("page-prev", () => {
+  const size = queuePageSize();
+  return select(Math.max(0, Math.floor(selected / size) * size - size));
+});
+on("page-next", () => {
+  const size = queuePageSize();
+  return select(
+    Math.min(slots.length - 1, Math.floor(selected / size) * size + size),
+  );
+});
 document.addEventListener("keydown", (event) => {
   if (choosingGeometry()) return;
-  const editing = (event.target as HTMLElement).matches(
-    "input,textarea,select",
-  );
+  const editing =
+    event.target instanceof HTMLElement &&
+    event.target.matches("input,textarea,select");
   const cmd = event.metaKey || event.ctrlKey;
   let run: (() => Promise<void> | void) | undefined;
   if (cmd && event.key.toLowerCase() === "s") run = () => action("save");
@@ -1016,6 +1106,14 @@ document.addEventListener("keydown", (event) => {
     run = () => {
       $("eraser").click();
     };
+  else if (!cmd && !event.altKey && event.key.toLowerCase() === "m")
+    run = () => {
+      $("move").click();
+    };
+  else if (!cmd && !event.altKey && event.key.toLowerCase() === "s")
+    run = () => {
+      $("scale").click();
+    };
   else if (event.key === "Escape")
     run = () => {
       canvasUI.cancel();
@@ -1030,6 +1128,27 @@ document.addEventListener("keydown", (event) => {
       Promise.resolve().then(run).catch(error);
   }
 });
+function buildRegionNavigation() {
+  const nav = $("glyph-regions");
+  for (const region of [{ id: "canonical", title: "Усі групи" }, ...REGIONS]) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.dataset.region = region.id;
+    button.textContent = region.title;
+    button.setAttribute("aria-pressed", "false");
+    button.onclick = () => {
+      if (exporting || choosingGeometry()) return;
+      finishStroke();
+      $<HTMLSelectElement>("mode").value = region.id;
+      selected = 0;
+      rebuildSlots("");
+      void select(0).catch(error);
+      session();
+    };
+    nav.append(button);
+  }
+}
+buildRegionNavigation();
 async function start() {
   busy(true);
   boot = await native<Boot>("bootstrap");

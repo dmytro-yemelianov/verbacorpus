@@ -658,3 +658,57 @@ main {
   padding: 14px 0;
   background: var(--paper);
 }
+
+#canvas[data-tool="move"] {
+  cursor: grab;
+}
+#canvas[data-tool="move"][data-gesture] {
+  cursor: grabbing;
+}
+#canvas[data-tool="scale"] {
+  cursor: nwse-resize;
+}
+
+#glyph-regions {
+  display: flex;
+  gap: 5px;
+  overflow-x: auto;
+  flex: none;
+  padding-bottom: 2px;
+}
+#glyph-regions button {
+  font-size: 11px;
+  padding: 4px 8px;
+}
+#glyph-regions button[aria-pressed="true"] {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.glyph-section {
+  grid-column: 1 / -1;
+  align-self: end;
+  margin: 0;
+  padding: 4px 0;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--accent);
+}
+#glyphs {
+  grid-auto-rows: max-content;
+}
+.glyph {
+  height: 65px;
+}
+.glyph span {
+  font:
+    10px/1.2 -apple-system,
+    BlinkMacSystemFont,
+    sans-serif;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.queue {
+  flex-basis: 255px;
+}

@@ -11,7 +11,8 @@ const require = createRequire(join(app, "package.json")),
   { build } = require("esbuild");
 const compiled = await build({
   stdin: {
-    contents: 'export * from "./ui/model"; export * from "./ui/autofill";',
+    contents:
+      'export * from "./ui/model"; export * from "./ui/autofill"; export * from "./ui/raster-mutation"; export * from "./ui/regions";',
     resolveDir: join(root, "desktop/glyph-editor"),
     sourcefile: "model-tests.ts",
   },
@@ -595,4 +596,255 @@ test("composite drafts undo as one batch and export remaps every source componen
   assert.equal(recipe.glyphId, exported.glyphs.at(-1).id);
   const restored = JSON.parse(JSON.stringify(state));
   assert.deepEqual(restored.derivations, state.derivations);
+});
+
+test("raster pan moves ink inside the fixed cell without changing mapping or metrics", () => {
+  const g = raster("А", "g999900", [
+      "......",
+      ".##...",
+      ".#....",
+      "......",
+      "......",
+    ]),
+    before = structuredClone(g);
+  const moved = m.mutatedRaster(g, {
+    dx: 2,
+    dy: 1,
+    width: 2,
+    height: 2,
+    anchor: "top-left",
+  });
+  const expected = raster("А", g.id, [
+    "......",
+    "......",
+    "...##.",
+    "...#..",
+    "......",
+  ]);
+  assert.deepEqual(moved.rows, expected.rows);
+  assert.deepEqual({ ...moved, rows: g.rows }, g);
+  assert.deepEqual(g, before);
+});
+test("raster zoom uses nearest pixels and supports separate horizontal/vertical scale", () => {
+  const g = raster("А", "g999900", [
+    "........",
+    ".#......",
+    "..#.....",
+    "........",
+    "........",
+    "........",
+  ]);
+  const scaled = m.mutatedRaster(g, {
+    dx: 0,
+    dy: 0,
+    width: 4,
+    height: 4,
+    anchor: "top-left",
+  });
+  const expected = raster("А", g.id, [
+    "........",
+    ".##.....",
+    ".##.....",
+    "...##...",
+    "...##...",
+    "........",
+  ]);
+  assert.deepEqual(scaled.rows, expected.rows);
+  const wide = m.mutatedRaster(g, {
+    dx: 0,
+    dy: 0,
+    width: 4,
+    height: 2,
+    anchor: "top-left",
+  });
+  assert.deepEqual(
+    wide.rows,
+    raster("А", g.id, [
+      "........",
+      ".##.....",
+      "...##...",
+      "........",
+      "........",
+      "........",
+    ]).rows,
+  );
+});
+test("raster anchors preserve center, top-left or baseline before translating", () => {
+  const g = raster("А", "g999900", [
+    "........",
+    "........",
+    "........",
+    "........",
+    "..##....",
+    "..##....",
+    "........",
+    "........",
+  ]);
+  g.metrics.shiftUp = -2;
+  const session = m.createRasterMutation(g),
+    size = { dx: 0, dy: 0, width: 4, height: 4 };
+  assert.deepEqual(session.render({ ...size, anchor: "top-left" }).bounds, {
+    x: 2,
+    y: 4,
+    width: 4,
+    height: 4,
+  });
+  assert.deepEqual(session.render({ ...size, anchor: "center" }).bounds, {
+    x: 1,
+    y: 3,
+    width: 4,
+    height: 4,
+  });
+  assert.deepEqual(session.render({ ...size, anchor: "baseline" }).bounds, {
+    x: 1,
+    y: 2,
+    width: 4,
+    height: 4,
+  });
+  assert.deepEqual(
+    session.render({ ...size, dx: 1, dy: -1, anchor: "baseline" }).bounds,
+    { x: 2, y: 1, width: 4, height: 4 },
+  );
+});
+test("drag previews recover pixels when dragged off canvas and back, without resampling prior previews", () => {
+  const g = letter("A"),
+    session = m.createRasterMutation(g),
+    b = session.bounds;
+  const identity = {
+    dx: 0,
+    dy: 0,
+    width: b.width,
+    height: b.height,
+    anchor: "center",
+  };
+  const outside = session.render({ ...identity, dx: 16384 });
+  assert.equal(outside.clipped, true);
+  assert.ok(!outside.pixels.some(Boolean));
+  session.render({ ...identity, width: Math.max(1, Math.round(b.width / 2)) });
+  const restored = session.render(identity);
+  assert.equal(restored.clipped, false);
+  assert.deepEqual(restored.pixels, m.unpack(g));
+});
+test("mutation validation rejects invalid geometry and virtual scaled previews stay cell-bounded", () => {
+  const g = letter("A"),
+    session = m.createRasterMutation(g),
+    b = session.bounds;
+  const valid = {
+    dx: 0,
+    dy: 0,
+    width: b.width,
+    height: b.height,
+    anchor: "center",
+  };
+  for (const invalid of [
+    { dx: 0.5 },
+    { dy: NaN },
+    { width: 0 },
+    { height: 8193 },
+    { dx: 16385 },
+    { anchor: "bogus" },
+  ])
+    assert.throws(() => session.render({ ...valid, ...invalid }));
+  const large = session.render({ ...valid, width: 8192, height: 8192 });
+  assert.equal(large.pixels.length, g.width * g.height);
+  assert.equal(large.clipped, true);
+  const empty = m.blankGlyph(summary, "g999999", " ");
+  assert.equal(m.createRasterMutation(empty).bounds, undefined);
+  assert.deepEqual(m.mutatedRaster(empty, valid), empty);
+});
+test("a raster mutation is one undo step and exports a canonical glyph with original metrics", () => {
+  const state = m.newDraft(summary, catalog.snapshot),
+    doc = new m.Document(state),
+    g = letter("A");
+  const b = m.createRasterMutation(g).bounds;
+  const after = m.mutatedRaster(g, {
+    dx: 1,
+    dy: -1,
+    width: Math.max(1, b.width - 1),
+    height: b.height,
+    anchor: "baseline",
+  });
+  doc.commit(g.id, after, g);
+  assert.equal(state.revision, 1);
+  assert.deepEqual(state.edits[g.id].metrics, g.metrics);
+  validateFont(m.exportRecord(source, state));
+  doc.undo();
+  assert.deepEqual(state.edits, {});
+  doc.redo();
+  assert.deepEqual(state.edits[g.id].rows, after.rows);
+});
+
+test("canonical regions order digits, Latin and Ukrainian by alphabet instead of source ordinals", () => {
+  const index = new Map([
+    ["0", ["g000099"]],
+    ["A", ["g000003"]],
+    ["Ґ", ["g000010"]],
+  ]);
+  const digits = m.canonicalSlots("digits", index);
+  assert.equal(digits.map((s) => s.char).join(""), "0123456789");
+  assert.equal(digits[0].id, "g000099");
+  const latin = m.canonicalSlots("latin", index);
+  assert.equal(
+    latin.map((s) => s.char).join(""),
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz",
+  );
+  assert.equal(latin[0].id, "g000003");
+  const ua = m.canonicalSlots("ukrainian", index);
+  assert.equal(ua.length, 66);
+  assert.equal(ua.map((s) => s.char).join(""), m.UKRAINIAN.join(""));
+  assert.equal(ua[4].char, "Ґ");
+  assert.equal(ua[4].id, "g000010");
+  assert.notEqual(ua[0].section, ua[33].section);
+});
+test("canonical slots preserve missing symbols and distinct slots for shared glyph aliases", () => {
+  const index = new Map([
+    ["A", ["g000001"]],
+    ["А", ["g000001"]],
+  ]);
+  const before = [...index].map(([c, ids]) => [c, [...ids]]);
+  const all = m.canonicalSlots("canonical", index);
+  assert.equal(all.find((s) => s.char === "A").id, "g000001");
+  assert.equal(all.find((s) => s.char === "А").id, "g000001");
+  assert.notEqual(
+    all.find((s) => s.char === "A").key,
+    all.find((s) => s.char === "А").key,
+  );
+  assert.equal(all.find((s) => s.char === "Ґ").id, undefined);
+  assert.deepEqual([...index], before);
+  assert.equal(m.canonicalSlots("all", index), undefined);
+  assert.equal(m.canonicalSlots("unmapped", index), undefined);
+});
+test("named regions have unique codepoint slots and useful headings for every character", () => {
+  const all = m.canonicalSlots("canonical", new Map());
+  assert.equal(new Set(all.map((s) => s.key)).size, all.length);
+  for (const s of all) {
+    assert.ok(s.section);
+    assert.equal(s.key, m.codepoint(s.char));
+    assert.equal([...s.char].length, 1);
+  }
+  assert.equal(m.regionFor("9").id, "digits");
+  assert.equal(m.regionFor("ї").id, "ukrainian");
+  assert.equal(m.regionFor("’").id, "punctuation");
+  assert.equal(m.regionFor("₴").id, "symbols");
+  assert.equal(m.regionFor("┌").id, "drawing");
+  assert.equal(m.regionFor("😀"), undefined);
+});
+test("human glyph captions distinguish Latin/Cyrillic and name invisible characters", () => {
+  assert.equal(m.characterLabel("A"), "A · лат.");
+  assert.equal(m.characterLabel("А"), "А · укр.");
+  assert.equal(m.characterLabel("Э"), "Э · кир.");
+  assert.equal(m.characterLabel("0"), "0");
+  assert.equal(m.characterLabel(" "), "Пробіл");
+  assert.equal(m.characterLabel("\u00a0"), "Нерозривний пробіл");
+  assert.equal(m.characterLabel("\t"), "Табуляція");
+  assert.equal(m.glyphCaption(undefined, letter("A")), "A · лат.");
+  assert.equal(m.glyphCaption("А", letter("A")), "А · укр.");
+});
+test("captions never infer Unicode from numeric source labels or stale primary characters", () => {
+  const g = structuredClone(letter("A"));
+  g.labels = [{ kind: "codepoint", value: "65" }];
+  assert.equal(m.mappedCharacter(g), undefined);
+  assert.equal(m.glyphCaption(undefined, g), "код 0x41");
+  g.sourceCode = null;
+  assert.equal(m.glyphCaption(undefined, g), "Без Unicode");
 });
