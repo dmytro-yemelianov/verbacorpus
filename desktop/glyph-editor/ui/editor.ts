@@ -811,10 +811,14 @@ const candidateChooser = createCandidateChooser({
     if (!character || [...character].length !== 1)
       throw new Error("Спочатку задайте Unicode-мапу гліфа.");
     const ids = [
-      ...new Set([..."HНxхoоnпkкрp"].flatMap((c) => index.get(c) ?? [])),
+      ...new Set(
+        [
+          ..."ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz36ÏïĂăĞğÖöÄä",
+        ].flatMap((c) => index.get(c) ?? []),
+      ),
     ]
       .filter((id) => id !== target.id)
-      .slice(0, 12);
+      .slice(0, 64);
     const references = (await Promise.all(ids.map((id) => glyph(id)))).filter(
       (g): g is Glyph => !!g,
     );
@@ -829,6 +833,10 @@ const candidateChooser = createCandidateChooser({
       snapshot: boot.snapshot,
       font: effectiveFont(),
       target: hiddenTarget(target),
+      referenceFont: effectiveFont(),
+      mode: "retrieval",
+      preferLatin: true,
+      recipeUseGuides: Object.keys(doc.state.fontGuides ?? {}).length > 0,
       references,
       character,
       count: 8,
@@ -1024,6 +1032,9 @@ const styleWorkbench = createStyleWorkbench({
         references: reference.glyphs,
         mode,
         preferLatin,
+        recipeUseGuides:
+          reference.font.id === font.id &&
+          Object.keys(doc.state.fontGuides ?? {}).length > 0,
         count: 8,
         revision,
         targets: result.targets.map(styleTargetRequest),

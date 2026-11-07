@@ -1,4 +1,4 @@
-import { candidateLabel } from "./candidates";
+import { candidateLabel, candidateExplanation } from "./candidates";
 import { native } from "./bridge";
 import { unpack, type Glyph } from "./model";
 import {
@@ -71,7 +71,7 @@ export function createCandidateChooser(options: {
       const title = document.createElement("strong");
       title.textContent = candidateLabel(candidate);
       const source = document.createElement("small");
-      source.textContent = `${candidate.sourceFontId} · ${candidate.sourceLicenseId}`;
+      source.textContent = `${candidate.sourceFontId} · ${candidate.sourceLicenseId} ${candidateExplanation(candidate)}`;
       const actions = document.createElement("div"),
         backdrop = document.createElement("button"),
         apply = document.createElement("button");
@@ -126,7 +126,7 @@ export function createCandidateChooser(options: {
       button.textContent = "Генерація…";
       $("candidate-cancel").hidden = false;
       status(
-        "Локальна CNN + пошук. Можна малювати; зміни скасують актуальність результату.",
+        "Рецепти з латинки + локальний пошук. Можна малювати; зміни скасують актуальність результату.",
       );
       const deadline = Date.now() + 60000;
       while (token === epoch) {
@@ -150,7 +150,9 @@ export function createCandidateChooser(options: {
             value.candidates.length > 8 ||
             !value.candidates.length
           )
-            throw new Error("Немає сумісних кандидатів");
+            throw new Error(
+              value.recipeStatus?.reason || "Немає сумісних кандидатів",
+            );
           value.candidates.forEach((c) => candidateGlyph(target, c));
           result = value;
           button.textContent = "Переглянути варіанти…";

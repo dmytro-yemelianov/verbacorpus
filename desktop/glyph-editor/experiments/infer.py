@@ -4,6 +4,7 @@ import json
 import time
 
 import numpy as np
+from native_recipes import NativeRecipes
 from native_templates import templates
 from request import require_latin_references, validate_request
 
@@ -22,14 +23,16 @@ from data import (
 
 
 class Generator:
-    def __init__(self, data, neural=True):
-        self.ds = Dataset(data)
+    def __init__(self, data=None, neural=True, native_only=False):
+        self.ds = None if native_only else Dataset(data)
+        self.recipes = NativeRecipes()
+        self.native_only = native_only
         self.model = None
         self.dev = "cpu"
         self.training = {}
         self.rankings = {}
         self.optical = None
-        if neural:
+        if neural and not native_only:
             import torch
             from network import GlyphStyleCNN, device
 
@@ -53,9 +56,9 @@ class Generator:
         font = request["font"]
         target = request["target"]
         style = request.get("referenceFont", font)
-        if request["snapshot"] != ds.meta["snapshot"]:
+        if ds is not None and request["snapshot"] != ds.meta["snapshot"]:
             raise ValueError("Model dataset belongs to a different corpus snapshot")
-        if character not in ds.char_index:
+        if ds is not None and character not in ds.char_index:
             raise ValueError("Supported targets: Ukrainian, Latin and digits")
         refs = np.zeros((12, SIZE, SIZE), np.float32)
         provided = {}
@@ -75,9 +78,15 @@ class Generator:
                     refs[k + 6] = 1
                     used.append(provided[c]["id"])
                     break
-        fi = next((i for i, f in enumerate(ds.fonts) if f["id"] == style["id"]), None)
+        fi = (
+            next((i for i, f in enumerate(ds.fonts) if f["id"] == style["id"]), None)
+            if ds is not None
+            else None
+        )
         exclude = ds.fonts[fi]["group"] if fi is not None else None
-        if evaluation:
+        if ds is None:
+            ranked = []
+        elif evaluation:
             if refs[6:, 0, 0].sum() < 2:
                 raise ValueError("Evaluation requires two fixed reference groups")
             ranked = ds.rank(refs, character, exclude)
@@ -100,9 +109,9 @@ class Generator:
                 raise ValueError("Need two groups from H/Н, x/х, o/о, n/п, k/к, p/р")
             ranked = ds.rank(refs, character, exclude, pool=range(len(ds.fonts)))
         ranked = ranked[:8] if evaluation else ranked[:16]
-        ci = ds.char_index[character]
+        ci = ds.char_index[character] if ds is not None else None
         probabilities = None
-        if self.model is not None and refs[6:, 0, 0].sum() >= 2:
+        if self.model is not None and ranked and refs[6:, 0, 0].sum() >= 2:
             import torch
 
             content = np.array([ds.images[i, ci] for _, i in ranked])[:, None].astype(
@@ -148,6 +157,7 @@ class Generator:
             reference_ids,
             source_character=None,
             operation=None,
+            recipe=None,
         ):
             packed = rows(bits)
             digest = hashlib.sha256("|".join(packed).encode()).hexdigest()
@@ -172,6 +182,7 @@ class Generator:
                         "reference": "reference-copy-v1",
                         "homograph": "latin-homograph-v1",
                         "geometry": "native-cyrillic-v1",
+                        "recipe": "native-recipes-v1",
                     }[method],
                     "checkpointSha256": self.training.get("checkpointSha256")
                     if method == "cnn"
@@ -187,6 +198,7 @@ class Generator:
                     "source": donor.get("source", {}),
                     "references": reference_ids,
                     **({"operation": operation} if operation else {}),
+                    **({"recipe": recipe} if recipe else {}),
                     **(
                         {"styleReferenceFont": style_identity}
                         if "referenceFont" in request
@@ -225,7 +237,8 @@ class Generator:
                 0,
                 [g["id"]],
             )
-        if not evaluation and request.get("preferLatin") and "referenceFont" in request:
+        recipe_status = None
+        if not evaluation and (request.get("preferLatin") or self.native_only):
             pairs = [
                 "AА",
                 "BВ",
@@ -258,11 +271,43 @@ class Generator:
             )
             if latin:
                 g = provided[latin]
-                append(
-                    "homograph", reference_bits(g), style, g["id"], 0, [g["id"]], latin
+                aligned = reference_bits(g)
+                dx = g["metrics"]["leftBearing"] - target["metrics"]["leftBearing"]
+                dy = (
+                    target["height"]
+                    + target["metrics"]["shiftUp"]
+                    - g["height"]
+                    - g["metrics"]["shiftUp"]
                 )
-            for bits, characters, operation in templates(
-                character, provided, reference_bits
+                same_grid = (
+                    style["id"] == font["id"] and style["sha256"] == font["sha256"]
+                ) or all(
+                    style["cell"][k] == font["cell"][k] for k in ("width", "height")
+                )
+                if (
+                    same_grid
+                    and dx == round(dx)
+                    and dy == round(dy)
+                    and int(aligned.sum()) == int(pixels(g).sum())
+                ):
+                    append("homograph", aligned, style, g["id"], 0, [g["id"]], latin)
+            variants, recipe_status = self.recipes.candidates(request, provided)
+            for bits, characters, lineage, info in variants:
+                g = provided[characters[0]]
+                append(
+                    "recipe",
+                    bits,
+                    style,
+                    g["id"],
+                    0,
+                    list(dict.fromkeys(provided[c]["id"] for c in lineage)),
+                    "+".join(characters),
+                    recipe=info,
+                )
+            for bits, characters, operation in (
+                templates(character, provided, reference_bits)
+                if not self.native_only
+                else []
             ):
                 source = provided[characters[0]]
                 append(
@@ -275,6 +320,9 @@ class Generator:
                     "+".join(characters),
                     operation,
                 )
+        # Keep a retrieval comparison even when native alternatives fill the list.
+        if ranked and count > 1:
+            result = result[: count - 1]
         for k, (score, i) in enumerate(ranked):
             donor = ds.fonts[i]
             template = ds.images[i, ci]
@@ -301,9 +349,10 @@ class Generator:
             key=lambda c: {
                 "reference": 0,
                 "homograph": 1,
-                "geometry": 2,
-                "retrieval": 3,
-                "cnn": 4,
+                "recipe": 2,
+                "geometry": 3,
+                "retrieval": 4,
+                "cnn": 5,
             }[c["method"]]
         )
         result = {
@@ -321,6 +370,7 @@ class Generator:
             "seconds": time.perf_counter() - start,
             "evaluation": evaluation,
             "filteredNeural": filtered,
+            **({"recipeStatus": recipe_status} if recipe_status else {}),
             "neuralSkipped": self.model is None or refs[6:, 0, 0].sum() < 2,
         }
 
@@ -367,7 +417,10 @@ if __name__ == "__main__":
     p.add_argument("--output", required=True)
     a = p.parse_args()
     request = load_json(a.request)
-    engine = Generator(a.data, neural=request.get("mode") != "retrieval")
+    mode = request.get("mode", "hybrid")
+    if mode not in ("native", "retrieval", "hybrid"):
+        raise ValueError("Unknown generator mode")
+    engine = Generator(a.data, neural=mode == "hybrid", native_only=mode == "native")
     atomic_json(
         a.output,
         engine.batch(request) if "targets" in request else engine.candidates(request),

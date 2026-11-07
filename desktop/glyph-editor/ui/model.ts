@@ -1,3 +1,18 @@
+export interface RecipeInfo {
+  version: string;
+  id: string;
+  policy: "strict" | "compact";
+  description: string;
+  donors: string[];
+  adaptations: string[];
+  warnings: string[];
+  metrics: { baseline: number; cap_top: number; x_top: number };
+  metricsSource?: string;
+  verticalStroke: number;
+  horizontalStroke: number;
+  capWaist: number;
+  lowerWaist: number;
+}
 import release from "../package.json";
 import { detectFontGuides } from "./auto-guides";
 import { pack, unpack } from "./glyph-bitmap";
@@ -34,6 +49,7 @@ export interface Derivation {
   transform: string;
   kind: "homograph" | "geometry" | "generation";
   generation?: {
+    recipe?: RecipeInfo;
     recognition?: {
       text: string;
       confidence: number;

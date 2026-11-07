@@ -30,8 +30,12 @@ final class CandidateJobs {
     }
     func start(_ request: [String: Any]) throws -> [String: Any] {
         let data = tools.appendingPathComponent(".build/style-transfer")
-        let required = request["mode"] as? String == "retrieval" ? "manifest.json" : "cnn.pt"
-        guard FileManager.default.fileExists(atPath:data.appendingPathComponent(required).path) else { throw fail("Локальні дані не підготовлено. Див. experiments/README.md.") }
+        let mode = request["mode"] as? String ?? "hybrid"
+        guard ["native", "retrieval", "hybrid"].contains(mode) else { throw fail("Невідомий метод генерації") }
+        let required = mode == "retrieval" ? "manifest.json" : "cnn.pt"
+        if mode != "native" && !FileManager.default.fileExists(atPath:data.appendingPathComponent(required).path) {
+            throw fail("Локальні дані не підготовлено. Оберіть «Лише рецепти» або див. experiments/README.md.")
+        }
         guard let font = request["font"] as? [String:Any], let cell = font["cell"] as? [String:Any],
               let w = cell["width"] as? Int, let h = cell["height"] as? Int, w > 0, h > 0, w <= 1024, h <= 1024, w*h <= 262144,
               let refs = request["references"] as? [[String:Any]], refs.count >= 1, refs.count <= 64 else { throw fail("Комірка 1–1024 px (до 262144 пікселів), 1–64 референси") }

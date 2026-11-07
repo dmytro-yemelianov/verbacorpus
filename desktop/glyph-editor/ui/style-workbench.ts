@@ -1,4 +1,4 @@
-import { candidateLabel } from "./candidates";
+import { candidateLabel, candidateExplanation } from "./candidates";
 import { native } from "./bridge";
 import { unpack, type Glyph } from "./model";
 import {
@@ -278,6 +278,7 @@ export function createStyleWorkbench(options: {
         {
           request: {
             ...prepared.request,
+            recipeMode: $<HTMLSelectElement>("style-recipe-mode").value,
             ocrFeedback: $<HTMLInputElement>("style-ocr").checked,
           },
         },
@@ -353,6 +354,12 @@ export function createStyleWorkbench(options: {
       box.append(p);
       return;
     }
+    if (r.recipeStatus?.reason) {
+      const message = document.createElement("p");
+      message.className = "muted";
+      message.textContent = `Рецепт: ${r.recipeStatus.reason}`;
+      box.append(message);
+    }
     const clear = document.createElement("button");
     clear.textContent = "Пропустити цю літеру";
     clear.onclick = () => {
@@ -380,11 +387,14 @@ export function createStyleWorkbench(options: {
       feedback.textContent = candidate.ocr
         ? `OCR: ${candidate.ocr.text || "не прочитано"} · ${candidate.ocr.confidence}/100${candidate.ocr.calibrated ? "" : " · непевний для цього шрифту"}`
         : "";
+      const explanation = document.createElement("small");
+      explanation.textContent = candidateExplanation(candidate);
       button.append(
         thumbnail(candidateGlyph(target.target, candidate), 110),
         label,
         source,
         feedback,
+        explanation,
       );
       button.onclick = () => {
         chosen.set(active, candidate);
@@ -452,6 +462,7 @@ export function createStyleWorkbench(options: {
     "style-characters",
     "style-missing",
     "style-method",
+    "style-recipe-mode",
     "style-latin-first",
     "style-ocr",
   ])
@@ -494,7 +505,7 @@ export function createStyleWorkbench(options: {
       $("style-file-controls").hidden = true;
       $("style-font-controls").hidden = false;
       $<HTMLInputElement>("style-reference-chars").value =
-        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz36ÏïĂăĞğÖöÄä";
       $<HTMLTextAreaElement>("style-characters").value = (
         options.latinTargets?.() ?? UKRAINIAN
       ).join("");

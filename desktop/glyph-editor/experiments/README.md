@@ -1,9 +1,16 @@
-# Local glyph-style experiment
+# Local glyph-style generation
 
-This is an original 39,057-parameter conditional CNN and a nearest-font
-retrieval baseline. It is **not FontDiffuser, MX-Font or a pretrained foundation
-model**. The desktop's “Варіанти гліфа…” runs these local providers, shows up to
-8 distinct proposals (retrieval first), can pin one as a backdrop, and applies a chosen bitmap
+Version 0.15.0 adds [native Latin-to-Ukrainian recipes](NATIVE_RECIPES.md)
+combined from all three supplied prototypes. Choose **«Лише рецепти»** to run
+without a retrieval dataset or neural model; the normal workflow combines
+exact homographs, checked recipes and retrieval alternatives. Compact mode is
+explicit; strict mode explains unsatisfied geometry.
+
+
+This directory combines native recipes, a nearest-font retrieval baseline and
+an optional original 39,057-parameter conditional CNN. The neural provider is
+**not FontDiffuser, MX-Font or a pretrained foundation model**. The desktop's “Варіанти гліфа…” runs these local providers, shows up to
+8 distinct proposals (exact copies and native recipes first), can pin one as a backdrop, and applies a chosen bitmap
 as one undo transaction. Mapping, dimensions, advance and glyph metrics stay
 unchanged. A source font/glyph, license text, model/checkpoint and reference IDs
 are retained in the derived export.

@@ -1,7 +1,13 @@
-import { pack, type Glyph, type Derivation } from "./model";
+import { pack, type Glyph, type Derivation, type RecipeInfo } from "./model";
 export interface Candidate {
   id: string;
-  method: "cnn" | "retrieval" | "reference" | "homograph" | "geometry";
+  method:
+    | "cnn"
+    | "retrieval"
+    | "reference"
+    | "homograph"
+    | "geometry"
+    | "recipe";
   styleReferenceFont?: {
     fontId: string;
     sha256: string;
@@ -16,6 +22,7 @@ export interface Candidate {
     engine: string;
   };
   operation?: string;
+  recipe?: RecipeInfo;
   model: string;
   checkpointSha256: string | null;
   width: number;
@@ -41,17 +48,79 @@ const OPERATIONS: Record<string, string> = {
   "compose-open-bowl-bar": "дуга + перекладина",
 };
 export function candidateLabel(candidate: Candidate) {
-  return candidate.method === "geometry"
-    ? `Із латинки · ${candidate.sourceChar ?? ""} · ${OPERATIONS[candidate.operation ?? ""] ?? "трансформація"}`
-    : candidate.method === "homograph"
-      ? `Латинський двійник · ${candidate.sourceChar ?? ""}`
-      : candidate.method === "reference"
-        ? "Із референсу"
-        : candidate.method === "cnn"
-          ? "CNN · експеримент"
-          : "Retrieval";
+  return candidate.method === "recipe"
+    ? `Рецепт із латинки · ${candidate.sourceChar ?? ""}`
+    : candidate.method === "geometry"
+      ? `Із латинки · ${candidate.sourceChar ?? ""} · ${OPERATIONS[candidate.operation ?? ""] ?? "трансформація"}`
+      : candidate.method === "homograph"
+        ? `Латинський двійник · ${candidate.sourceChar ?? ""}`
+        : candidate.method === "reference"
+          ? "Із референсу"
+          : candidate.method === "cnn"
+            ? "CNN · експеримент"
+            : "Retrieval";
+}
+export function candidateExplanation(candidate: Candidate) {
+  const recipe = candidate.recipe;
+  if (!recipe) return "";
+  return [
+    `${recipe.policy === "strict" ? "Без ущільнення діакритиків" : "Компактно"} · ${recipe.id}`,
+    `Штрихи ${recipe.verticalStroke}×${recipe.horizontalStroke} px · baseline ${recipe.metrics.baseline} · x-top ${recipe.metrics.x_top}`,
+    recipe.description,
+    ...recipe.adaptations,
+    ...recipe.warnings,
+  ].join(" · ");
+}
+function validRecipe(value: RecipeInfo | undefined): boolean {
+  if (
+    !value ||
+    value.version !== "native-recipes-v1" ||
+    !["strict", "compact"].includes(value.policy) ||
+    typeof value.id !== "string" ||
+    !/^[a-z-]{1,80}$/.test(value.id) ||
+    typeof value.description !== "string" ||
+    value.description.length > 2000
+  )
+    return false;
+  for (const [items, count, length] of [
+    [value.donors, 64, 2],
+    [value.adaptations, 64, 2000],
+    [value.warnings, 128, 2000],
+  ] as const)
+    if (
+      !Array.isArray(items) ||
+      items.length > count ||
+      !items.every((item) => typeof item === "string" && item.length <= length)
+    )
+      return false;
+  if (
+    value.metricsSource !== undefined &&
+    (typeof value.metricsSource !== "string" ||
+      value.metricsSource.length > 200)
+  )
+    return false;
+  const metrics = value.metrics;
+  return (
+    !!metrics &&
+    [
+      metrics.baseline,
+      metrics.cap_top,
+      metrics.x_top,
+      value.verticalStroke,
+      value.horizontalStroke,
+      value.capWaist,
+      value.lowerWaist,
+    ].every((n) => Number.isInteger(n) && n >= 0 && n <= 64) &&
+    0 <= metrics.cap_top &&
+    metrics.cap_top <= metrics.x_top &&
+    metrics.x_top < metrics.baseline &&
+    value.verticalStroke > 0 &&
+    value.horizontalStroke > 0
+  );
 }
 export interface CandidateResult {
+  recipeStatus?: { status: string; reason?: string; policy?: string };
+
   recognition?: {
     status: string;
     reason?: string;
@@ -107,9 +176,16 @@ export function candidateGlyph(target: Glyph, candidate: Candidate): Glyph {
   )
     throw new Error("Некоректні padding-біти кандидата");
   if (
-    !["cnn", "retrieval", "reference", "homograph", "geometry"].includes(
-      candidate.method,
-    ) ||
+    ![
+      "cnn",
+      "retrieval",
+      "reference",
+      "homograph",
+      "geometry",
+      "recipe",
+    ].includes(candidate.method) ||
+    ((candidate.method === "recipe" || candidate.recipe !== undefined) &&
+      !validRecipe(candidate.recipe)) ||
     (candidate.operation !== undefined &&
       !Object.hasOwn(OPERATIONS, candidate.operation)) ||
     !/^g\d{6}$/.test(candidate.sourceGlyphId) ||
@@ -151,6 +227,9 @@ export function candidateDerivation(
     recipeVersion: 1,
     generation: {
       method: candidate.method,
+      ...(candidate.recipe
+        ? { recipe: structuredClone(candidate.recipe) }
+        : {}),
       model: candidate.model,
       checkpointSha256: candidate.checkpointSha256,
       styleReferenceGlyphIds: [...candidate.references],

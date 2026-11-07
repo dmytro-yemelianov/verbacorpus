@@ -593,7 +593,7 @@
             ><label
               >Референсні символи<input
                 id="style-reference-chars"
-                value="Hxonkp"
+                value="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz36ÏïĂăĞğÖöÄä"
                 placeholder="HАохнк"
             /></label>
           </div>
@@ -643,11 +643,24 @@
               / порожні</label
             ><label
               >Метод<select id="style-method">
-                <option value="retrieval">Retrieval · без навчання</option>
+                <option value="retrieval">
+                  Рецепти + retrieval · без навчання
+                </option>
+                <option value="native">Лише рецепти · без моделі</option>
                 <option value="hybrid">Retrieval + CNN · експеримент</option>
               </select></label
             >
           </div>
+          <label
+            >Побудова діакритиків<select id="style-recipe-mode">
+              <option value="strict">
+                Точні пропорції · повідомляти про брак місця
+              </option>
+              <option value="compact">
+                Компактно · дозволити пояснені зміни тіла
+              </option>
+            </select></label
+          >
           <label class="inline"
             ><input id="style-ocr" type="checkbox" checked />Перевіряти
             читабельність через OCR · з калібруванням на цьому шрифті</label

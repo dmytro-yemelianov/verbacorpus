@@ -1,0 +1,33 @@
+{
+  "sourceDirectory": "texted/docs/specs",
+  "reviewedImplementations": [
+    "codex/ukrainian-glyphs",
+    "claude/cyrgen.py",
+    "gemini/gemini-code-1794084480028.rs"
+  ],
+  "sha256": {
+    "claude/README.md": "65bb1d9d63e7e2339da615723cd2065a1ce58356cb77829f2f4579cfbc5c1b9e",
+    "claude/cyrgen.py": "01267fa45f7340959d0260001ce0dba1d4e14eacdcb8baccd44c88cce533bf0c",
+    "claude/recipes.json": "e42ba182282b0d3a9936a7a873897cab58909ed42645357f7f647553dc52ecde",
+    "codex/ukrainian-glyphs/README.md": "9b44dbf1f18f18c37024e8a184f2ae9d5d6d389cb38fa9891123ae3a8fe9d43e",
+    "codex/ukrainian-glyphs/SPEC.md": "19362736476124a2207a9364380a72e47c4d8a54499cba1aeac6513910d5873d",
+    "codex/ukrainian-glyphs/docs/VALIDATION.md": "5fe783b585d25b5f2779461a5896cd4f88fb4418313ee7580c72b78a227eb9fe",
+    "codex/ukrainian-glyphs/docs/validation.json": "6de6bef2d069735efadec4d974c3de9e47938cbf81d23a3ff465663febc5c8a0",
+    "codex/ukrainian-glyphs/run.py": "c1876f742224795c040b3b58fc20030c43c4bc4b6ec6f409c3e8256d4127cf80",
+    "codex/ukrainian-glyphs/src/ukrglyph/__init__.py": "63f8beb4aaf5a6773e63c9e3912b899b7a9aff50827fa45b5129dbfb5077247e",
+    "codex/ukrainian-glyphs/src/ukrglyph/__main__.py": "61fa4597c63af145ed4fcdcd5048ae36e6c0065456e7e3c6fe10bd9f35d517f7",
+    "codex/ukrainian-glyphs/src/ukrglyph/bitmap.py": "39f6e9c01bb283878ce46998f3464841cdc0a2bd4330d80299494ff9af0a6c71",
+    "codex/ukrainian-glyphs/src/ukrglyph/demo.py": "a770c690de6a206cc05f216e37bc7d95aa4b90ca6297be372045e75ebfbff2ec",
+    "codex/ukrainian-glyphs/src/ukrglyph/io.py": "982c050a9d70a83b1cecac6085b13bd2832748bc8688405cb1cdaa86446d9f24",
+    "codex/ukrainian-glyphs/src/ukrglyph/model.py": "c1fcc18870ab0f939313703708b450e9a2b0af427d3a10b62444e459b81364e3",
+    "codex/ukrainian-glyphs/src/ukrglyph/recipes.py": "64504aaaaa58b1759ba3cf0acf1b2aef7c34c710ce9e74f875fc067b5ff0bae5",
+    "codex/ukrainian-glyphs/src/ukrglyph/render.py": "f74deea518a60ab40bcb61517476d4346c3c7b07f827b03e742e53f16f1fff78",
+    "codex/ukrainian-glyphs/src/ukrglyph/style.py": "462754fda1cdadcf06bce676ec61e3abcd33dd3bfb62d35dd2c64a021ec7a3c7",
+    "codex/ukrainian-glyphs/src/ukrglyph/synthesis.py": "193db532649f73161d40ad25f26e5484f940fa779a0ed2285e24c190275e0c8e",
+    "codex/ukrainian-glyphs/tests/test_invariants.py": "d4572b9516ea5ebae52bb7ccb0e46c01d60304d15e14d7a9e833a057d6b81813",
+    "codex/ukrainian-glyphs/tests/test_io.py": "8642a464e0427465d670627cfb0b93af397146daaa7131e9959ab2a6bc992e44",
+    "gemini/gemini-code-1794084475595.md": "aa67c5ec670a039e77be1192f0779d0ea0c19c977e6d39ca92156f99cb450863",
+    "gemini/gemini-code-1794084480028.rs": "165846910bbf02ef75ddf61d3881d7ab96dc9dcbae374777e6cff21486fea417",
+    "gemini/gemini-code-1794084483911.rs": "3db56cd2c4183967dae904546797cdbdf44b3920a83230f665d7f54c678c51ce"
+  }
+}

@@ -57,6 +57,10 @@ def validate_glyph(glyph):
 def validate_request(request):
     if not isinstance(request, dict):
         raise TypeError("Expected a candidate request")
+    if type(request.get("recipeUseGuides", False)) is not bool:
+        raise ValueError("Invalid recipe guide policy")
+    if request.get("recipeMode", "strict") not in ("strict", "compact"):
+        raise ValueError("Invalid recipe mode")
     for key in ["snapshot"]:
         if not re.fullmatch("[0-9a-f]{64}", str(request.get(key, ""))):
             raise ValueError("Invalid corpus snapshot")

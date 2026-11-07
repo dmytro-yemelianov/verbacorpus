@@ -2998,3 +2998,68 @@ test("review at the tail wraps to the first remaining unreviewed glyph", () => {
     position: 0,
   });
 });
+
+test("native recipe candidates validate and preserve measured lineage through export", () => {
+  const target = letter("A"),
+    candidate = {
+      ...generatedCandidate(target),
+      method: "recipe",
+      model: "native-recipes-v1",
+      checkpointSha256: null,
+      sourceChar: "H+O",
+      recipe: {
+        version: "native-recipes-v1",
+        id: "source-stem-and-oval-reflow",
+        policy: "strict",
+        description: "Source oval retained",
+        donors: ["H", "O"],
+        adaptations: ["Duplicate columns only"],
+        warnings: [],
+        metrics: { baseline: 7, cap_top: 0, x_top: 2 },
+        verticalStroke: 1,
+        horizontalStroke: 1,
+        capWaist: 3,
+        lowerWaist: 4,
+      },
+    };
+  assert.match(m.candidateLabel(candidate), /Рецепт/);
+  assert.match(m.candidateExplanation(candidate), /baseline 7/);
+  const derivation = m.candidateDerivation(target, candidate, "Ю");
+  assert.deepEqual(derivation.generation.recipe, candidate.recipe);
+  const state = m.newDraft(summary, catalog.snapshot),
+    doc = new m.Document(state);
+  doc.commitBatch([
+    {
+      id: target.id,
+      source: target,
+      glyph: m.candidateGlyph(target, candidate),
+      derivation,
+    },
+  ]);
+  const exported = m.exportRecord(source, state);
+  validateFont(exported);
+  assert.deepEqual(
+    exported.modifications.at(-1).derivations[0].generation.recipe,
+    candidate.recipe,
+  );
+  doc.undo();
+  assert.deepEqual(state.derivations, {});
+  doc.redo();
+  assert.deepEqual(
+    state.derivations[target.id].generation.recipe,
+    candidate.recipe,
+  );
+  candidate.recipe.donors.push("B");
+  assert.deepEqual(derivation.generation.recipe.donors, ["H", "O"]);
+  for (const recipe of [
+    undefined,
+    { ...candidate.recipe, policy: "eval" },
+    { ...candidate.recipe, verticalStroke: -1 },
+    { ...candidate.recipe, capWaist: Infinity },
+    { ...candidate.recipe, donors: Array(65).fill("H") },
+    { ...candidate.recipe, warnings: ["x".repeat(2001)] },
+    { ...candidate.recipe, metrics: { baseline: 3, cap_top: 5, x_top: 7 } },
+  ]) {
+    assert.throws(() => m.candidateGlyph(target, { ...candidate, recipe }));
+  }
+});
