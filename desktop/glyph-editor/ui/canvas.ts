@@ -1,7 +1,11 @@
 import { createRegionEditor } from "./region-editor";
 import { glyphGuides, paintGuides, type ReferenceHeights } from "./guides";
 import type { RegionOrigin } from "./pixel-regions";
-import { mutatedRaster } from "./raster-mutation";
+import {
+  mutatedRaster,
+  dragScaledSize,
+  type ScaleAxis,
+} from "./raster-mutation";
 import {
   createRasterMutation,
   type RasterMutation,
@@ -9,7 +13,7 @@ import {
   type Anchor,
 } from "./raster-mutation";
 import type { Glyph, FontSummary } from "./model";
-import { unpack, pack, line } from "./model";
+import { unpack, pack, line, transformed } from "./model";
 const $ = <T extends HTMLElement>(id: string) =>
   document.getElementById(id) as T;
 /** Owns only raster presentation and pointer gestures; mutations are transactions. */
@@ -55,6 +59,7 @@ export function createCanvas(model: {
         start: { x: number; y: number };
         options: RasterMutation;
         preview?: RasterPreview;
+        axis: ScaleAxis;
       }
     | undefined;
   function mutationPreview() {
@@ -286,6 +291,7 @@ export function createCanvas(model: {
         before: structuredClone(current),
         raster,
         start: p,
+        axis: $<HTMLSelectElement>("scale-axis").value as ScaleAxis,
         options: {
           dx: 0,
           dy: 0,
@@ -324,28 +330,18 @@ export function createCanvas(model: {
         gesture.options.dx = Math.max(-16384, Math.min(16384, dx));
         gesture.options.dy = Math.max(-16384, Math.min(16384, dy));
       } else {
-        const multiplier = gesture.options.anchor === "top-left" ? 1 : 2;
-        const ratio = Math.max(
-          0.125,
-          Math.min(
-            8,
-            1 +
-              multiplier *
-                (Math.abs(dx / b.width) >= Math.abs(dy / b.height)
-                  ? dx / b.width
-                  : dy / b.height),
-          ),
+        const size = dragScaledSize(
+          b,
+          { x: dx, y: dy },
+          {
+            axis: gesture.axis,
+            anchor: gesture.options.anchor,
+            locked:
+              $<HTMLInputElement>("raster-lock").checked && !event.shiftKey,
+          },
         );
-        const locked =
-          $<HTMLInputElement>("raster-lock").checked && !event.shiftKey;
-        const width = locked ? b.width * ratio : b.width + dx * multiplier;
-        const height = locked ? b.height * ratio : b.height + dy * multiplier;
-        gesture.options.width = Math.round(
-          Math.max(1, b.width / 8, Math.min(b.width * 8, width)),
-        );
-        gesture.options.height = Math.round(
-          Math.max(1, b.height / 8, Math.min(b.height * 8, height)),
-        );
+        gesture.options.width = size.width;
+        gesture.options.height = size.height;
       }
       gesture.preview = undefined;
       const o = gesture.options;
@@ -471,6 +467,53 @@ export function createCanvas(model: {
       transfers.delete(task);
     }
   }
+  async function mirror(axis: "h" | "v") {
+    const key = model.get().key;
+    await Promise.all([...transfers]);
+    if (
+      key !== model.get().key ||
+      !model.get().editable ||
+      $<HTMLSelectElement>("view").value !== "edit"
+    )
+      return;
+    finishRasterGesture();
+    if (regions.mirror(axis)) return;
+    const current = model.get().glyph;
+    if (current)
+      model.commit(transformed(current, axis === "h" ? "flip-x" : "flip-y"));
+  }
+  function applyMutation(options: {
+    dx: number;
+    dy: number;
+    sx: number;
+    sy: number;
+    anchor: Anchor;
+    axis: ScaleAxis;
+  }) {
+    if (!model.get().editable || $<HTMLSelectElement>("view").value !== "edit")
+      return;
+    finishRasterGesture();
+    if (regions.applyMutation(options)) return;
+    const current = model.get().glyph;
+    if (!current) return;
+    const b = createRasterMutation(current).bounds;
+    if (!b) throw new Error("Порожній растр");
+    model.commit(
+      mutatedRaster(current, {
+        dx: options.dx,
+        dy: options.dy,
+        anchor: options.anchor,
+        width:
+          options.axis === "v"
+            ? b.width
+            : Math.max(1, Math.round((b.width * options.sx) / 100)),
+        height:
+          options.axis === "h"
+            ? b.height
+            : Math.max(1, Math.round((b.height * options.sy) / 100)),
+      }),
+    );
+  }
   function finishViewGesture() {
     finishRasterGesture();
     if (regions.active()) regions.pointerUp();
@@ -487,6 +530,8 @@ export function createCanvas(model: {
     setTool,
     flushRegions,
     finishViewGesture,
+    mirror,
+    applyMutation,
     nudge,
     regionAction,
     hasSelection: regions.selected,

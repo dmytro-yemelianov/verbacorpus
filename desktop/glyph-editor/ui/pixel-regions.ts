@@ -376,3 +376,23 @@ export function parseRegion(text: string): PixelRegion {
   for (let i = 0; i < pixels.length; i++) if (!mask[i]) pixels[i] = 0;
   return { width: w, height: h, pixels, mask, ...(origin ? { origin } : {}) };
 }
+
+/** Reflect the bitmap and its selection mask together, preserving origin metadata. */
+export function mirroredRegion(
+  region: PixelRegion,
+  axis: "h" | "v",
+): PixelRegion {
+  if (axis !== "h" && axis !== "v") throw new Error("Некоректна вісь дзеркала");
+  const pixels = new Uint8Array(region.pixels.length),
+    mask = new Uint8Array(region.mask.length);
+  for (let y = 0; y < region.height; y++)
+    for (let x = 0; x < region.width; x++) {
+      const from =
+          (axis === "v" ? region.height - 1 - y : y) * region.width +
+          (axis === "h" ? region.width - 1 - x : x),
+        to = y * region.width + x;
+      pixels[to] = region.pixels[from];
+      mask[to] = region.mask[from];
+    }
+  return { ...region, pixels, mask };
+}

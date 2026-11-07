@@ -1,3 +1,4 @@
+import { dragScaledSize, type ScaleAxis, type Anchor } from "./raster-mutation";
 import { native } from "./bridge";
 import { type Glyph } from "./model";
 import {
@@ -8,6 +9,7 @@ import {
   placeRegion,
   eraseRegion,
   scaledRegion,
+  mirroredRegion,
   serializeRegion,
   parseRegion,
   type Point,
@@ -50,7 +52,14 @@ export function createRegionEditor(host: {
       }
     | undefined;
   let drag:
-    | { start: Point; x: number; y: number; region: PixelRegion; tool: string }
+    | {
+        start: Point;
+        x: number;
+        y: number;
+        region: PixelRegion;
+        tool: string;
+        axis: ScaleAxis;
+      }
     | undefined;
   let cache: ReturnType<typeof placeRegion> | undefined;
   const $ = (id: string) => document.getElementById(id)!;
@@ -110,11 +119,14 @@ export function createRegionEditor(host: {
     drag = undefined;
     if (floating) {
       const result = cache!,
-        origin = floating.origin;
+        origin = floating.origin,
+        before = floating.before,
+        pasted = floating.kind === "paste";
       floating = undefined;
       cache = undefined;
       mask = result.mask;
-      publish(result.glyph, origin);
+      if (pasted || result.glyph.rows.some((row, i) => row !== before.rows[i]))
+        publish(result.glyph, origin);
     }
     host.changed();
   }
@@ -187,6 +199,7 @@ export function createRegionEditor(host: {
         y: floating!.y,
         region: floating!.region,
         tool,
+        axis: ($("scale-axis") as HTMLSelectElement).value as ScaleAxis,
       };
       return true;
     }
@@ -210,35 +223,21 @@ export function createRegionEditor(host: {
         dy = p.y - drag.start.y;
       if (drag.tool === "scale") {
         const b = drag.region;
-        const max = Math.min(8, g.width / b.width, g.height / b.height);
-        const ratio = Math.max(
-          Math.min(0.125, max),
-          Math.min(
-            max,
-            1 +
-              2 *
-                (Math.abs(dx / b.width) >= Math.abs(dy / b.height)
-                  ? dx / b.width
-                  : dy / b.height),
-          ),
-        );
-        const locked = ($("raster-lock") as HTMLInputElement).checked && !free;
-        const width = Math.max(
-          1,
-          Math.min(
-            g.width,
-            Math.round(locked ? b.width * ratio : b.width + dx * 2),
-          ),
-        );
-        const height = Math.max(
-          1,
-          Math.min(
-            g.height,
-            Math.round(locked ? b.height * ratio : b.height + dy * 2),
-          ),
+        const anchor = ($("raster-anchor") as HTMLSelectElement)
+          .value as Anchor;
+        const { width, height } = dragScaledSize(
+          b,
+          { x: dx, y: dy },
+          {
+            axis: drag.axis,
+            anchor,
+            locked: ($("raster-lock") as HTMLInputElement).checked && !free,
+            maxWidth: g.width,
+            maxHeight: g.height,
+            maxArea: 262144,
+          },
         );
         floating.region = scaledRegion(b, width, height);
-        const anchor = ($("raster-anchor") as HTMLSelectElement).value;
         const x =
           anchor === "top-left" ? drag.x : drag.x + (b.width - width) / 2;
         const baseline = g.height + g.metrics.shiftUp;
@@ -256,6 +255,65 @@ export function createRegionEditor(host: {
         );
       update();
     }
+  }
+  function mirror(axis: "h" | "v") {
+    const state = sync();
+    if (!state.editable || !selected() || !lift()) return false;
+    floating!.region = mirroredRegion(floating!.region, axis);
+    update();
+    if (floating!.kind !== "paste") finish();
+    return true;
+  }
+  function applyMutation(options: {
+    dx: number;
+    dy: number;
+    sx: number;
+    sy: number;
+    anchor: Anchor;
+    axis: ScaleAxis;
+  }) {
+    const state = sync();
+    if (!state.editable || !state.glyph || !selected() || !lift()) return false;
+    if (
+      ![options.dx, options.dy].every(
+        (n) => Number.isInteger(n) && Math.abs(n) <= 16384,
+      )
+    )
+      throw new Error("Зсув має бути цілим, до 16384 px");
+    const f = floating!,
+      b = f.region,
+      multiplier = options.anchor === "top-left" ? 1 : 2;
+    const { width, height } = dragScaledSize(
+      b,
+      {
+        x: (b.width * (options.sx / 100 - 1)) / multiplier,
+        y: (b.height * (options.sy / 100 - 1)) / multiplier,
+      },
+      {
+        axis: options.axis,
+        anchor: options.anchor,
+        locked: ($("raster-lock") as HTMLInputElement).checked,
+        maxWidth: state.glyph.width,
+        maxHeight: state.glyph.height,
+        maxArea: 262144,
+      },
+    );
+    f.region = scaledRegion(b, width, height);
+    const baseline = state.glyph.height + state.glyph.metrics.shiftUp;
+    const x =
+      f.x +
+      (options.anchor === "top-left" ? 0 : (b.width - width) / 2) +
+      options.dx;
+    const y =
+      (options.anchor === "top-left"
+        ? f.y
+        : options.anchor === "baseline"
+          ? baseline - ((baseline - f.y) * height) / b.height
+          : f.y + (b.height - height) / 2) + options.dy;
+    Object.assign(f, clamped(x, y, f.region));
+    update();
+    finish();
+    return true;
   }
   function pointerUp() {
     if (drawing) {
@@ -434,6 +492,8 @@ export function createRegionEditor(host: {
     pointerUp,
     nudge,
     finishNudge,
+    mirror,
+    applyMutation,
     finish,
     cancel,
     action,

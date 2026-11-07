@@ -102,3 +102,97 @@ export function mutatedRaster(glyph: Glyph, options: RasterMutation): Glyph {
     rows: pack(result.pixels, glyph.width, glyph.height),
   };
 }
+
+export type ScaleAxis = "both" | "h" | "v";
+/** Axis constraints take precedence over aspect lock; the inactive dimension is exact. */
+export function dragScaledSize(
+  base: { width: number; height: number },
+  delta: { x: number; y: number },
+  options: {
+    axis: ScaleAxis;
+    anchor: Anchor;
+    locked: boolean;
+    maxWidth?: number;
+    maxHeight?: number;
+    maxArea?: number;
+  },
+) {
+  const { width, height } = base,
+    { axis, anchor, locked } = options;
+  if (
+    !["both", "h", "v"].includes(axis) ||
+    ![delta.x, delta.y].every(Number.isFinite) ||
+    width < 1 ||
+    height < 1
+  )
+    throw new Error("Некоректні осі масштабу");
+  const multiplier = anchor === "top-left" ? 1 : 2;
+  const maxArea = options.maxArea ?? Infinity;
+  const maxWidth = Math.max(
+    1,
+    Math.floor(
+      Math.min(
+        options.maxWidth ?? 8192,
+        axis === "h" ? maxArea / height : Infinity,
+      ),
+    ),
+  );
+  const maxHeight = Math.max(
+    1,
+    Math.floor(
+      Math.min(
+        options.maxHeight ?? 8192,
+        axis === "v" ? maxArea / width : Infinity,
+      ),
+    ),
+  );
+  const bounded = (value: number, source: number, max: number) =>
+    Math.max(
+      1,
+      Math.round(
+        Math.max(Math.min(source / 8, max), Math.min(source * 8, max, value)),
+      ),
+    );
+  if (axis === "h")
+    return {
+      width: bounded(width + delta.x * multiplier, width, maxWidth),
+      height,
+    };
+  if (axis === "v")
+    return {
+      width,
+      height: bounded(height + delta.y * multiplier, height, maxHeight),
+    };
+  if (locked) {
+    const upper = Math.min(
+      8,
+      maxWidth / width,
+      maxHeight / height,
+      Math.sqrt(maxArea / (width * height)),
+    );
+    const ratio = Math.max(
+      Math.min(0.125, upper),
+      Math.min(
+        upper,
+        1 +
+          multiplier *
+            (Math.abs(delta.x / width) >= Math.abs(delta.y / height)
+              ? delta.x / width
+              : delta.y / height),
+      ),
+    );
+    return {
+      width: Math.max(1, Math.min(maxWidth, Math.round(width * ratio))),
+      height: Math.max(1, Math.min(maxHeight, Math.round(height * ratio))),
+    };
+  }
+  const w = bounded(width + delta.x * multiplier, width, maxWidth);
+  return {
+    width: w,
+    height: bounded(
+      height + delta.y * multiplier,
+      height,
+      Math.min(maxHeight, Math.floor(maxArea / w)),
+    ),
+  };
+}

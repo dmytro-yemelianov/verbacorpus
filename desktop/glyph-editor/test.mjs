@@ -1113,3 +1113,159 @@ test("guides use actual baseline, bearings, advance, cell and measured reference
     false,
   );
 });
+
+test("H scaling changes width only, ignoring vertical drag and aspect lock", () => {
+  const base = { width: 6, height: 4 };
+  for (const locked of [true, false]) {
+    assert.deepEqual(
+      m.dragScaledSize(
+        base,
+        { x: 2, y: 50 },
+        { axis: "h", anchor: "center", locked },
+      ),
+      { width: 10, height: 4 },
+    );
+    assert.deepEqual(
+      m.dragScaledSize(
+        base,
+        { x: 0, y: 50 },
+        { axis: "h", anchor: "center", locked },
+      ),
+      base,
+    );
+  }
+});
+test("V scaling changes height only, ignoring horizontal drag and aspect lock", () => {
+  const base = { width: 6, height: 4 };
+  for (const locked of [true, false]) {
+    assert.deepEqual(
+      m.dragScaledSize(
+        base,
+        { x: 50, y: 2 },
+        { axis: "v", anchor: "center", locked },
+      ),
+      { width: 6, height: 8 },
+    );
+    assert.deepEqual(
+      m.dragScaledSize(
+        base,
+        { x: 50, y: 0 },
+        { axis: "v", anchor: "center", locked },
+      ),
+      base,
+    );
+  }
+});
+test("combined scaling retains proportional/free behavior and anchor sensitivity", () => {
+  const base = { width: 6, height: 4 };
+  assert.deepEqual(
+    m.dragScaledSize(
+      base,
+      { x: 3, y: 0 },
+      { axis: "both", anchor: "center", locked: true },
+    ),
+    { width: 12, height: 8 },
+  );
+  assert.deepEqual(
+    m.dragScaledSize(
+      base,
+      { x: 3, y: 0 },
+      { axis: "both", anchor: "center", locked: false },
+    ),
+    { width: 12, height: 4 },
+  );
+  assert.deepEqual(
+    m.dragScaledSize(
+      base,
+      { x: 3, y: 0 },
+      { axis: "h", anchor: "top-left", locked: true },
+    ),
+    { width: 9, height: 4 },
+  );
+  assert.deepEqual(
+    m.dragScaledSize(
+      base,
+      { x: -100, y: 0 },
+      { axis: "h", anchor: "center", locked: true },
+    ),
+    { width: 1, height: 4 },
+  );
+});
+test("axis-constrained selection bounds retain the frozen dimension, including oversized pasted clips", () => {
+  assert.deepEqual(
+    m.dragScaledSize(
+      { width: 6, height: 20 },
+      { x: 50, y: -50 },
+      {
+        axis: "h",
+        anchor: "center",
+        locked: true,
+        maxWidth: 8,
+        maxHeight: 8,
+        maxArea: 262144,
+      },
+    ),
+    { width: 8, height: 20 },
+  );
+  assert.deepEqual(
+    m.dragScaledSize(
+      { width: 20, height: 6 },
+      { x: -50, y: 50 },
+      {
+        axis: "v",
+        anchor: "center",
+        locked: true,
+        maxWidth: 8,
+        maxHeight: 8,
+        maxArea: 262144,
+      },
+    ),
+    { width: 20, height: 8 },
+  );
+  assert.throws(() =>
+    m.dragScaledSize(
+      { width: 3, height: 3 },
+      { x: NaN, y: 0 },
+      { axis: "h", anchor: "center", locked: true },
+    ),
+  );
+});
+test("mirrors reflect both the arbitrary shape mask and pixels without changing origin", () => {
+  const region = {
+    width: 3,
+    height: 2,
+    pixels: Uint8Array.from([1, 0, 0, 1, 1, 0]),
+    mask: Uint8Array.from([1, 0, 0, 1, 1, 0]),
+    origin: clipOrigin,
+  };
+  const before = structuredClone(region),
+    h = m.mirroredRegion(region, "h"),
+    v = m.mirroredRegion(region, "v");
+  assert.deepEqual([...h.pixels], [0, 0, 1, 0, 1, 1]);
+  assert.deepEqual(h.mask, h.pixels);
+  assert.deepEqual([...v.pixels], [1, 1, 0, 1, 0, 0]);
+  assert.deepEqual(v.mask, v.pixels);
+  assert.deepEqual(m.mirroredRegion(h, "h"), region);
+  assert.deepEqual(m.mirroredRegion(v, "v"), region);
+  assert.deepEqual(region, before);
+  assert.deepEqual(h.origin, clipOrigin);
+  assert.deepEqual(m.parseRegion(m.serializeRegion(h)).mask, h.mask);
+});
+test("mirroring a lifted region preserves target metrics and unselected pixels", () => {
+  const g = raster("A", "g000065", ["#...#", ".##..", ".....", "#...#"]);
+  const mask = m.rectangleMask(5, 4, { x: 1, y: 0 }, { x: 3, y: 2 }),
+    region = m.extractRegion(g, mask).region;
+  const result = m.placeRegion(
+    g,
+    m.mirroredRegion(region, "h"),
+    1,
+    0,
+    true,
+    mask,
+  ).glyph;
+  assert.deepEqual(
+    result.rows,
+    raster("A", g.id, ["#...#", "..##.", ".....", "#...#"]).rows,
+  );
+  assert.deepEqual({ ...result, rows: g.rows }, g);
+});

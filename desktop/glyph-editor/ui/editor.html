@@ -127,7 +127,23 @@
                   title="Перетягування масштабує растр у межах комірки"
                 >
                   Масштаб <kbd>S</kbd></button
-                ><button id="rect" title="Прямокутне виділення">
+                ><label
+                  class="inline"
+                  title="H — тільки ширина, V — тільки висота"
+                  ><span>Вісь</span
+                  ><select id="scale-axis" aria-label="Осі масштабу">
+                    <option value="both">H+V</option>
+                    <option value="h">H ↔</option>
+                    <option value="v">V ↕</option>
+                  </select></label
+                >
+                <button id="mirror-h" title="Дзеркало H: ліво ↔ право">
+                  Дзеркало ↔
+                </button>
+                <button id="mirror-v" title="Дзеркало V: верх ↕ низ">
+                  Дзеркало ↕
+                </button>
+                <button id="rect" title="Прямокутне виділення">
                   Рамка <kbd>R</kbd></button
                 ><button id="lasso" title="Виділення довільної форми">
                   Ласо <kbd>L</kbd></button
@@ -254,8 +270,10 @@
                 title="Зсув обрізає пікселі на краю"
               >
                 →</button
-              ><button data-transform="flip-x">↔</button
-              ><button data-transform="flip-y">↕</button
+              ><button data-transform="flip-x" title="Дзеркало: ліво ↔ право">
+                ↔</button
+              ><button data-transform="flip-y" title="Дзеркало: верх ↕ низ">
+                ↕</button
               ><button
                 data-transform="rotate90"
                 title="За годинниковою стрілкою; ширина й висота міняються місцями"

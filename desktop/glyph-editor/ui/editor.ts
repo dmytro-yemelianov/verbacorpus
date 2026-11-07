@@ -9,11 +9,7 @@ import {
   glyphCaption,
   type GlyphSlot as Slot,
 } from "./regions";
-import {
-  createRasterMutation,
-  mutatedRaster,
-  type Anchor,
-} from "./raster-mutation";
+import { type Anchor, type ScaleAxis } from "./raster-mutation";
 import { propose, materialize } from "./autofill";
 import { chooseGeometry, choosingGeometry } from "./autofill-dialog";
 import { native } from "./bridge";
@@ -111,6 +107,8 @@ function busy(value: boolean) {
     "raster-apply",
     "move",
     "scale",
+    "mirror-h",
+    "mirror-v",
     "rect",
     "lasso",
     "previous",
@@ -1022,6 +1020,8 @@ on("font-done", completeFont);
 on("undo", () => history());
 on("redo", () => history(true));
 on("fit", () => action("fit"));
+on("mirror-h", () => canvasUI.mirror("h"));
+on("mirror-v", () => canvasUI.mirror("v"));
 on("copy", copy);
 for (const [id, value] of [
   ["region-copy", "copy"],
@@ -1099,7 +1099,9 @@ for (const button of document.querySelectorAll<HTMLButtonElement>(
       if (directions[op]) {
         canvasUI.nudge(...directions[op]);
         canvasUI.finishNudge();
-      } else if (op === "clear" && canvasUI.hasSelection())
+      } else if (op === "flip-x" || op === "flip-y")
+        void canvasUI.mirror(op === "flip-x" ? "h" : "v").catch(error);
+      else if (op === "clear" && canvasUI.hasSelection())
         void action("delete-selection").catch(error);
       else {
         finishStroke();
@@ -1121,33 +1123,48 @@ on("raster-apply", () => {
   const dx = Number($<HTMLInputElement>("raster-dx").value),
     dy = Number($<HTMLInputElement>("raster-dy").value);
   const anchor = $<HTMLSelectElement>("raster-anchor").value as Anchor;
-  finishStroke();
-  if (!current) return;
-  const b = createRasterMutation(current).bounds;
-  if (!b) throw new Error("Порожній растр — немає що трансформувати");
   if (![sx, sy].every((n) => Number.isFinite(n) && n >= 12.5 && n <= 800))
     throw new Error("Масштаб растра: 12,5–800 %");
-  commit(
-    mutatedRaster(current, {
-      dx,
-      dy,
-      width: Math.max(1, Math.round((b.width * sx) / 100)),
-      height: Math.max(1, Math.round((b.height * sy) / 100)),
-      anchor,
-    }),
-  );
+  canvasUI.applyMutation({
+    dx,
+    dy,
+    sx,
+    sy,
+    anchor,
+    axis: $<HTMLSelectElement>("scale-axis").value as ScaleAxis,
+  });
 });
 for (const id of ["raster-sx", "raster-sy"])
   $<HTMLInputElement>(id).oninput = () => {
-    if ($<HTMLInputElement>("raster-lock").checked)
+    if (
+      $<HTMLInputElement>("raster-lock").checked &&
+      $<HTMLSelectElement>("scale-axis").value === "both"
+    )
       $<HTMLInputElement>(
         id === "raster-sx" ? "raster-sy" : "raster-sx",
       ).value = $<HTMLInputElement>(id).value;
   };
 $<HTMLInputElement>("raster-lock").onchange = () => {
-  if ($<HTMLInputElement>("raster-lock").checked)
+  if (
+    $<HTMLInputElement>("raster-lock").checked &&
+    $<HTMLSelectElement>("scale-axis").value === "both"
+  )
     $<HTMLInputElement>("raster-sy").value =
       $<HTMLInputElement>("raster-sx").value;
+};
+$<HTMLSelectElement>("scale-axis").onchange = () => {
+  canvasUI.finishViewGesture();
+  const axis = $<HTMLSelectElement>("scale-axis").value;
+  for (const id of ["raster-sx", "raster-sy"]) {
+    const input = $<HTMLInputElement>(id);
+    input.value = "100";
+    input.disabled =
+      axis === "h"
+        ? id === "raster-sy"
+        : axis === "v"
+          ? id === "raster-sx"
+          : false;
+  }
 };
 zoom.oninput = () => {
   canvasUI.finishViewGesture();
