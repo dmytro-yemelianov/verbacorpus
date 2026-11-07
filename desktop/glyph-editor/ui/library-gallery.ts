@@ -7,6 +7,7 @@ export interface PreviewFont {
   cell: { width: number; height: number };
 }
 export interface LibraryPreview {
+  cell?: { width: number; height: number; advanceX: number };
   sections: { title: string; glyphs: Glyph[]; missing: number }[];
   unmapped: boolean;
 }
@@ -158,7 +159,7 @@ export function createLibraryGallery(options: {
           if (token !== epoch || !target.isConnected) return;
           meta.textContent = value.unmapped
             ? "Вибрані групи без відповідників · вихідні гліфи"
-            : `${font.cell.width}×${font.cell.height} · піксельні зразки`;
+            : `Комірка ${value.cell?.width ?? font.cell.width}×${value.cell?.height ?? font.cell.height} · моноширинний крок ${value.cell?.advanceX ?? font.cell.width}`;
           for (const section of value.sections) {
             const line = document.createElement("div"),
               title = document.createElement("small");

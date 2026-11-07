@@ -12,7 +12,7 @@ const require = createRequire(join(app, "package.json")),
 const compiled = await build({
   stdin: {
     contents:
-      'export * from "./ui/model"; export * from "./ui/autofill"; export * from "./ui/raster-mutation"; export * from "./ui/regions"; export * from "./ui/pixel-regions"; export * from "./ui/guides"; export * from "./ui/pixel-stroke"; export * from "./ui/shortcuts"; export * from "./ui/font-guides"; export * from "./ui/comparison"; export * from "./ui/candidates"; export * from "./ui/style-plan"; export * from "./ui/font-profile"; export * from "./ui/auto-guides"; export * from "./ui/ascii-mapping"; export * from "./ui/group-selection"; export * from "./ui/glyph-gallery";',
+      'export * from "./ui/model"; export * from "./ui/autofill"; export * from "./ui/raster-mutation"; export * from "./ui/regions"; export * from "./ui/pixel-regions"; export * from "./ui/guides"; export * from "./ui/pixel-stroke"; export * from "./ui/shortcuts"; export * from "./ui/font-guides"; export * from "./ui/comparison"; export * from "./ui/candidates"; export * from "./ui/style-plan"; export * from "./ui/font-profile"; export * from "./ui/auto-guides"; export * from "./ui/ascii-mapping"; export * from "./ui/group-selection"; export * from "./ui/monospace"; export * from "./ui/glyph-gallery";',
     resolveDir: join(root, "desktop/glyph-editor"),
     sourcefile: "model-tests.ts",
   },
@@ -1726,28 +1726,55 @@ test("style planning refuses ambiguous aliases and reference provenance never re
   assert.equal(recipe.generation.styleReferenceFont.name, "Reference");
 });
 
-test("PolarSmall letter frames exclude the 98px source banner and preserve A metrics", async () => {
+test("PolarSmall uses a shared monospace frame for every Latin and Ukrainian letter", async () => {
   const font = catalog.fonts.find(
     (f) => f.id === "hoard-custom-amiga-nudelfonts-polarsmall-prop",
   );
-  const raw = await readFile(join(app, "public", font.url), "utf8");
-  const record = JSON.parse(raw);
-  const profile = m.editingProfile(font, record.glyphs);
+  const raw = await readFile(join(app, "public", font.url), "utf8"),
+    record = JSON.parse(raw),
+    cell = m.fixedCell(font, record.glyphs);
   assert.equal(font.cell.width, 98);
-  assert.ok(profile.cell.width <= 10);
-  const a = record.glyphs.find((g) => g.character === "A");
-  const blank = m.profiledBlank(font, record.glyphs, "g000226", "А");
-  assert.equal(blank.width, 7);
-  assert.equal(blank.height, 6);
-  assert.equal(blank.advanceX, a.advanceX);
-  assert.deepEqual(blank.metrics, a.metrics);
-  assert.ok(blank.rows.every((r) => !parseInt(r, 16)));
-  assert.equal(JSON.stringify(record), JSON.stringify(JSON.parse(raw)));
-  assert.equal(
-    profile.metrics.capHeight,
-    m.referenceHeight(record.glyphs.find((g) => g.character === "H")),
+  assert.ok(cell.width <= 12);
+  const a = m.normalizeCell(
+      record.glyphs.find((g) => g.character === "A"),
+      cell,
+    ),
+    i = m.normalizeCell(
+      record.glyphs.find((g) => g.character === "I"),
+      cell,
+    ),
+    ua = m.profiledBlank(font, record.glyphs, "g000226", "А");
+  assert.deepEqual(
+    [a.width, a.height, a.advanceX],
+    [i.width, i.height, i.advanceX],
   );
-  assert.ok(profile.metrics.ascent > 0);
+  assert.deepEqual(
+    [ua.width, ua.height, ua.advanceX],
+    [a.width, a.height, a.advanceX],
+  );
+  assert.equal(
+    a.rows.reduce(
+      (n, r) =>
+        n +
+        [...r].reduce(
+          (s, h) => s + parseInt(h, 16).toString(2).replace(/0/g, "").length,
+          0,
+        ),
+      0,
+    ),
+    record.glyphs
+      .find((g) => g.character === "A")
+      .rows.reduce(
+        (n, r) =>
+          n +
+          [...r].reduce(
+            (s, h) => s + parseInt(h, 16).toString(2).replace(/0/g, "").length,
+            0,
+          ),
+        0,
+      ),
+  );
+  assert.equal(JSON.stringify(record), JSON.stringify(JSON.parse(raw)));
 });
 
 test("Classic's existing glyphs become visible and explicit ASCII mapping preserves every bitmap", async () => {
@@ -1857,35 +1884,23 @@ test("ASCII mapping skips conflicting, duplicate, and non-ASCII source labels", 
   );
 });
 
-test("legacy logo-width drafts can be compacted without losing ink; unsafe crops are refused", () => {
-  const samples = source.glyphs.filter((g) =>
-    ["A", "H", "x"].includes(g.character),
-  );
-  const a = structuredClone(samples.find((g) => g.character === "A"));
-  const pixels = new Uint8Array(98 * a.height),
-    ink = m.unpack(a);
-  for (let y = 0; y < a.height; y++)
-    pixels.set(ink.slice(y * a.width, (y + 1) * a.width), y * 98);
-  const legacy = {
+test("fixed-cell normalization is idempotent, preserves ordinary ink and fits large graphics", () => {
+  const a = source.glyphs.find((g) => g.character === "A"),
+    cell = m.fixedCell(summary, source.glyphs);
+  const normalized = m.normalizeCell(a, cell);
+  assert.deepEqual(m.normalizeCell(normalized, cell), normalized);
+  const big = {
     ...a,
-    character: "А",
     width: 98,
     rowBytes: 13,
-    advanceX: 7.588,
-    rows: m.pack(pixels, 98, a.height),
+    rows: Array(a.height).fill("F".repeat(24) + "C0"),
   };
-  const repaired = m.compactLegacyFrame(summary, samples, legacy);
-  assert.equal(repaired.width, a.width);
-  assert.deepEqual(repaired.rows, a.rows);
-  assert.equal(repaired.advanceX, a.advanceX);
-  pixels[97] = 1;
-  assert.equal(
-    m.compactLegacyFrame(summary, samples, {
-      ...legacy,
-      rows: m.pack(pixels, 98, a.height),
-    }),
-    undefined,
-  );
+  assert.equal(m.cellNeedsFit(big, cell), true);
+  const fitted = m.normalizeCell(big, cell);
+  assert.equal(fitted.width, cell.width);
+  assert.equal(fitted.height, cell.height);
+  assert.ok(m.unpack(fitted).some(Boolean));
+  assert.equal(big.width, 98);
 });
 
 test("Latin and Ukrainian groups can be viewed together, separately and by case", () => {
@@ -1994,5 +2009,64 @@ test("OCR observations are preserved in exported derivation without changing gly
   assert.deepEqual(
     state.derivations[original.id].generation.recognition,
     candidate.ocr,
+  );
+});
+
+test("font-wide cell changes have one undo, survive persistence and normalize every exported glyph", async () => {
+  const font = catalog.fonts.find(
+      (f) => f.id === "hoard-apple-lisa-classic-18pt",
+    ),
+    record = JSON.parse(await readFile(join(app, "public", font.url), "utf8"));
+  const draft = m.newDraft(font, catalog.snapshot),
+    doc = new m.Document(draft),
+    cell = { width: 32, height: 24, advanceX: 32, baseline: 20 };
+  draft.reviewed = ["U+0041"];
+  doc.commitFontCell(cell);
+  assert.equal(draft.reviewed.length, 0);
+  assert.deepEqual(draft.fontCell, cell);
+  assert.equal(doc.undo(), "$font");
+  assert.equal(draft.fontCell, undefined);
+  assert.equal(doc.redo(), "$font");
+  const state = JSON.parse(JSON.stringify(draft)),
+    exported = m.exportRecord(record, state);
+  validateFont(exported);
+  assert.equal(exported.cell.monospace, true);
+  assert.equal(exported.metrics.advanceX, 32);
+  assert.equal(
+    new Set(exported.glyphs.map((g) => `${g.width}x${g.height}:${g.advanceX}`))
+      .size,
+    1,
+  );
+  assert.ok(
+    exported.glyphs.every(
+      (g) => g.width === 32 && g.height === 24 && g.advanceX === 32,
+    ),
+  );
+  assert.deepEqual(exported.license, record.license);
+  assert.deepEqual(exported.source, record.source);
+  assert.throws(() => doc.commitFontCell({ ...cell, width: 0 }));
+  assert.throws(() => doc.commitFontCell({ ...cell, baseline: 25 }));
+});
+
+test("baseline alignment and centering use padding instead of per-letter raster dimensions", () => {
+  const frame = { width: 9, height: 9, advanceX: 9, baseline: 7 };
+  const narrow = {
+    ...source.glyphs[0],
+    width: 3,
+    height: 5,
+    rowBytes: 1,
+    advanceX: 5,
+    rows: ["E0", "40", "40", "40", "E0"],
+    metrics: { leftBearing: 1, rightBearing: 1, shiftUp: 0 },
+  };
+  const normalized = m.normalizeCell(narrow, frame),
+    bits = m.unpack(normalized);
+  assert.equal(normalized.metrics.shiftUp, -2);
+  assert.equal(normalized.metrics.leftBearing, 0);
+  assert.equal(bits[2 * 9 + 3], 1);
+  assert.equal(bits[6 * 9 + 5], 1);
+  assert.equal(
+    bits.reduce((n, v) => n + v, 0),
+    9,
   );
 });

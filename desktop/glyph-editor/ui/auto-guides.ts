@@ -1,10 +1,11 @@
-import { unpack, type FontSummary, type Glyph } from "./model";
+import { unpack } from "./glyph-bitmap";
+import type { FontSummary, Glyph } from "../../../app/src/para/types";
 import type { FontGuideOverrides } from "./font-guides";
 
 /** Distances in the glyph's native pixels, measured from its own baseline.
  * Blank padding and proportional widths never affect the vertical guides. */
 export function detectFontGuides(
-  font: FontSummary,
+  font: Pick<FontSummary, "cell" | "metrics">,
   samples: Glyph[],
 ): FontGuideOverrides {
   const byChar = new Map<string, { above: number; below: number }>();

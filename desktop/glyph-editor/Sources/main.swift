@@ -161,6 +161,7 @@ func selfTest(_ store: EditorStore) throws {
     let id = store.fonts.first!["id"] as! String, font = try store.summary(id)
     let state: [String: Any] = ["format":"para-glyph-edits","schemaVersion":1,"fontId":id,"snapshot":store.snapshot,
         "baseSha256":font["sha256"]!,"revision":2,"edits":[:],"reviewed":["U+0490"],"created":[],"done":false,
+        "fontCell":["width":8,"height":8,"advanceX":8,"baseline":6],
         "fontGuides":["baseline":6.5,"capHeight":5,"xHeight":3,"ascent":7,"descent":2,"lineGap":1]]
     _ = try store.saveState(id,state:state)
     guard let restored = try store.readState(id) as? [String: Any], restored["revision"] as? Int == 2 else { throw fail("Round trip failed") }
@@ -168,6 +169,11 @@ func selfTest(_ store: EditorStore) throws {
     for invalid: [String: Any] in [["xHeight":-1], ["ascent":20000], ["baseline":true], ["unknown":1]] {
         var bad = state; bad["fontGuides"] = invalid
         do { _ = try store.saveState(id,state:bad); throw fail("Invalid font guides accepted") } catch EditorError.message(let text) where text.hasPrefix("Некоректні гайди") {}
+    }
+    guard (restored["fontCell"] as? [String:Any])?["width"] as? Int == 8 else { throw fail("Font cell round trip failed") }
+    for invalid: [String:Any] in [["width":0,"height":8,"advanceX":8,"baseline":6], ["width":8,"height":8,"advanceX":8,"baseline":9], ["width":true,"height":8,"advanceX":8,"baseline":6]] {
+        var bad = state; bad["fontCell"] = invalid
+        do { _ = try store.saveState(id,state:bad); throw fail("Invalid font cell accepted") } catch EditorError.message(let text) where text.hasPrefix("Некоректна комірка") {}
     }
     var stale = state; stale["revision"] = 1
     do { _ = try store.saveState(id,state:stale); throw fail("Stale write accepted") } catch EditorError.message(let text) where text.hasPrefix("Новіші") {}

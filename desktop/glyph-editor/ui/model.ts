@@ -1,3 +1,12 @@
+import { detectFontGuides } from "./auto-guides";
+import { pack, unpack } from "./glyph-bitmap";
+import {
+  fixedCell,
+  cellFont,
+  normalizeCell,
+  validateCell,
+  type FontCell,
+} from "./monospace";
 import type {
   FontSummary,
   FontRecord,
@@ -66,6 +75,7 @@ export interface Draft {
   done: boolean;
   notes: string;
   fontGuides?: FontGuideOverrides;
+  fontCell?: FontCell;
 }
 export function newDraft(font: FontSummary, snapshot: string): Draft {
   return {
@@ -83,31 +93,7 @@ export function newDraft(font: FontSummary, snapshot: string): Draft {
     notes: "",
   };
 }
-export function unpack(glyph: Glyph) {
-  const pixels = new Uint8Array(glyph.width * glyph.height);
-  for (let y = 0; y < glyph.height; y++)
-    for (let b = 0; b < glyph.rowBytes; b++) {
-      const byte = parseInt(glyph.rows[y].slice(b * 2, b * 2 + 2), 16);
-      if (!byte) continue;
-      for (let bit = 0; bit < 8 && b * 8 + bit < glyph.width; bit++)
-        if (byte & (128 >> bit)) pixels[y * glyph.width + b * 8 + bit] = 1;
-    }
-  return pixels;
-}
-export function pack(pixels: Uint8Array, width: number, height: number) {
-  const rows: string[] = [];
-  for (let y = 0; y < height; y++) {
-    let row = "";
-    for (let b = 0; b < Math.ceil(width / 8); b++) {
-      let byte = 0;
-      for (let bit = 0; bit < 8 && b * 8 + bit < width; bit++)
-        if (pixels[y * width + b * 8 + bit]) byte |= 128 >> bit;
-      row += byte.toString(16).toUpperCase().padStart(2, "0");
-    }
-    rows.push(row);
-  }
-  return rows;
-}
+export { pack, unpack } from "./glyph-bitmap";
 export function line(
   x0: number,
   y0: number,
@@ -175,6 +161,7 @@ interface Transaction {
   createdAfter: string[];
   bytes: number;
   guides?: { before?: FontGuideOverrides; after?: FontGuideOverrides };
+  cell?: { before?: FontCell; after?: FontCell };
 }
 export class Document {
   private undoStack: Transaction[] = [];
@@ -261,6 +248,20 @@ export class Document {
     change.bytes = JSON.stringify(change).length * 2;
     return this.record(change);
   }
+  commitFontCell(value: FontCell) {
+    const after = validateCell(value),
+      before = this.state.fontCell;
+    if (JSON.stringify(before) === JSON.stringify(after)) return false;
+    const change: Transaction = {
+      changes: [],
+      createdBefore: [...this.state.created],
+      createdAfter: [...this.state.created],
+      cell: structuredClone({ before, after }),
+      bytes: 0,
+    };
+    change.bytes = JSON.stringify(change).length * 2;
+    return this.record(change);
+  }
   private record(change: Transaction) {
     // Never apply an un-undoable large batch.
     if (change.bytes > 8 * 1024 * 1024)
@@ -274,6 +275,12 @@ export class Document {
     return true;
   }
   private apply(transaction: Transaction, forward: boolean) {
+    if (transaction.cell) {
+      const value = forward ? transaction.cell.after : transaction.cell.before;
+      if (value) this.state.fontCell = structuredClone(value);
+      else delete this.state.fontCell;
+      this.state.reviewed = [];
+    }
     if (transaction.guides) {
       const value = forward
         ? transaction.guides.after
@@ -315,7 +322,7 @@ export class Document {
     this.historyBytes -= c.bytes;
     this.redoStack.push(c);
     this.apply(c, false);
-    return c.guides ? "$font" : c.changes[0].id;
+    return c.guides || c.cell ? "$font" : c.changes[0].id;
   }
   redo() {
     const c = this.redoStack.pop();
@@ -323,7 +330,7 @@ export class Document {
     this.undoStack.push(c);
     this.historyBytes += c.bytes;
     this.apply(c, true);
-    return c.guides ? "$font" : c.changes[0].id;
+    return c.guides || c.cell ? "$font" : c.changes[0].id;
   }
   review(key: string, value = true) {
     const set = new Set(this.state.reviewed);
@@ -488,29 +495,48 @@ export function exportRecord(base: FontRecord, state: Draft): FontRecord {
         id: "g" + String(glyphs.length).padStart(6, "0"),
       });
   }
+  const cell = fixedCell(base, base.glyphs ?? [], state.fontCell);
+  const normalized = glyphs.map((g) => normalizeCell(g, cell));
   return {
     ...structuredClone(base),
-    metrics: fontWithGuides(base, state.fontGuides).metrics,
+    metrics: fontWithGuides(
+      {
+        ...cellFont(base, cell),
+        metrics: {
+          ...base.metrics,
+          ...detectFontGuides(cellFont(base, cell), normalized),
+          baseline: cell.baseline,
+          advanceX: cell.advanceX,
+        },
+      },
+      state.fontGuides,
+    ).metrics,
     id: base.id.slice(0, 139) + "-edit-" + state.baseSha256.slice(0, 8),
     name: base.name + " · manual",
     version: `${base.version}-manual-${state.revision}`,
     kind: "derived",
     cell: {
       ...base.cell,
-      width: Math.max(base.cell.width, ...glyphs.map((g) => g.width)),
-      height: Math.max(base.cell.height, ...glyphs.map((g) => g.height)),
+      width: cell.width,
+      height: cell.height,
+      monospace: true,
     },
-    glyphs,
-    coverage: coverage(glyphs),
+    glyphs: normalized,
+    coverage: coverage(normalized),
     modifications: [
       ...base.modifications,
       {
         type: "manual-glyph-edit",
-        tool: "Verba Glyph Editor 0.10.2",
+        tool: "Verba Glyph Editor 0.13.0",
         baseFontId: base.id,
         baseSha256: state.baseSha256,
         sourceSnapshot: state.snapshot,
         updatedAt: state.updatedAt,
+        fontCell: cell,
+        normalization: {
+          method: "shared-monospace-cell-v1",
+          oversizedInk: "nearest-aspect-fit",
+        },
         modifiedGlyphIds: Object.keys(state.edits),
         addedDraftGlyphIds: state.created,
         notes: state.notes,

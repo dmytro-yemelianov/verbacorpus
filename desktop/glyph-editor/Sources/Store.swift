@@ -68,6 +68,14 @@ final class EditorStore {
                       key == "baseline" || number.doubleValue >= 0 else { throw fail("Некоректні гайди шрифту") }
             }
         }
+        if let raw = state["fontCell"] {
+            guard let cell = raw as? [String:Any], Set(cell.keys) == Set(["width","height","advanceX","baseline"]) else { throw fail("Некоректна комірка шрифту") }
+            for value in cell.values {
+                guard let n = value as? NSNumber, CFGetTypeID(n) != CFBooleanGetTypeID(), n.doubleValue.isFinite, n.doubleValue.rounded() == n.doubleValue else { throw fail("Некоректна комірка шрифту") }
+            }
+            guard let w = cell["width"] as? Int, let h = cell["height"] as? Int, let a = cell["advanceX"] as? Int, let b = cell["baseline"] as? Int,
+                  w > 0, h > 0, w <= 1024, h <= 1024, w*h <= 262144, a > 0, a <= 4096, b >= 0, b <= h else { throw fail("Некоректна комірка шрифту") }
+        }
         for (key, value) in edits {
             guard key.range(of: "^g[0-9]{6}$", options: .regularExpression) != nil,
                   let glyph = value as? [String: Any], glyph["id"] as? String == key,
@@ -100,7 +108,7 @@ final class EditorStore {
             do {
                 guard let state = try readState(id) as? [String: Any] else { continue }
                 let guideChanges = (state["fontGuides"] as? [String: Any])?.isEmpty == false ? 1 : 0
-                summaries[id] = ["edits": ((state["edits"] as? [String: Any])?.count ?? 0) + guideChanges,
+                summaries[id] = ["edits": ((state["edits"] as? [String: Any])?.count ?? 0) + guideChanges + (state["fontCell"] == nil ? 0 : 1),
                                  "reviewed": (state["reviewed"] as? [String])?.count ?? 0,
                                  "done": state["done"] as? Bool ?? false]
             } catch { errors.append(id + ": " + error.localizedDescription) }
