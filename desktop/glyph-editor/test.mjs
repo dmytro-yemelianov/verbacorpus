@@ -12,7 +12,7 @@ const require = createRequire(join(app, "package.json")),
 const compiled = await build({
   stdin: {
     contents:
-      'export * from "./ui/model"; export * from "./ui/autofill"; export * from "./ui/raster-mutation"; export * from "./ui/regions"; export * from "./ui/pixel-regions"; export * from "./ui/guides"; export * from "./ui/pixel-stroke"; export * from "./ui/shortcuts";',
+      'export * from "./ui/model"; export * from "./ui/autofill"; export * from "./ui/raster-mutation"; export * from "./ui/regions"; export * from "./ui/pixel-regions"; export * from "./ui/guides"; export * from "./ui/pixel-stroke"; export * from "./ui/shortcuts"; export * from "./ui/font-guides"; export * from "./ui/comparison";',
     resolveDir: join(root, "desktop/glyph-editor"),
     sourcefile: "model-tests.ts",
   },
@@ -1367,4 +1367,151 @@ test("shortcut resolution preserves editing/navigation keys and does not guess l
   assert.equal(m.shortcutKey({ code: "", key: "Escape" }), "Escape");
   assert.equal(m.shortcutKey({ code: "", key: "f" }), "");
   assert.equal(m.shortcutKey({ code: "KeyF", key: "s" }), "f");
+});
+
+test("comparison aligns the baseline and pen origin across unequal rasters", () => {
+  const a = {
+    ...letter("A"),
+    width: 9,
+    height: 13,
+    metrics: { leftBearing: 2, rightBearing: 0, shiftUp: -3 },
+  };
+  const b = {
+    ...letter("H"),
+    width: 5,
+    height: 7,
+    metrics: { leftBearing: -1, rightBearing: 4, shiftUp: 2 },
+  };
+  const before = JSON.stringify([a, b]);
+  assert.deepEqual(m.comparisonOffset(a, b, "baseline"), { x: -3, y: 1 });
+  assert.deepEqual(m.comparisonOffset(a, b, "baseline", 4, -2), {
+    x: 1,
+    y: -1,
+  });
+  assert.deepEqual(m.comparisonOffset(a, b, "raster", 4, -2), { x: 4, y: -2 });
+  assert.equal(JSON.stringify([a, b]), before);
+});
+
+test("font guides are an undoable font-wide transaction and keep glyph pixels intact", () => {
+  const state = m.newDraft(summary, catalog.snapshot),
+    doc = new m.Document(state);
+  doc.review("U+0041");
+  state.done = true;
+  const original = letter("A"),
+    changed = m.transformed(original, "invert");
+  doc.commit(original.id, changed, original);
+  const edits = JSON.stringify(state.edits);
+  assert.equal(
+    doc.commitFontGuides({
+      baseline: 6,
+      capHeight: 5,
+      xHeight: 3,
+      ascent: 7,
+      descent: 2,
+      lineGap: 1,
+    }),
+    true,
+  );
+  assert.equal(state.done, false);
+  assert.deepEqual(state.reviewed, []);
+  assert.equal(doc.undo(), "$font");
+  assert.equal(state.fontGuides, undefined);
+  assert.equal(JSON.stringify(state.edits), edits);
+  assert.equal(doc.redo(), "$font");
+  assert.equal(state.fontGuides.baseline, 6);
+  doc.undo();
+  assert.equal(doc.undo(), original.id);
+  assert.deepEqual(state.edits, {});
+  doc.redo();
+  doc.redo();
+  assert.equal(state.fontGuides.capHeight, 5);
+});
+
+test("font-only edits persist and export metrics and attribution without adding glyphs", () => {
+  const state = m.newDraft(summary, catalog.snapshot),
+    doc = new m.Document(state),
+    before = JSON.stringify(source);
+  doc.commitFontGuides({
+    baseline: 6,
+    capHeight: 5,
+    xHeight: 3,
+    ascent: 7,
+    descent: 2,
+    lineGap: 1,
+  });
+  const restored = JSON.parse(JSON.stringify(state));
+  const exported = m.exportRecord(source, restored);
+  validateFont(exported);
+  assert.equal(exported.metrics.baseline, 6);
+  assert.equal(exported.metrics.lineHeight, 10);
+  assert.equal(exported.metrics.capHeight, 5);
+  assert.equal(exported.metrics.xHeight, 3);
+  assert.deepEqual(exported.glyphs, source.glyphs);
+  assert.deepEqual(exported.modifications.at(-1).fontGuides, state.fontGuides);
+  assert.equal(JSON.stringify(source), before);
+  assert.equal(doc.commitFontGuides({}), true);
+  assert.equal(state.fontGuides, undefined);
+  doc.undo();
+  assert.equal(state.fontGuides.baseline, 6);
+});
+
+test("guide overrides reject invalid values and preserve source extensions", () => {
+  for (const value of [
+    { baseline: NaN },
+    { xHeight: -1 },
+    { baseline: Infinity },
+    { ascent: 16385 },
+    { unknown: 1 },
+    { capHeight: "5" },
+  ])
+    assert.throws(() => m.validateFontGuides(value));
+  assert.deepEqual(m.validateFontGuides({ baseline: -1.5, xHeight: 0 }), {
+    baseline: -1.5,
+    xHeight: 0,
+  });
+  const f = {
+    ...summary,
+    metrics: { ...summary.metrics, customMetric: 42, lineHeight: 20 },
+  };
+  assert.equal(m.fontWithGuides(f, { capHeight: 6 }).metrics.lineHeight, 20);
+  assert.equal(
+    m.fontWithGuides(f, { ascent: 7, descent: 2, lineGap: 1 }).metrics
+      .lineHeight,
+    10,
+  );
+  assert.equal(m.fontWithGuides(f, { baseline: 6 }).metrics.customMetric, 42);
+  assert.throws(() =>
+    m.fontWithGuides(f, { ascent: 0, descent: 0, lineGap: 0 }),
+  );
+});
+
+test("explicit cap and x guides override measurements and signed source descent is normalized", () => {
+  const f = m.fontWithGuides(
+    { ...summary, metrics: { ...summary.metrics, descent: -2 } },
+    { capHeight: 4, xHeight: 2 },
+  );
+  const g = letter("A"),
+    baseline = g.height + g.metrics.shiftUp;
+  const named = Object.fromEntries(
+    m.glyphGuides(g, f, { cap: 7, x: 5 }).map((g) => [g.label, g.value]),
+  );
+  assert.equal(named["Великі H/Н"], baseline - 4);
+  assert.equal(named["Малі x/х"], baseline - 2);
+  assert.equal(named.Descent, baseline + 2);
+  assert.equal(m.fontGuideValues(f).descent, 2);
+  assert.ok(m.glyphGuides(g, f).every((g) => g.help.length > 10));
+});
+
+test("font guide reset and unchanged values do not create spurious history", () => {
+  const state = m.newDraft(summary, catalog.snapshot),
+    doc = new m.Document(state);
+  assert.equal(doc.commitFontGuides({}), false);
+  assert.equal(doc.canUndo, false);
+  doc.commitFontGuides({ baseline: 6 });
+  const revision = state.revision;
+  assert.equal(doc.commitFontGuides({ baseline: 6 }), false);
+  assert.equal(state.revision, revision);
+  const restored = new m.Document(JSON.parse(JSON.stringify(state)));
+  assert.equal(restored.state.fontGuides.baseline, 6);
+  assert.equal(restored.canUndo, false);
 });

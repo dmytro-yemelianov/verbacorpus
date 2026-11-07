@@ -1,4 +1,5 @@
 import { createPixelStroke } from "./pixel-stroke";
+import { comparisonOffset } from "./comparison";
 import { createRegionEditor } from "./region-editor";
 import { glyphGuides, paintGuides, type ReferenceHeights } from "./guides";
 import type { RegionOrigin } from "./pixel-regions";
@@ -26,6 +27,13 @@ export function createCanvas(model: {
     key: string;
     font?: FontSummary;
     references: ReferenceHeights;
+    comparison?: {
+      glyph: Glyph;
+      opacity: number;
+      alignment: string;
+      dx: number;
+      dy: number;
+    };
     origin?: RegionOrigin;
   };
   commit: (glyph: Glyph, origin?: RegionOrigin) => void;
@@ -33,6 +41,8 @@ export function createCanvas(model: {
   const canvas = $<HTMLCanvasElement>("canvas"),
     stage = $<HTMLElement>("canvas-stage"),
     zoom = $<HTMLInputElement>("zoom");
+  let comparisonGlyph: Glyph | undefined,
+    comparisonCanvas: HTMLCanvasElement | undefined;
   const regions = createRegionEditor({
     get: () => ({
       ...model.get(),
@@ -86,7 +96,11 @@ export function createCanvas(model: {
       ),
     );
   }
-  function sourceCanvas(g: Glyph | undefined, data?: Uint8Array) {
+  function sourceCanvas(
+    g: Glyph | undefined,
+    data?: Uint8Array,
+    color = [238, 233, 215, 255],
+  ) {
     const c = document.createElement("canvas");
     c.width = Math.max(1, g?.width ?? 1);
     c.height = Math.max(1, g?.height ?? 1);
@@ -95,13 +109,19 @@ export function createCanvas(model: {
       image = c.getContext("2d")!.createImageData(c.width, c.height);
     for (let i = 0; i < p.length; i++)
       if (p[i]) {
-        image.data.set([238, 233, 215, 255], i * 4);
+        image.data.set(color, i * 4);
       }
     c.getContext("2d")!.putImageData(image, 0, 0);
     return c;
   }
   function draw() {
-    const { glyph: current, original, font, references } = model.get();
+    const {
+      glyph: current,
+      original,
+      font,
+      references,
+      comparison,
+    } = model.get();
     const regionPreview = regions.preview();
     const mutation = mutationPreview();
     if (gesture) {
@@ -162,6 +182,37 @@ export function createCanvas(model: {
         }
       source.getContext("2d")!.putImageData(image, 0, 0);
     }
+    if (comparison && view === "edit") {
+      if (comparisonGlyph !== comparison.glyph) {
+        comparisonGlyph = comparison.glyph;
+        comparisonCanvas = sourceCanvas(
+          comparison.glyph,
+          undefined,
+          [89, 187, 237, 255],
+        );
+      }
+      const backdrop = comparisonCanvas!;
+      const offset = comparisonOffset(
+        current,
+        comparison.glyph,
+        comparison.alignment,
+        comparison.dx,
+        comparison.dy,
+      );
+      context.save();
+      context.globalAlpha = comparison.opacity;
+      context.drawImage(
+        backdrop,
+        Math.round(offset.x) * z,
+        Math.round(offset.y) * z,
+        backdrop.width * z,
+        backdrop.height * z,
+      );
+      context.restore();
+    } else {
+      comparisonGlyph = undefined;
+      comparisonCanvas = undefined;
+    }
     context.drawImage(source, 0, 0, source.width * z, source.height * z);
     if ($<HTMLInputElement>("grid").checked && z >= 5) {
       context.strokeStyle = "#a5af9b55";
@@ -190,7 +241,7 @@ export function createCanvas(model: {
           g.value < 0 ||
           g.value > (g.axis === "x" ? current.width : current.height)
             ? "Поза растром гліфа"
-            : "";
+            : g.help;
         return item;
       }),
     );

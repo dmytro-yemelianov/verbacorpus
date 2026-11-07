@@ -3,6 +3,11 @@ import type {
   FontRecord,
   Glyph,
 } from "../../../app/src/para/types";
+import {
+  validateFontGuides,
+  fontWithGuides,
+  type FontGuideOverrides,
+} from "./font-guides";
 export type { Glyph, FontSummary, FontRecord };
 export const UKRAINIAN = [
   ..."АБВГҐДЕЄЖЗИІЇЙКЛМНОПРСТУФХЦЧШЩЬЮЯабвгґдеєжзиіїйклмнопрстуфхцчшщьюя",
@@ -39,6 +44,7 @@ export interface Draft {
   reviewed: string[];
   done: boolean;
   notes: string;
+  fontGuides?: FontGuideOverrides;
 }
 export function newDraft(font: FontSummary, snapshot: string): Draft {
   return {
@@ -147,6 +153,7 @@ interface Transaction {
   createdBefore: string[];
   createdAfter: string[];
   bytes: number;
+  guides?: { before?: FontGuideOverrides; after?: FontGuideOverrides };
 }
 export class Document {
   private undoStack: Transaction[] = [];
@@ -212,6 +219,28 @@ export class Document {
       bytes: 0,
     };
     change.bytes = JSON.stringify(change).length * 2;
+    return this.record(change);
+  }
+  commitFontGuides(value: FontGuideOverrides) {
+    const normalized = validateFontGuides(value);
+    const after = Object.keys(normalized).length ? normalized : undefined;
+    const before = this.state.fontGuides;
+    if (
+      JSON.stringify(validateFontGuides(before ?? {})) ===
+      JSON.stringify(after ?? {})
+    )
+      return false;
+    const change: Transaction = {
+      changes: [],
+      createdBefore: [...this.state.created],
+      createdAfter: [...this.state.created],
+      guides: structuredClone({ before, after }),
+      bytes: 0,
+    };
+    change.bytes = JSON.stringify(change).length * 2;
+    return this.record(change);
+  }
+  private record(change: Transaction) {
     // Never apply an un-undoable large batch.
     if (change.bytes > 8 * 1024 * 1024)
       throw new Error("Пакет перевищує 8 MiB історії undo");
@@ -224,6 +253,14 @@ export class Document {
     return true;
   }
   private apply(transaction: Transaction, forward: boolean) {
+    if (transaction.guides) {
+      const value = forward
+        ? transaction.guides.after
+        : transaction.guides.before;
+      if (value) this.state.fontGuides = structuredClone(value);
+      else delete this.state.fontGuides;
+      this.state.reviewed = [];
+    }
     const invalid = new Set<string>();
     for (const change of transaction.changes) {
       const value = forward ? change.after : change.before;
@@ -257,7 +294,7 @@ export class Document {
     this.historyBytes -= c.bytes;
     this.redoStack.push(c);
     this.apply(c, false);
-    return c.changes[0].id;
+    return c.guides ? "$font" : c.changes[0].id;
   }
   redo() {
     const c = this.redoStack.pop();
@@ -265,7 +302,7 @@ export class Document {
     this.undoStack.push(c);
     this.historyBytes += c.bytes;
     this.apply(c, true);
-    return c.changes[0].id;
+    return c.guides ? "$font" : c.changes[0].id;
   }
   review(key: string, value = true) {
     const set = new Set(this.state.reviewed);
@@ -432,6 +469,7 @@ export function exportRecord(base: FontRecord, state: Draft): FontRecord {
   }
   return {
     ...structuredClone(base),
+    metrics: fontWithGuides(base, state.fontGuides).metrics,
     id: base.id.slice(0, 139) + "-edit-" + state.baseSha256.slice(0, 8),
     name: base.name + " · manual",
     version: `${base.version}-manual-${state.revision}`,
@@ -447,7 +485,7 @@ export function exportRecord(base: FontRecord, state: Draft): FontRecord {
       ...base.modifications,
       {
         type: "manual-glyph-edit",
-        tool: "Verba Glyph Editor 0.7",
+        tool: "Verba Glyph Editor 0.8",
         baseFontId: base.id,
         baseSha256: state.baseSha256,
         sourceSnapshot: state.snapshot,
@@ -455,6 +493,9 @@ export function exportRecord(base: FontRecord, state: Draft): FontRecord {
         modifiedGlyphIds: Object.keys(state.edits),
         addedDraftGlyphIds: state.created,
         notes: state.notes,
+        ...(state.fontGuides
+          ? { fontGuides: structuredClone(state.fontGuides) }
+          : {}),
         derivations: Object.entries(state.derivations ?? {}).map(
           ([id, recipe]) => ({
             ...recipe,

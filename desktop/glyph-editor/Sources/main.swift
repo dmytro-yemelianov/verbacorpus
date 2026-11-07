@@ -147,9 +147,15 @@ func argument(_ key: String) -> String? {
 func selfTest(_ store: EditorStore) throws {
     let id = store.fonts.first!["id"] as! String, font = try store.summary(id)
     let state: [String: Any] = ["format":"para-glyph-edits","schemaVersion":1,"fontId":id,"snapshot":store.snapshot,
-        "baseSha256":font["sha256"]!,"revision":2,"edits":[:],"reviewed":["U+0490"],"created":[],"done":false]
+        "baseSha256":font["sha256"]!,"revision":2,"edits":[:],"reviewed":["U+0490"],"created":[],"done":false,
+        "fontGuides":["baseline":6.5,"capHeight":5,"xHeight":3,"ascent":7,"descent":2,"lineGap":1]]
     _ = try store.saveState(id,state:state)
     guard let restored = try store.readState(id) as? [String: Any], restored["revision"] as? Int == 2 else { throw fail("Round trip failed") }
+    guard (restored["fontGuides"] as? [String: Any])?["baseline"] as? Double == 6.5 else { throw fail("Font guide round trip failed") }
+    for invalid: [String: Any] in [["xHeight":-1], ["ascent":20000], ["baseline":true], ["unknown":1]] {
+        var bad = state; bad["fontGuides"] = invalid
+        do { _ = try store.saveState(id,state:bad); throw fail("Invalid font guides accepted") } catch EditorError.message(let text) where text.hasPrefix("Некоректні гайди") {}
+    }
     var stale = state; stale["revision"] = 1
     do { _ = try store.saveState(id,state:stale); throw fail("Stale write accepted") } catch EditorError.message(let text) where text.hasPrefix("Новіші") {}
     var wrong = state; wrong["baseSha256"] = "wrong"

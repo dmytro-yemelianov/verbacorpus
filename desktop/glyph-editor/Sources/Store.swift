@@ -1,4 +1,5 @@
 import Foundation
+import CoreFoundation
 import AppKit
 import CryptoKit
 import Darwin
@@ -57,6 +58,15 @@ final class EditorStore {
               let reviewed = state["reviewed"] as? [String], reviewed.count <= 65536 else {
             throw fail("Правки належать іншій версії шрифту або мають невірний формат")
         }
+        if let raw = state["fontGuides"] {
+            let keys: Set<String> = ["baseline", "capHeight", "xHeight", "ascent", "descent", "lineGap"]
+            guard let guides = raw as? [String: Any], guides.keys.allSatisfy({ keys.contains($0) }) else { throw fail("Некоректні гайди шрифту") }
+            for (key, value) in guides {
+                guard let number = value as? NSNumber, CFGetTypeID(number) != CFBooleanGetTypeID(),
+                      number.doubleValue.isFinite, abs(number.doubleValue) <= 16384,
+                      key == "baseline" || number.doubleValue >= 0 else { throw fail("Некоректні гайди шрифту") }
+            }
+        }
         for (key, value) in edits {
             guard key.range(of: "^g[0-9]{6}$", options: .regularExpression) != nil,
                   let glyph = value as? [String: Any], glyph["id"] as? String == key,
@@ -88,7 +98,8 @@ final class EditorStore {
             let id = url.deletingPathExtension().lastPathComponent
             do {
                 guard let state = try readState(id) as? [String: Any] else { continue }
-                summaries[id] = ["edits": (state["edits"] as? [String: Any])?.count ?? 0,
+                let guideChanges = (state["fontGuides"] as? [String: Any])?.isEmpty == false ? 1 : 0
+                summaries[id] = ["edits": ((state["edits"] as? [String: Any])?.count ?? 0) + guideChanges,
                                  "reviewed": (state["reviewed"] as? [String])?.count ?? 0,
                                  "done": state["done"] as? Bool ?? false]
             } catch { errors.append(id + ": " + error.localizedDescription) }

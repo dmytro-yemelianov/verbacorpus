@@ -1,4 +1,7 @@
 import { shortcutKey } from "./shortcuts";
+import { createComparison } from "./comparison";
+import { createFontGuidesEditor } from "./font-guides-editor";
+import { fontWithGuides } from "./font-guides";
 import { referenceHeight, type ReferenceHeights } from "./guides";
 import type { RegionOrigin } from "./pixel-regions";
 import {
@@ -126,13 +129,17 @@ function busy(value: boolean) {
     "flip",
     "undo",
     "redo",
+    "font-guides-open",
+    "comparison-current",
   ])
     $<HTMLButtonElement>(id).disabled = value;
 }
 function progressUpdate() {
   if (!doc || !font) return;
   boot.progress[font.id] = {
-    edits: Object.keys(doc.state.edits).length,
+    edits:
+      Object.keys(doc.state.edits).length +
+      (Object.keys(doc.state.fontGuides ?? {}).length ? 1 : 0),
     reviewed: doc.state.reviewed.length,
     done: doc.state.done,
   };
@@ -265,6 +272,8 @@ async function openFont(id: string, resume?: string) {
   clearError();
   $("autofill-status").textContent = "";
   const revision = ++fontRevision;
+  comparison.reset();
+  guideEditor.close();
   referenceHeights = {};
   selectionRevision++;
   queueRevision++;
@@ -408,7 +417,9 @@ async function select(position: number, fit = false) {
     return;
   }
   const id = slot.id ?? doc.nextID(font.coverage.glyphCount);
-  const loaded = slot.id ? await glyph(id) : blankGlyph(font, id, slot.char!);
+  const loaded = slot.id
+    ? await glyph(id)
+    : blankGlyph(effectiveFont()!, id, slot.char!);
   const source =
     Number(id.slice(1)) < font.coverage.glyphCount
       ? (await face.glyphs([Number(id.slice(1))]))[0]
@@ -445,7 +456,7 @@ async function proofPaint() {
   if (token !== proofRevision || font?.id !== target.id) return;
   const changed = Object.values(doc.state.edits),
     summary = {
-      ...target,
+      ...fontWithGuides(target, doc.state.fontGuides),
       cell: {
         ...target.cell,
         width: Math.max(target.cell.width, ...changed.map((g) => g.width)),
@@ -532,13 +543,50 @@ function updateButtons() {
   $<HTMLButtonElement>("next").disabled =
     !slots.length || selected >= slots.length - 1;
 }
+function effectiveFont() {
+  return font ? fontWithGuides(font, doc?.state.fontGuides) : undefined;
+}
+const comparison = createComparison({
+  get: () => ({ fontId: font?.id, current, busy: editingBusy || exporting }),
+  resolve: async (query) => {
+    if (!doc || !face || !font) return;
+    const value = query.trim();
+    const id = /^g\d{6}$/.test(value)
+      ? value
+      : index.get(parseChar(value))?.[0];
+    return id ? glyph(id) : undefined;
+  },
+  changed: () => scheduleDraw(),
+  error,
+});
+const guideEditor = createFontGuidesEditor({
+  get: () => ({
+    font,
+    overrides: doc?.state.fontGuides,
+    reference: referenceHeights,
+    busy: editingBusy || exporting,
+  }),
+  apply: async (value) => {
+    const target = doc;
+    await canvasUI.flushRegions();
+    if (!font || !doc || doc !== target || editingBusy || exporting) return;
+    fontWithGuides(font, value);
+    if (!doc.commitFontGuides(value)) return;
+    scheduleSave();
+    updateButtons();
+    draw();
+    scheduleProof();
+  },
+  error,
+});
 const canvasUI = createCanvas({
   get: () => ({
     glyph: current,
     original,
     editable: !editingBusy && !exporting,
     key: `${font?.id ?? ""}:${current?.id ?? ""}`,
-    font,
+    font: effectiveFont(),
+    comparison: comparison.get(),
     references: referenceHeights,
     origin:
       font && current
@@ -663,7 +711,13 @@ async function renderQueue() {
     const label = document.createElement("span");
     label.textContent = caption;
     button.append(label);
-    button.onclick = () => void select(start + i).catch(error);
+    button.onclick = (event) => {
+      if (event.shiftKey && value) {
+        comparison.pin(value);
+        $<HTMLDetailsElement>("comparison-panel").open = true;
+      } else void select(start + i).catch(error);
+    };
+    button.title += " · Shift+клік — додати як підкладку";
     fragment.append(button);
   }
   container.append(fragment);
@@ -866,7 +920,11 @@ async function mapping(create = false) {
       await jump(char);
       return;
     }
-    const added = blankGlyph(font, doc.nextID(font.coverage.glyphCount), char);
+    const added = blankGlyph(
+      effectiveFont()!,
+      doc.nextID(font.coverage.glyphCount),
+      char,
+    );
     doc.commit(added.id, added, undefined);
     scheduleSave();
     $<HTMLSelectElement>("mode").value = "all";
@@ -888,7 +946,11 @@ async function exportOne(id = font?.id) {
   await flush();
   const summary = await native<FontSummary>("summary", { id }),
     state = await native<Draft | null>("readState", { id });
-  if (!state || !Object.keys(state.edits).length)
+  if (
+    !state ||
+    (!Object.keys(state.edits).length &&
+      !Object.keys(state.fontGuides ?? {}).length)
+  )
     throw new Error("У цьому шрифті немає правок для експорту");
   const base = JSON.parse(
     await native<string>("readAsset", { path: summary.url }),
@@ -920,7 +982,11 @@ async function exportAll() {
 }
 async function action(value: string) {
   clearError();
-  if (choosingGeometry() && value !== "save") return;
+  if (
+    (choosingGeometry() || $<HTMLDialogElement>("font-guides-dialog").open) &&
+    value !== "save"
+  )
+    return;
   switch (value) {
     case "copy":
     case "cut":
@@ -1234,7 +1300,8 @@ on("page-next", () => {
   );
 });
 document.addEventListener("keydown", (event) => {
-  if (choosingGeometry()) return;
+  if (choosingGeometry() || $<HTMLDialogElement>("font-guides-dialog").open)
+    return;
   const editing =
     event.target instanceof HTMLElement &&
     event.target.matches("input,textarea,select");

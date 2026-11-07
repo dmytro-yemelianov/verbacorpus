@@ -746,3 +746,118 @@ main {
 #guide-legend:empty {
   display: none;
 }
+
+#comparison-panel {
+  flex: none;
+  border-bottom: 1px solid var(--rule);
+  padding: 5px 8px;
+  font-size: 11px;
+}
+#comparison-panel summary {
+  cursor: pointer;
+  color: #71beea;
+}
+#comparison-panel p {
+  margin: 5px 0;
+}
+.comparison-picker,
+#comparison-controls,
+#comparison-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.comparison-picker {
+  margin-top: 7px;
+}
+#comparison-form {
+  flex: 1;
+  min-width: 180px;
+}
+#comparison-query {
+  width: 150px;
+  flex: 1;
+}
+#comparison-panel button,
+#comparison-panel input,
+#comparison-panel select {
+  padding: 4px 6px;
+  font-size: 11px;
+}
+#comparison-dx,
+#comparison-dy {
+  width: 58px;
+}
+#comparison-status {
+  color: #71beea;
+}
+#font-guides-open {
+  font-size: 12px;
+}
+#font-guides-dialog {
+  width: min(850px, 94vw);
+  max-height: 90vh;
+  overflow: auto;
+  background: var(--paper);
+  color: var(--ink);
+  border: 1px solid var(--rule);
+  border-radius: 9px;
+  padding: 22px;
+}
+#font-guides-dialog::backdrop {
+  background: #0009;
+}
+#font-guides-dialog h2 {
+  margin: 0;
+  font-size: 20px;
+}
+#font-guides-name {
+  color: var(--accent);
+}
+#font-guide-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.font-guide-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 145px;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--rule);
+  border-radius: 5px;
+}
+.font-guide-card p {
+  grid-column: 1 / -1;
+  color: var(--muted);
+  font-size: 12px;
+  margin: 0;
+}
+.font-guide-card svg {
+  width: 100%;
+  display: block;
+}
+.font-guide-card label {
+  justify-content: center;
+}
+@media (max-width: 650px) {
+  #font-guide-fields {
+    grid-template-columns: 1fr;
+  }
+}
+.inspector #comparison-panel {
+  padding: 6px 0;
+}
+.inspector #comparison-panel summary {
+  font-size: 11px;
+}
+.inspector #comparison-controls {
+  display: grid;
+}
+.inspector #comparison-controls label {
+  flex-wrap: wrap;
+}
+.inspector #comparison-form {
+  min-width: 0;
+}

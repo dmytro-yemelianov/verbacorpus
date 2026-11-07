@@ -5,6 +5,25 @@
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>Verba · редактор гліфів</title>
     <link rel="stylesheet" href="editor.css" />
+    <dialog id="font-guides-dialog" aria-labelledby="font-guides-title">
+      <form id="font-guides-form">
+        <h2 id="font-guides-title">Типографічні гайди шрифту</h2>
+        <p id="font-guides-name"></p>
+        <p class="muted">
+          Усі значення у пікселях шрифту. Порожнє поле — метрика джерела або
+          вимір H/Н та x/х. Кольорові стрілки показують відстань на схемі; 0 —
+          базова лінія. Застосовується до всього шрифту, зберігається у правках
+          та експорті. Растри й метрики окремих гліфів не пересуваються.
+        </p>
+        <div id="font-guide-fields"></div>
+        <div class="dialog-actions">
+          <button type="button" id="font-guides-reset">
+            Скинути поля до авто</button
+          ><button type="button" id="font-guides-close">Скасувати</button
+          ><button type="submit" class="primary">Застосувати</button>
+        </div>
+      </form>
+    </dialog>
     <script defer src="editor.js"></script>
   </head>
   <body>
@@ -76,6 +95,7 @@
             <h2 id="font-name">Завантаження…</h2>
             <p id="font-meta" class="muted"></p>
           </div>
+          <button id="font-guides-open">Гайди шрифту…</button>
           <label
             >Черга гліфів<select id="mode">
               <optgroup label="Канонічні групи">
@@ -244,6 +264,79 @@
                 <figcaption>Правка</figcaption>
               </figure>
             </div>
+            <details id="comparison-panel">
+              <summary>Підкладка / порівняння · цей шрифт</summary>
+              <div class="comparison-picker">
+                <button id="comparison-current" type="button">
+                  Додати поточний гліф
+                </button>
+                <form id="comparison-form">
+                  <input
+                    id="comparison-query"
+                    aria-label="Гліф підкладки"
+                    placeholder="Н / U+041D / g000072"
+                    autocomplete="off"
+                  />
+                  <button type="submit">Додати</button>
+                </form>
+                <button id="comparison-remove" hidden>Прибрати</button>
+              </div>
+              <p id="comparison-status" role="status">
+                Додайте гліф цього шрифту як підкладку.
+              </p>
+              <div id="comparison-controls" hidden>
+                <label class="inline"
+                  ><input
+                    id="comparison-visible"
+                    type="checkbox"
+                    checked
+                  />Показати</label
+                >
+                <label class="inline"
+                  >Непрозорість
+                  <input
+                    id="comparison-opacity"
+                    type="range"
+                    min="0"
+                    max="100"
+                    value="35"
+                  /><output id="comparison-opacity-value">35%</output></label
+                >
+                <label class="inline"
+                  >Вирівнювання
+                  <select id="comparison-alignment">
+                    <option value="baseline">Baseline + початок</option>
+                    <option value="raster">Верхній лівий кут растра</option>
+                  </select></label
+                >
+                <label class="inline"
+                  >X
+                  <input
+                    id="comparison-dx"
+                    type="number"
+                    step="1"
+                    min="-16384"
+                    max="16384"
+                    value="0"
+                /></label>
+                <label class="inline"
+                  >Y
+                  <input
+                    id="comparison-dy"
+                    type="number"
+                    step="1"
+                    min="-16384"
+                    max="16384"
+                    value="0"
+                /></label>
+              </div>
+              <p class="muted">
+                Shift+клік у черзі також додає підкладку. Блакитний знімок
+                залишається під рисунком під час навігації. Поза растром
+                обрізається. Видимий у режимі «Правка»; не входить у копію та
+                експорт.
+              </p>
+            </details>
             <button
               id="autofill"
               title="Заповнити відсутні латинські й кириличні двійники в поточному шрифті"

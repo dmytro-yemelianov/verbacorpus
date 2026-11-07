@@ -447,3 +447,30 @@ copy/cut/paste та undo в полях. Звичайне введення не �
 а також перемикання B/E/F/M/S/R/L з українськими event.key та захист поля
 введення. Версію 0.7 встановлено й запущено; три користувацькі файли правок
 збережено без зміни SHA, резервна копія створена перед заміною пакета.
+
+### Підкладка, гайди шрифту та дослідження моделей — 7 листопада 2026
+
+Desktop 0.8: read-only snapshot іншого гліфа поточного шрифту у правому
+інспекторі; додавання через символ/U+/ID, поточний гліф або Shift+клік черги.
+Блакитний растр кешується, вирівнюється за baseline/pen origin або raster top,
+має opacity/visibility/X/Y. Навігація лишає підкладку; зміна шрифту прибирає.
+Це лише сеанс; ні undo, ні clipboard/export не включають підкладку.
+
+Кнопка «Гайди шрифту…» відкриває шість редагованих метрик з піксельними
+схемами: baseline/capHeight/xHeight/ascent/descent/lineGap. Optional fontGuides
+у Draft schema1 сумісний зі старими правками. Модель має font-wide undo;
+Store валідує ключі, типи й межі. Експорт переносить метрики й journal та
+підтримує зміни лише метрик; changed-фільтр/export-all бачать їх після reload.
+Наявні bitmap/metrics гліфів незмінні; нові blank glyphs беруть effective baseline.
+
+61 Node-тест, strict tsc, native self-test і WKWebView/clipboard/close smoke
+пройшли. Browser QA: pinned H під A/B, opacity hide/show, Shift+клік без
+навігації, реальний Flipper drag з очікуваними бітами й без перенесення
+підкладки в bitmap, font-wide undo/redo, reload saved values, Escape modal,
+font switch reset. Реальний metrics-only export пройшов validateFont.
+
+У README редактора додано дослідження few-shot перенесення стилю: MX/CNN,
+FontDiffuser, MSD-Font, обмеження 1-bit/Ukrainian/MPS, ліцензійні невизначеності
+та гібридний benchmark/інтеграційний план. Моделей не встановлювали й не
+запускали, генерацію в UI не додавали. Каталог: 122 записи з UA>0, 62 UA66,
+110 UA≥60; train/test розділяти за сімейством/походженням, не за варіантами.
