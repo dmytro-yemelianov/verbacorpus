@@ -5,12 +5,43 @@ import {
   type Draft,
   type FontSummary,
   type Glyph,
+  blankGlyph,
 } from "./model";
 import {
   NativeFont,
   type FontAssetCache,
 } from "../../../app/src/client/font-data";
-import { frameOrdinals } from "./monospace";
+import { frameOrdinals, normalizeCell, type FontCell } from "./monospace";
+import type { GlyphSlot } from "./regions";
+
+export interface GlyphSelection {
+  glyph: Glyph | undefined;
+  original: Glyph | undefined;
+  rawOriginal: Glyph | undefined;
+}
+export async function readGlyphSelection(
+  resource: FontDocument,
+  slot: GlyphSlot,
+  cell: FontCell,
+  blankFont: FontSummary,
+): Promise<GlyphSelection> {
+  const { document, summary, face } = resource;
+  const id = slot.id ?? document.nextID(summary.coverage.glyphCount);
+  const edited = document.state.edits[id];
+  const rawOriginal =
+    Number(id.slice(1)) < summary.coverage.glyphCount
+      ? (await face.glyphs([Number(id.slice(1))]))[0]
+      : undefined;
+  const original = rawOriginal ? normalizeCell(rawOriginal, cell) : undefined;
+  const glyph = edited
+    ? normalizeCell(edited, cell)
+    : original
+      ? structuredClone(original)
+      : !slot.id && slot.char
+        ? blankGlyph(blankFont, id, slot.char)
+        : undefined;
+  return { glyph, original, rawOriginal };
+}
 import { ukrainianCoverage } from "./font-coverage";
 import { latinReferences } from "./latin-references";
 

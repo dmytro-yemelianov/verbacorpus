@@ -134,3 +134,47 @@ copying changes their inode fingerprints.
 deep snapshots, failure/retry, cancellation, source lifetime, debouncing,
 session ordering, filters and updated progress. Native WKWebView/clipboard/close
 checks also exercise the new save barrier on both fresh and large copied projects.
+
+## 0.14.2 follow-up: glyph selection and review queues
+
+`glyph-navigation.ts` now owns pure queue policy, stable key/ID restoration,
+review filtering, font boundaries and asynchronous selection cancellation.
+`font-document.ts` reads each selected source glyph once and keeps original and
+draft rasters independent. The UI still coordinates presentation; the refactor
+is not a claim that the orchestration file has been fully decomposed.
+
+A selected glyph is published only after pending canvas transfers finish and the
+captured document revision/mapping remains current. A concurrent mutation causes
+a reread; stale success/failure is ignored. Keyboard repeats in the overview
+advance from the pending target, and font paging advances from the requested
+font. Pixel mutation shortcuts remain blocked during loading. Failed reads retain
+only an image that still belongs to the active queue; otherwise editing is blocked
+until another glyph is selected.
+
+Review now waits for clipboard transfers, recognizes both Unicode and glyph-ID
+marks, and handles the last/empty queue without reopening the same font. Review finds
+the next remaining key, so aliases removed before the selected position cannot
+shift it past an unreviewed character. Badges
+and the unreviewed filter use the same rule. The checkbox survives session restore.
+The Next button updates when font filters change and agrees with keyboard movement
+at the last glyph. Async review/complete operations check their original context.
+
+Browser checks used an isolated full-project copy and Cozette's 6,046 glyphs.
+With a 600 ms delayed glyph page, selecting g006000 and then g000065 left g000065
+selected. A delayed g004000 followed by two right arrows ended at g004002.
+A 700 ms clipboard delay left review marks unchanged until paste completed, then
+marked the original glyph and advanced once. A one-font/one-unreviewed-glyph
+scenario restored after reload and became an empty, non-editable queue after
+review. Injected page failures retained A in the all-glyph queue, blocked editing
+when a drawing-only queue excluded it, and recovered via an explicit jump.
+These faults and generated review marks affected only the disposable project.
+
+A five-run Node stress microbenchmark used 8,832 slots and 5,000 review marks.
+Repeated array membership took a median 44.96 ms; constructing a Set and checking
+membership took 0.33 ms, with the same 3,832 remaining slots. This is a synthetic
+filter-operation measurement, not an app-wide speedup. Both queue filtering and
+gallery badges reuse a Set per operation rather than scanning every mark per tile.
+
+122 Node tests include 22 additional navigation/selection regressions; strict
+TypeScript, 19 Python tests and native fresh/copied-project smoke checks validate
+the surrounding editor behavior. Source fonts and working drafts are unchanged.

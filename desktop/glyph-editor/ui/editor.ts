@@ -1,4 +1,12 @@
 import {
+  buildGlyphQueue,
+  slotReviewed,
+  retainedSlotPosition,
+  GlyphSelectionController,
+  adjacentFont,
+  afterGlyphReview,
+} from "./glyph-navigation";
+import {
   createFontLibrary,
   type LibraryFont as Light,
   type FontProgress as Progress,
@@ -11,6 +19,8 @@ import {
   loadFontDocument,
   prepareDraft,
   type FontDocument,
+  readGlyphSelection,
+  type GlyphSelection,
 } from "./font-document";
 import {
   latinReferences,
@@ -51,7 +61,6 @@ import { fontWithGuides } from "./font-guides";
 import { referenceHeight, type ReferenceHeights } from "./guides";
 import type { RegionOrigin } from "./pixel-regions";
 import {
-  canonicalSlots,
   regionFor,
   characterLabel,
   mappedCharacter,
@@ -114,8 +123,7 @@ let boot: Boot,
   font: FontSummary | undefined,
   face: NativeFont | undefined,
   doc: GlyphDocument | undefined;
-let selectionRevision = 0,
-  selected = 0,
+let selected = 0,
   slots: Slot[] = [],
   index = new Map<string, string[]>();
 let current: Glyph | undefined,
@@ -204,6 +212,7 @@ const sessionPersistence = createSessionPersistence({
   snapshot: () => ({
     fontId: font?.id,
     mode: $<HTMLSelectElement>("mode").value,
+    unreviewed: String($<HTMLInputElement>("unreviewed").checked),
     slot: slots[selected]?.key,
     q: $<HTMLInputElement>("search").value,
     collection: $<HTMLSelectElement>("collection").value,
@@ -263,6 +272,7 @@ function filterFonts() {
   $("font-list-inner").style.height = visibleFonts.length * 52 + "px";
   renderFonts();
   updateLibrary();
+  updateButtons();
   session();
 }
 function renderFonts() {
@@ -301,7 +311,7 @@ function renderFonts() {
 async function openFont(id: string, resume?: string) {
   if (font?.id === id && face && !documents.opening) return;
   const request = documents.generation + 1;
-  selectionRevision++;
+  selection.invalidate();
   queueRevision++;
   coverageRevision++;
   proofRevision++;
@@ -419,36 +429,22 @@ function rebuildSlots(preferred = slots[selected]?.key) {
     slots = [];
     return;
   }
-  index = effectiveIndex(face.index.unicodeIndex, doc.state);
+  ({ index, slots, selected } = buildGlyphQueue({
+    state: doc.state,
+    unicodeIndex: face.index.unicodeIndex,
+    glyphCount: font.coverage.glyphCount,
+    mode: $<HTMLSelectElement>("mode").value,
+    groups: groups.get(),
+    unreviewed: $<HTMLInputElement>("unreviewed").checked,
+    preferred,
+    fallback: selected,
+  }));
   $("mapping-notice").hidden = [...index.values()].some(
     (ids) => ids.length > 0,
   );
   const mode = $<HTMLSelectElement>("mode").value;
   $("view-all-glyphs").setAttribute("aria-pressed", String(mode === "all"));
   $("view-groups").setAttribute("aria-pressed", String(mode === "groups"));
-  const ids = [
-    ...Array.from(
-      { length: font.coverage.glyphCount },
-      (_, i) => "g" + String(i).padStart(6, "0"),
-    ),
-    ...doc.state.created,
-  ];
-  const mapped = new Set([...index.values()].flat());
-  slots =
-    (mode === "groups"
-      ? selectedGroupSlots(groups.get(), index)
-      : canonicalSlots(mode, index)) ??
-    (mode === "changed"
-      ? Object.keys(doc.state.edits)
-      : mode === "unmapped"
-        ? ids.filter((id) => !mapped.has(id))
-        : ids
-    ).map((id) => ({ key: id, id }));
-  if ($<HTMLInputElement>("unreviewed").checked)
-    slots = slots.filter((s) => !doc!.state.reviewed.includes(s.key));
-  const found = slots.findIndex((s) => s.key === preferred);
-  selected =
-    found >= 0 ? found : Math.max(0, Math.min(selected, slots.length - 1));
 }
 async function glyph(id: string): Promise<Glyph | undefined> {
   if (!doc || !face || !font) return;
@@ -460,45 +456,70 @@ async function glyph(id: string): Promise<Glyph | undefined> {
     ? normalizeCell((await target.face.glyphs([n]))[0], target.cell)
     : undefined;
 }
+const selection = new GlyphSelectionController<GlyphSelection>({
+  slots: () => slots,
+  before: () => canvasUI.flushRegions(),
+  capture: (slot) => {
+    const resource = documents.current;
+    if (!resource || resource.document !== doc || !font || documents.opening)
+      return;
+    const revision = doc.state.revision,
+      cell = currentCell(),
+      blankFont = automaticFont()!;
+    return {
+      load: () => readGlyphSelection(resource, slot, cell, blankFont),
+      valid: () =>
+        documents.current === resource &&
+        doc === resource.document &&
+        doc.state.revision === revision,
+    };
+  },
+  loading: () => busy(true),
+});
 async function select(position: number, fit = false) {
-  const token = ++selectionRevision;
-  await canvasUI.flushRegions();
-  if (token !== selectionRevision) return;
-  if (!font || !face || !doc) return;
-  selected = Math.max(0, Math.min(position, slots.length - 1));
-  const slot = slots[selected];
-  busy(true);
-  current = undefined;
-  original = undefined;
-  rawOriginal = undefined;
-  draw();
-  if (!slot) {
+  if (documents.opening) return;
+  const request = selection.generation + 1;
+  let result;
+  try {
+    result = await selection.select(position);
+  } catch (reason) {
+    if (request !== selection.generation || documents.opening) return;
+    const retained = current
+      ? retainedSlotPosition(slots, current.id, mappedCharacter(current))
+      : -1;
+    if (retained >= 0) {
+      selected = retained;
+      inspect();
+    } else {
+      current = original = rawOriginal = undefined;
+      $("glyph-title").textContent = "Не вдалося завантажити гліф";
+      draw();
+    }
+    busy(retained < 0);
+    updateButtons();
+    void renderQueue().catch(error);
+    throw reason;
+  }
+  if (!result || !selection.isCurrent(result)) return;
+  selected = result.position;
+  current = result.value?.glyph;
+  original = result.value?.original;
+  rawOriginal = result.value?.rawOriginal;
+  if (!current) {
+    busy(true);
     $("glyph-title").textContent =
       "Чергу завершено або немає відповідних гліфів";
+    draw();
     await renderQueue();
     return;
   }
-  const id = slot.id ?? doc.nextID(font.coverage.glyphCount);
-  const loaded = slot.id ? await glyph(id) : newGlyph(id, slot.char!);
-  const rawSource =
-    Number(id.slice(1)) < font.coverage.glyphCount
-      ? (await face.glyphs([Number(id.slice(1))]))[0]
-      : undefined;
-  const source = rawSource
-    ? normalizeCell(rawSource, currentCell())
-    : undefined;
-  if (token !== selectionRevision) return;
-  current = loaded;
-  original = source;
-  rawOriginal = rawSource;
-  if (!current) return;
   if (fit) fitZoom();
   inspect();
   draw();
   busy(false);
   updateButtons();
   await renderQueue();
-  session();
+  if (selection.isCurrent(result)) session();
 }
 let proofRevision = 0,
   proofTimer: ReturnType<typeof setTimeout> | undefined;
@@ -598,7 +619,7 @@ function inspect() {
   $("glyph-meta").textContent =
     `${current.id} · ${original ? "джерельний" : "новий"} · ${current.width}×${current.height}${current.sourceCode?.value ? " · код " + String(current.sourceCode.value) : ""}`;
   $("glyph-title").textContent =
-    `${glyphCaption(slot?.char, current)} · ${current.id} · ${current.width}×${current.height} · ${doc.state.reviewed.includes(slot?.key) ? "переглянуто" : "не переглянуто"}`;
+    `${glyphCaption(slot?.char, current)} · ${current.id} · ${current.width}×${current.height} · ${slot && slotReviewed(slot, new Set(doc.state.reviewed)) ? "переглянуто" : "не переглянуто"}`;
   const raw =
     doc.state.edits[current.id] ??
     rawOriginal ??
@@ -630,11 +651,14 @@ function inspect() {
 function updateButtons() {
   $<HTMLButtonElement>("style-latin-open").disabled =
     editingBusy || (!latinReferenceCounts.upper && !latinReferenceCounts.lower);
-  $<HTMLButtonElement>("undo").disabled = !doc?.canUndo;
-  $<HTMLButtonElement>("redo").disabled = !doc?.canRedo;
-  $<HTMLButtonElement>("previous").disabled = !slots.length || selected === 0;
+  $<HTMLButtonElement>("undo").disabled = editingBusy || !doc?.canUndo;
+  $<HTMLButtonElement>("redo").disabled = editingBusy || !doc?.canRedo;
+  $<HTMLButtonElement>("previous").disabled =
+    editingBusy || !slots.length || selected === 0;
   $<HTMLButtonElement>("next").disabled =
-    !slots.length || selected >= slots.length - 1;
+    editingBusy ||
+    !slots.length ||
+    (selected >= slots.length - 1 && !adjacentFont(visibleFonts, font?.id, 1));
 }
 function automaticFont() {
   if (!font || !doc) return font;
@@ -1137,51 +1161,73 @@ async function renderQueue() {
   );
 }
 async function nextFont(delta: number) {
-  const i = visibleFonts.findIndex((f) => f.id === font?.id),
-    target =
-      visibleFonts[
-        i < 0 ? 0 : Math.max(0, Math.min(visibleFonts.length - 1, i + delta))
-      ];
+  const target = adjacentFont(
+    visibleFonts,
+    documents.requestedId ?? font?.id,
+    delta,
+  );
   if (target) await openFont(target.id);
-  else $("save-status").textContent = "Немає шрифтів у цій черзі";
+  else
+    $("save-status").textContent = !visibleFonts.length
+      ? "Немає шрифтів у цій черзі"
+      : delta < 0
+        ? "Початок черги шрифтів"
+        : "Чергу шрифтів завершено";
 }
 async function move(delta: number) {
-  if (!slots.length) return;
-  if (selected + delta >= slots.length) {
+  if (!slots.length || documents.opening) return;
+  const target = selection.targetPosition(selected) + delta;
+  if (target >= slots.length) {
     await nextFont(1);
     return;
   }
-  await select(Math.max(0, selected + delta));
+  await select(Math.max(0, target));
 }
 async function review() {
-  if (!doc || !slots[selected]) return;
-  finishStroke();
+  if (!doc || !slots[selected] || editingBusy || selection.pending) return;
+  const target = doc,
+    token = selection.generation;
+  await canvasUI.flushRegions();
+  if (
+    doc !== target ||
+    token !== selection.generation ||
+    selection.pending ||
+    !slots[selected]
+  )
+    return;
   const old = selected,
-    key = slots[selected].key;
-  doc.review(key);
-  if (slots[selected].id && slots[selected].id !== key)
-    doc.review(slots[selected].id!);
+    before = slots,
+    slot = slots[selected];
+  doc.review(slot.key);
+  if (slot.id && slot.id !== slot.key) doc.review(slot.id);
   scheduleSave();
   rebuildSlots();
-  if (!slots.length) {
+  const next = afterGlyphReview(
+    before,
+    old,
+    slots,
+    $<HTMLInputElement>("unreviewed").checked,
+  );
+  if (next.nextFont) {
+    const hasNext = !!adjacentFont(visibleFonts, font?.id, 1);
     await nextFont(1);
+    if (!hasNext && doc === target && token === selection.generation)
+      await select(selected);
     return;
   }
-  await select(
-    $<HTMLInputElement>("unreviewed").checked
-      ? Math.min(old, slots.length - 1)
-      : Math.min(old + 1, slots.length - 1),
-  );
-  if (!$<HTMLInputElement>("unreviewed").checked && old === slots.length - 1)
-    await nextFont(1);
+  await select(next.position);
 }
 async function completeFont() {
+  if (!doc || editingBusy) return;
+  const target = doc,
+    generation = documents.generation;
   await canvasUI.flushRegions();
-  if (!doc) return;
+  if (doc !== target || documents.generation !== generation) return;
   doc.state.done = true;
   doc.touch();
   scheduleSave();
   await flush();
+  if (doc !== target || documents.generation !== generation) return;
   await nextFont(1);
   filterFonts();
 }
@@ -1291,14 +1337,15 @@ async function autofill(kind: "homograph" | "geometry") {
   }
 }
 async function copy() {
+  if (editingBusy || selection.pending) return;
   finishStroke();
   if (!current || !face) return;
-  const revision = selectionRevision,
+  const revision = selection.generation,
     document = doc;
   const value = $<HTMLInputElement>("copy-from").value.trim();
   const id = /^g\d{6}$/.test(value) ? value : index.get(parseChar(value))?.[0];
   const base = id ? await glyph(id) : undefined;
-  if (revision !== selectionRevision || document !== doc) return;
+  if (revision !== selection.generation || document !== doc) return;
   if (!base) throw new Error("Гліф-основу не знайдено");
   const after = {
     ...structuredClone(base),
@@ -1727,7 +1774,7 @@ document.addEventListener("keydown", (event) => {
       step = event.shiftKey ? 10 : 1;
     run = document.body.classList.contains("editor-open")
       ? () => canvasUI.nudge(dx * step, dy * step)
-      : () => select(gallery.navigate(key));
+      : () => select(gallery.navigate(key, selection.targetPosition(selected)));
   } else if (!cmd && (key === "Delete" || key === "Backspace"))
     run = () => action("delete-selection");
   else if (key === "Enter" && canvasUI.pendingSelection())
@@ -1782,7 +1829,19 @@ document.addEventListener("keydown", (event) => {
     };
   if (run) {
     event.preventDefault();
-    if (!exporting && (!editingBusy || (cmd && key.toLowerCase() === "s")))
+    const navigation =
+      !cmd &&
+      (["PageUp", "PageDown"].includes(key) ||
+        (!documents.opening &&
+          (["[", "]"].includes(key) ||
+            (!document.body.classList.contains("editor-open") &&
+              ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(
+                key,
+              )))));
+    if (
+      !exporting &&
+      (!editingBusy || navigation || (cmd && key.toLowerCase() === "s"))
+    )
       Promise.resolve().then(run).catch(error);
   }
 });
@@ -1968,6 +2027,7 @@ async function start() {
   if (boot.warnings.length) error(boot.warnings.join("\n"));
   const saved = await native<Record<string, string>>("readSession");
   groups.restore(saved);
+  $<HTMLInputElement>("unreviewed").checked = saved.unreviewed === "true";
   for (const [id, key] of [
     ["search", "q"],
     ["collection", "collection"],

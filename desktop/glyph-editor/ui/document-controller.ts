@@ -17,7 +17,7 @@ export type SaveStatus = "dirty" | "saved" | "error";
  * is saved. Each queued write keeps its own immutable draft and source resources. */
 export class DocumentController<T extends DocumentResource> {
   private active?: Entry<T>;
-  private loading?: AbortController;
+  private loading?: { id: string; controller: AbortController };
   private timer?: ReturnType<typeof setTimeout>;
   private tail = Promise.resolve();
   private epoch = 0;
@@ -41,14 +41,18 @@ export class DocumentController<T extends DocumentResource> {
   get opening() {
     return !!this.loading;
   }
+  get requestedId() {
+    return this.loading?.id ?? this.active?.value.document.state.fontId;
+  }
   get dirty() {
     return !!this.active && this.active.saved < this.active.changes;
   }
   async open(id: string): Promise<T | undefined> {
     const token = ++this.epoch;
-    this.loading?.abort();
+    this.loading?.controller.abort();
     const controller = new AbortController();
-    this.loading = controller;
+    const request = { id, controller };
+    this.loading = request;
     try {
       await this.options.beforeSwitch?.();
       if (token !== this.epoch) return;
@@ -69,7 +73,7 @@ export class DocumentController<T extends DocumentResource> {
     } catch (reason) {
       if (token === this.epoch) throw reason;
     } finally {
-      if (this.loading === controller) this.loading = undefined;
+      if (this.loading === request) this.loading = undefined;
       if (this.active?.controller !== controller) controller.abort();
     }
   }

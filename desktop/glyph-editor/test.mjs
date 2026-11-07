@@ -12,7 +12,7 @@ const require = createRequire(join(app, "package.json")),
 const compiled = await build({
   stdin: {
     contents:
-      'export * from "./ui/model"; export * from "./ui/autofill"; export * from "./ui/raster-mutation"; export * from "./ui/regions"; export * from "./ui/pixel-regions"; export * from "./ui/guides"; export * from "./ui/pixel-stroke"; export * from "./ui/shortcuts"; export * from "./ui/font-guides"; export * from "./ui/comparison"; export * from "./ui/candidates"; export * from "./ui/style-plan"; export * from "./ui/font-profile"; export * from "./ui/auto-guides"; export * from "./ui/ascii-mapping"; export * from "./ui/group-selection"; export * from "./ui/monospace"; export * from "./ui/font-coverage"; export * from "./ui/latin-references"; export * from "./ui/glyph-gallery"; export * from "./ui/library-gallery"; export * from "./ui/document-controller"; export * from "./ui/font-document"; export * from "./ui/font-library";',
+      'export * from "./ui/model"; export * from "./ui/autofill"; export * from "./ui/raster-mutation"; export * from "./ui/regions"; export * from "./ui/pixel-regions"; export * from "./ui/guides"; export * from "./ui/pixel-stroke"; export * from "./ui/shortcuts"; export * from "./ui/font-guides"; export * from "./ui/comparison"; export * from "./ui/candidates"; export * from "./ui/style-plan"; export * from "./ui/font-profile"; export * from "./ui/auto-guides"; export * from "./ui/ascii-mapping"; export * from "./ui/group-selection"; export * from "./ui/monospace"; export * from "./ui/font-coverage"; export * from "./ui/latin-references"; export * from "./ui/glyph-gallery"; export * from "./ui/library-gallery"; export * from "./ui/document-controller"; export * from "./ui/font-document"; export * from "./ui/font-library"; export * from "./ui/glyph-navigation";',
     resolveDir: join(root, "desktop/glyph-editor"),
     sourcefile: "model-tests.ts",
   },
@@ -2551,4 +2551,450 @@ test("queued saves retain independent nested bitmap snapshots", async () => {
   release.resolve();
   await closing;
   assert.deepEqual(rows, [before, after]);
+});
+
+function queueFixture(options = {}) {
+  return {
+    state: m.newDraft(summary, catalog.snapshot),
+    unicodeIndex: { A: [65], B: [66] },
+    glyphCount: 128,
+    mode: "groups",
+    groups: { groups: ["latin", "ukrainian"], upper: true, lower: true },
+    unreviewed: false,
+    fallback: 0,
+    ...options,
+  };
+}
+test("glyph queues retain complete selected groups and resolve a preferred glyph ID", () => {
+  const q = m.buildGlyphQueue(queueFixture({ preferred: "g000066" }));
+  assert.equal(q.slots.length, 118);
+  assert.equal(q.slots[q.selected].char, "B");
+  assert.equal(q.slots.find((s) => s.char === "Ї").id, undefined);
+});
+test("unreviewed queues and review badges recognize glyph IDs as well as Unicode keys", () => {
+  const options = queueFixture({
+    unicodeIndex: { A: [65], B: [65] },
+    unreviewed: true,
+  });
+  options.state.reviewed = ["g000065"];
+  const q = m.buildGlyphQueue(options);
+  assert.equal(
+    q.slots.some((s) => s.char === "A" || s.char === "B"),
+    false,
+  );
+  assert.equal(
+    m.slotReviewed(
+      { key: "U+0041", id: "g000065" },
+      new Set(options.state.reviewed),
+    ),
+    true,
+  );
+  options.state.reviewed = ["U+0041"];
+  const next = m.buildGlyphQueue(options);
+  assert.equal(
+    next.slots.some((s) => s.char === "A"),
+    false,
+  );
+  assert.equal(
+    next.slots.some((s) => s.char === "B"),
+    true,
+  );
+});
+test("raw, changed and unmapped queues include created glyphs without duplicate IDs", () => {
+  const options = queueFixture({
+    mode: "all",
+    glyphCount: 2,
+    unicodeIndex: { A: [0] },
+  });
+  options.state.created = ["g000002", "g000002"];
+  options.state.edits.g000002 = {
+    ...structuredClone(source.glyphs[0]),
+    id: "g000002",
+    labels: [],
+  };
+  assert.deepEqual(
+    m.buildGlyphQueue(options).slots.map((s) => s.id),
+    ["g000000", "g000001", "g000002"],
+  );
+  assert.deepEqual(
+    m.buildGlyphQueue({ ...options, mode: "unmapped" }).slots.map((s) => s.id),
+    ["g000001", "g000002"],
+  );
+  assert.deepEqual(
+    m.buildGlyphQueue({ ...options, mode: "changed" }).slots.map((s) => s.id),
+    ["g000002"],
+  );
+});
+test("queue selection clamps empty and invalid positions without selecting an arbitrary missing glyph", () => {
+  const slots = [{ key: "A", id: "g000001" }, { key: "B" }, { key: "C" }];
+  assert.equal(m.slotPosition(slots, undefined, 2), 2);
+  assert.equal(m.slotPosition(slots, undefined, NaN), 0);
+  assert.equal(m.slotPosition(slots, "missing", 99), 2);
+  const q = m.buildGlyphQueue(
+    queueFixture({
+      groups: { groups: [], upper: true, lower: true },
+      fallback: 99,
+    }),
+  );
+  assert.equal(q.selected, 0);
+  assert.equal(q.slots.length, 0);
+});
+test("font boundaries finish the queue instead of reopening the same font", () => {
+  const fonts = [{ id: "a" }, { id: "b" }];
+  assert.equal(m.adjacentFont(fonts, "b", 1), undefined);
+  assert.equal(m.adjacentFont(fonts, "a", -1), undefined);
+  assert.equal(m.adjacentFont(fonts, "outside-filter", 1).id, "a");
+  assert.equal(m.adjacentFont(fonts, "a", 1).id, "b");
+});
+test("review advances once and handles the last glyph and emptied queue", () => {
+  assert.deepEqual(
+    m.afterGlyphReview(
+      Array.from({ length: 6 }, (_, i) => ({ key: String(i) })),
+      3,
+      Array.from({ length: 6 }, (_, i) => ({ key: String(i) })),
+      false,
+    ),
+    {
+      nextFont: false,
+      position: 4,
+    },
+  );
+  assert.deepEqual(
+    m.afterGlyphReview(
+      Array.from({ length: 6 }, (_, i) => ({ key: String(i) })),
+      5,
+      Array.from({ length: 6 }, (_, i) => ({ key: String(i) })),
+      false,
+    ),
+    {
+      nextFont: true,
+      position: 0,
+    },
+  );
+  assert.deepEqual(
+    m.afterGlyphReview(
+      Array.from({ length: 6 }, (_, i) => ({ key: String(i) })),
+      3,
+      [0, 1, 2, 4, 5].map((i) => ({ key: String(i) })),
+      true,
+    ),
+    {
+      nextFont: false,
+      position: 3,
+    },
+  );
+  assert.deepEqual(m.afterGlyphReview([{ key: "a" }], 0, [], true), {
+    nextFont: true,
+    position: 0,
+  });
+});
+function selectionFixture(options = {}) {
+  let slots = [
+    { key: "a", id: "g000000" },
+    { key: "b", id: "g000001" },
+    { key: "c", id: "g000002" },
+  ];
+  const controller = new m.GlyphSelectionController({
+    slots: () => slots,
+    before: async () => {},
+    loading: () => {},
+    capture: (slot) => ({ load: async () => slot.id, valid: () => true }),
+    ...options,
+  });
+  return {
+    controller,
+    get slots() {
+      return slots;
+    },
+    set slots(value) {
+      slots = value;
+    },
+  };
+}
+test("glyph selection resolves the requested key after a pending canvas commit rebuilds the queue", async () => {
+  const f = selectionFixture({
+    before: async () => {
+      f.slots = [{ key: "new" }, ...f.slots];
+    },
+  });
+  const result = await f.controller.select(1);
+  assert.equal(result.slot.key, "b");
+  assert.equal(result.position, 2);
+});
+test("a delayed glyph cannot replace a newer selection", async () => {
+  const started = deferred(),
+    slow = deferred();
+  const f = selectionFixture({
+    capture: (slot) => ({
+      load: async () => {
+        if (slot.key === "b") {
+          started.resolve();
+          await slow.promise;
+        }
+        return slot.id;
+      },
+      valid: () => true,
+    }),
+  });
+  const old = f.controller.select(1);
+  await started.promise;
+  assert.equal(f.controller.pending, true);
+  const newest = await f.controller.select(2);
+  slow.resolve();
+  assert.equal(await old, undefined);
+  assert.equal(newest.slot.key, "c");
+  assert.equal(f.controller.isCurrent(newest), true);
+  assert.equal(f.controller.pending, false);
+});
+test("keyboard repeats advance from the pending target while a glyph is loading", async () => {
+  const started = deferred(),
+    slow = deferred();
+  const f = selectionFixture({
+    capture: (slot) => ({
+      load: async () => {
+        if (slot.key === "b") {
+          started.resolve();
+          await slow.promise;
+        }
+        return slot.id;
+      },
+      valid: () => true,
+    }),
+  });
+  const first = f.controller.select(1);
+  await started.promise;
+  const next = f.controller.targetPosition(0) + 1;
+  assert.equal(next, 2);
+  const last = await f.controller.select(next);
+  slow.resolve();
+  await first;
+  assert.equal(last.slot.key, "c");
+});
+test("document invalidation ignores both stale glyph successes and failures", async () => {
+  for (const fail of [false, true]) {
+    const started = deferred(),
+      slow = deferred();
+    const f = selectionFixture({
+      capture: () => ({
+        load: async () => {
+          started.resolve();
+          await slow.promise;
+          return "old";
+        },
+        valid: () => true,
+      }),
+    });
+    const pending = f.controller.select(0);
+    await started.promise;
+    f.controller.invalidate();
+    if (fail) slow.reject(Error("old resource failure"));
+    else slow.resolve();
+    assert.equal(await pending, undefined);
+  }
+});
+test("selection rereads a glyph whose bitmap revision changes during loading", async () => {
+  let revision = 0,
+    reads = 0;
+  const f = selectionFixture({
+    capture: () => {
+      const snapshot = revision;
+      return {
+        load: async () => {
+          reads++;
+          if (reads === 1) revision++;
+          return snapshot;
+        },
+        valid: () => snapshot === revision,
+      };
+    },
+  });
+  const result = await f.controller.select(0);
+  assert.equal(reads, 2);
+  assert.equal(result.value, 1);
+});
+test("selection rereads a changed mapping but never substitutes a different filtered slot", async () => {
+  let reads = 0;
+  const f = selectionFixture({
+    capture: (slot) => ({
+      load: async () => {
+        reads++;
+        if (reads === 1)
+          f.slots = f.slots.map((s) =>
+            s.key === "a" ? { ...s, id: "g000099" } : s,
+          );
+        return slot.id;
+      },
+      valid: () => true,
+    }),
+  });
+  const result = await f.controller.select(0);
+  assert.equal(result.value, "g000099");
+  const gone = selectionFixture({
+    before: async () => {
+      gone.slots = gone.slots.slice(1);
+    },
+  });
+  assert.equal(await gone.controller.select(0), undefined);
+});
+test("empty selection does not allocate a glyph or invoke the source loader", async () => {
+  const f = selectionFixture({
+    capture: () => {
+      throw Error("unexpected read");
+    },
+  });
+  f.slots = [];
+  const result = await f.controller.select(0);
+  assert.equal(result.slot, undefined);
+  assert.equal(result.position, 0);
+});
+test("current selection errors surface for retry and clear the pending destination", async () => {
+  const f = selectionFixture({
+    capture: () => ({
+      load: async () => {
+        throw Error("missing page");
+      },
+      valid: () => true,
+    }),
+  });
+  await assert.rejects(f.controller.select(1), /missing page/);
+  assert.equal(f.controller.targetPosition(0), 0);
+});
+test("gallery arrow movement uses the supplied pending index and respects script lanes", () => {
+  const slots = m.selectedGroupSlots(
+    { groups: ["latin", "ukrainian"], upper: true, lower: false },
+    new Map(),
+  );
+  const plan = m.galleryRows(slots, 12, true);
+  assert.equal(m.navigateGallery(plan.rows, 1, "ArrowRight", slots.length), 2);
+  const ua = slots.findIndex((s) => s.char === "А");
+  const next = m.navigateGallery(plan.rows, ua, "ArrowDown", slots.length);
+  assert.equal(slots[next].group, "ukrainian");
+  assert.notEqual(next, ua);
+  assert.equal(
+    m.navigateGallery(plan.rows, slots.length - 1, "ArrowRight", slots.length),
+    slots.length - 1,
+  );
+});
+test("selection reads a source glyph once and keeps original/draft bitmaps independent", async () => {
+  const g = source.glyphs.find((g) => g.width > 0 && g.height > 0),
+    state = m.newDraft(summary, catalog.snapshot);
+  let reads = 0;
+  const resource = {
+    summary,
+    document: new m.Document(state),
+    face: {
+      glyphs: async () => {
+        reads++;
+        return [g];
+      },
+    },
+    samples: [g],
+  };
+  const frame = m.fixedCell(summary, [g]);
+  const selected = await m.readGlyphSelection(
+    resource,
+    { key: g.id, id: g.id },
+    frame,
+    m.cellFont(summary, frame),
+  );
+  assert.equal(reads, 1);
+  assert.notEqual(selected.glyph, selected.original);
+  const original = [...selected.original.rows];
+  selected.glyph.rows[0] = "FF";
+  assert.deepEqual(selected.original.rows, original);
+});
+
+test("rapid font stepping advances from the requested font and failure restores the active ID", async () => {
+  const started = deferred(),
+    slow = deferred();
+  const f = documentFixture({
+    load: async (id) => {
+      if (id === "b") {
+        started.resolve();
+        await slow.promise;
+      }
+      if (id === "bad") throw Error("bad source");
+      return f.resource(id);
+    },
+  });
+  const fonts = [{ id: "a" }, { id: "b" }, { id: "c" }];
+  await f.controller.open("a");
+  const pending = f.controller.open("b");
+  await started.promise;
+  assert.equal(f.controller.requestedId, "b");
+  await f.controller.open(
+    m.adjacentFont(fonts, f.controller.requestedId, 1).id,
+  );
+  slow.resolve();
+  await pending;
+  assert.equal(f.controller.requestedId, "c");
+  await assert.rejects(f.controller.open("bad"), /bad source/);
+  assert.equal(f.controller.requestedId, "c");
+});
+
+test("selecting a missing character creates only an in-memory preview in the shared font cell", async () => {
+  const state = m.newDraft(summary, catalog.snapshot),
+    document = new m.Document(state),
+    cell = { width: 8, height: 16, advanceX: 8, baseline: 13 };
+  const resource = {
+    summary,
+    document,
+    face: {
+      glyphs: async () => {
+        throw Error("unexpected source read");
+      },
+    },
+    samples: [],
+  };
+  const result = await m.readGlyphSelection(
+    resource,
+    { key: "U+0490", char: "Ґ" },
+    cell,
+    m.cellFont(summary, cell),
+  );
+  assert.equal(result.glyph.width, 8);
+  assert.equal(result.glyph.height, 16);
+  assert.equal(result.original, undefined);
+  assert.deepEqual(state.edits, {});
+  assert.deepEqual(state.created, []);
+});
+
+test("failed reads retain only a glyph that still belongs to the active queue", () => {
+  const slots = [
+    { key: "A", id: "g000065" },
+    { key: "missing", char: "Ґ" },
+  ];
+  assert.equal(m.retainedSlotPosition(slots, "g000065", "A"), 0);
+  assert.equal(m.retainedSlotPosition(slots, "g000999", "Ґ"), 1);
+  assert.equal(m.retainedSlotPosition(slots, "g000999", "A"), -1);
+});
+test("a remapped character cannot retain an old glyph under a different source ID", () => {
+  assert.equal(
+    m.retainedSlotPosition(
+      [{ key: "A", char: "A", id: "g000066" }],
+      "g000065",
+      "A",
+    ),
+    -1,
+  );
+});
+
+test("reviewing an aliased glyph does not skip the next character when earlier aliases disappear", () => {
+  const before = [
+    { key: "Latin A", id: "g000001" },
+    { key: "Latin B", id: "g000002" },
+    { key: "Cyrillic A", id: "g000001" },
+    { key: "Cyrillic B", id: "g000003" },
+    { key: "Cyrillic V", id: "g000004" },
+  ];
+  const after = before.filter((s) => s.id !== "g000001");
+  const next = m.afterGlyphReview(before, 2, after, true);
+  assert.equal(after[next.position].key, "Cyrillic B");
+});
+test("review at the tail wraps to the first remaining unreviewed glyph", () => {
+  const before = [{ key: "a" }, { key: "b" }, { key: "c" }];
+  assert.deepEqual(m.afterGlyphReview(before, 2, before.slice(0, 2), true), {
+    nextFont: false,
+    position: 0,
+  });
 });

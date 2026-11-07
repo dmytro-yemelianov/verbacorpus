@@ -1,3 +1,4 @@
+import { slotReviewed } from "./glyph-navigation";
 import { codepoint, type Draft, type Glyph } from "./model";
 import { glyphCaption, mappedCharacter, type GlyphSlot } from "./regions";
 import { GlyphPainter } from "../../../app/src/client/font-painter";
@@ -68,6 +69,40 @@ export function galleryRows(
     top += 88;
   }
   return { rows, height: top };
+}
+/** Arrow movement follows the current layout, including parallel script lanes. */
+export function navigateGallery(
+  rows: GalleryRow[],
+  position: number,
+  key: string,
+  length: number,
+) {
+  if (!length) return 0;
+  const active = Math.max(0, Math.min(length - 1, position));
+  if (key === "ArrowLeft" || key === "ArrowRight")
+    return Math.max(
+      0,
+      Math.min(length - 1, active + (key === "ArrowLeft" ? -1 : 1)),
+    );
+  if (key !== "ArrowUp" && key !== "ArrowDown") return active;
+  const row = rows.find((r) => r.indices.includes(active));
+  if (!row) return active;
+  let next: GalleryRow | undefined;
+  for (const r of rows) {
+    if (
+      !r.indices.length ||
+      (r.left ?? 0) !== (row.left ?? 0) ||
+      (key === "ArrowUp" ? r.top >= row.top : r.top <= row.top)
+    )
+      continue;
+    if (!next || Math.abs(r.top - row.top) < Math.abs(next.top - row.top))
+      next = r;
+  }
+  return next
+    ? next.indices[
+        Math.min(next.indices.length - 1, row.indices.indexOf(active))
+      ]
+    : active;
 }
 /** Render only visible rows; source/draft glyphs load lazily through the shared cache. */
 export function createGlyphGallery(options: {
@@ -147,7 +182,8 @@ export function createGlyphGallery(options: {
         }),
     );
     if (token !== revision) return;
-    const fragment = document.createDocumentFragment();
+    const fragment = document.createDocumentFragment(),
+      reviewed = new Set(draft?.reviewed);
     for (const row of shown) {
       if (row.section) {
         const title = document.createElement("h3");
@@ -166,7 +202,7 @@ export function createGlyphGallery(options: {
           "glyph" +
           (!value ? " missing" : "") +
           (s.id && draft?.edits[s.id] ? " changed" : "") +
-          (draft?.reviewed.includes(s.key) ? " reviewed" : "");
+          (slotReviewed(s, reviewed) ? " reviewed" : "");
         button.style.cssText = `position:absolute;top:${row.top}px;left:${((row.left ?? 0) + column) * width}px;width:${width - 5}px;height:82px`;
         button.setAttribute("aria-pressed", String(i === selected));
         button.setAttribute(
@@ -245,28 +281,7 @@ export function createGlyphGallery(options: {
       await render();
     },
     refresh: schedule,
-    navigate: (key: string) => {
-      if (key === "ArrowLeft" || key === "ArrowRight")
-        return Math.max(
-          0,
-          Math.min(slots.length - 1, selected + (key === "ArrowLeft" ? -1 : 1)),
-        );
-      const rows = layout().rows.filter((r) => r.indices.length),
-        row = rows.find((r) => r.indices.includes(selected));
-      if (!row) return selected;
-      const candidates = rows
-        .filter(
-          (r) =>
-            (r.left ?? 0) === (row.left ?? 0) &&
-            (key === "ArrowUp" ? r.top < row.top : r.top > row.top),
-        )
-        .sort((a, b) => Math.abs(a.top - row.top) - Math.abs(b.top - row.top));
-      const next = candidates[0];
-      return next
-        ? next.indices[
-            Math.min(next.indices.length - 1, row.indices.indexOf(selected))
-          ]
-        : selected;
-    },
+    navigate: (key: string, active = selected) =>
+      navigateGallery(layout().rows, active, key, slots.length),
   };
 }
