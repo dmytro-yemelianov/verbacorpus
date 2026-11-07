@@ -1232,8 +1232,17 @@ async function completeFont() {
   filterFonts();
 }
 async function history(redo = false) {
+  if (!doc || editingBusy || selection.pending || documents.opening) return;
+  const target = doc,
+    generation = documents.generation,
+    token = selection.generation;
   await canvasUI.flushRegions();
-  if (!doc) return;
+  if (
+    doc !== target ||
+    generation !== documents.generation ||
+    token !== selection.generation
+  )
+    return;
   const id = redo ? doc.redo() : doc.undo();
   if (!id) return;
   if (id === "$font") {

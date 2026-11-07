@@ -157,7 +157,9 @@ the next remaining key, so aliases removed before the selected position cannot
 shift it past an unreviewed character. Badges
 and the unreviewed filter use the same rule. The checkbox survives session restore.
 The Next button updates when font filters change and agrees with keyboard movement
-at the last glyph. Async review/complete operations check their original context.
+at the last glyph. Async review/complete and Undo/Redo operations check their original context.
+Undo/Redo also reject commands while a glyph/font selection is still pending,
+including native menu calls that bypass the DOM keyboard handler.
 
 Browser checks used an isolated full-project copy and Cozette's 6,046 glyphs.
 With a 600 ms delayed glyph page, selecting g006000 and then g000065 left g000065
