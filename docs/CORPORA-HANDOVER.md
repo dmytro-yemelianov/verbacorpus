@@ -56,13 +56,13 @@ JSON-відповідь 503 для недоступного UPA, порожні�
 умови публікації джерела UPA не змінювались. Старі результати HTTP-аудиту нижче
 описують попередній публічний стан.
 
-## Закрите прев’ю — 13 листопада
+## Прев’ю без авторизації — 13 листопада
 
 `app/wrangler.preview.jsonc` розгортає окремий Worker без продакшн-доменів
-і cron. Вхід `src/preview.ts` перевіряє HTTP Basic для всіх запитів,
-включно зі статичними даними й UPA; логін — `preview`, пароль — секрет
-`PREVIEW_PASSWORD`. Без секрету доступ закритий. Відповіді мають `no-store`
-і `noindex`; офлайн-кешування в цьому прев’ю вимкнене.
+і cron. На прохання власника автентифікацію прибрано: сторінки, статичні дані
+та UPA API доступні без логіна й пароля. Секрет доступу більше не потрібний.
+Вхід `src/preview.ts` залишає `no-store` і `noindex`; офлайн-кешування
+в цьому прев’ю вимкнене.
 
 Порядок розгортання з перевірених ревізій:
 
@@ -70,18 +70,17 @@ JSON-відповідь 503 для недоступного UPA, порожні�
 # У приватному upa-archive: Worker доступний лише через service binding.
 pnpm site:build --sources
 pnpm exec wrangler deploy --config site/wrangler.jsonc
-# У verbacorpus/app: пароль передати через stdin, не через аргументи CLI.
+# У verbacorpus/app: відкритий доступ без секретів авторизації.
 npm run build
-npx wrangler secret put PREVIEW_PASSWORD --config wrangler.preview.jsonc
 npx wrangler deploy --config wrangler.preview.jsonc
 ```
 
-Після розгортання перевірити 401 без пароля для `/`, `/data/proverbs.json`,
+Після розгортання перевірити 200 без пароля для `/`, `/data/proverbs.json`,
 `/non/upa/` та `/non/upa/api/v1/patterns`, потім каталог, генератор,
-скан і API з авторизацією. Публічний `verbacorpus.org` цими командами не змінюється.
+скан і API без авторизації. Публічний `verbacorpus.org` цими командами не змінюється.
 
-Перевірене закрите прев’ю: https://ukr-proverbs-corpus-preview.miwaniza.workers.dev/non/upa/.
-Пароль зберігається поза Git. 13 листопада всі 9 інтеграційних Chromium-сценаріїв
+Адреса прев’ю: https://ukr-proverbs-corpus-preview.miwaniza.workers.dev/non/upa/.
+Під час початкової перевірки 13 листопада всі 9 інтеграційних Chromium-сценаріїв
 пройшли на Cloudflare, зокрема навігація зі збереженням фільтра без JavaScript,
 генератор, скани, API, канонічні експорти, WebP/WASM та мобільний каталог.
 Окремо пройшли 114 браузерних тестів UPA, 463 його unit-тести й 201 перевірка Verba.
