@@ -10,6 +10,7 @@
     "dev": "wrangler dev",
     "dev:integrated": "node dev-integrated.mjs",
     "deploy": "wrangler deploy",
+    "deploy:non": "wrangler deploy --config wrangler.non.jsonc",
     "test": "npm run test:catalog && vitest run",
     "typecheck": "tsc --noEmit",
     "sync-corpora": "python3 sync_corpora.py",
