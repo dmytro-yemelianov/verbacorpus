@@ -77,8 +77,17 @@ npx wrangler deploy --config wrangler.preview.jsonc
 ```
 
 Після розгортання перевірити 401 без пароля для `/`, `/data/proverbs.json`,
-`/non/upa/` та `/non/upa/api/local/v1/patterns`, потім каталог, генератор,
+`/non/upa/` та `/non/upa/api/v1/patterns`, потім каталог, генератор,
 скан і API з авторизацією. Публічний `verbacorpus.org` цими командами не змінюється.
+
+Перевірене закрите прев’ю: https://ukr-proverbs-corpus-preview.miwaniza.workers.dev/non/upa/.
+Пароль зберігається поза Git. 13 листопада всі 9 інтеграційних Chromium-сценаріїв
+пройшли на Cloudflare, зокрема навігація зі збереженням фільтра без JavaScript,
+генератор, скани, API, канонічні експорти, WebP/WASM та мобільний каталог.
+Окремо пройшли 114 браузерних тестів UPA, 463 його unit-тести й 201 перевірка Verba.
+CI Verba зелений; GitHub не запускає CI приватного UPA через білінг/ліміт витрат облікового запису.
+Чернетки PR: [Verba #6](https://github.com/dmytro-yemelianov/verbacorpus/pull/6)
+та [UPA #9](https://github.com/dmytro-yemelianov/upa-archive/pull/9).
 
 ## Де продовжувати роботу
 
