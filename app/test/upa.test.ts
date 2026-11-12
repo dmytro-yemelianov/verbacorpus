@@ -52,6 +52,16 @@ describe('UPA mounted in non.verba', () => {
     });
     expect(await response!.json()).toEqual({ items: [{ matrix: [['/']], stitches: [['/']], links: { self: '/non/upa/api/v1/patterns/p1', catalog: '/non/upa/catalog?page=7#p1' } }], endpoints: { search: 'GET /non/upa/api/v1/patterns' } });
   });
+  it('retains safe catalog context in initial HTML before client modules load', async () => {
+    const service = { async fetch() { return new Response('<html><head></head><body><a data-language href="/p/p1">UK</a><a data-browse-back href="/en/#browse">Back</a><a href="/en/generate?source=p1">Generate</a></body></html>', { headers: { 'content-type': 'text/html' } }); } };
+    const from = encodeURIComponent('/non/upa/?q=151&ignored=drop#browse');
+    const html = await (await upaRequest(request('/non/upa/en/p/p1?from=' + from), service))!.text();
+    expect(html).toContain('href="/non/upa/p/p1?from=' + from + '"');
+    expect(html).toContain('href="/non/upa/en/?q=151#browse"');
+    expect(html).toContain('from=%2Fnon%2Fupa%2Fen%2F%3Fq%3D151%23browse');
+    const unsafe = await (await upaRequest(request('/non/upa/en/p/p1?from=https://example.org/'), service))!.text();
+    expect(unsafe).toContain('data-browse-back href="/non/upa/en/#browse"');
+  });
   it('mounts OpenAPI servers and Swagger configuration', async () => {
     const service = { async fetch(input: RequestInfo | URL) {
       return new URL(input instanceof Request ? input.url : String(input)).pathname.endsWith('openapi.json')

@@ -3,6 +3,20 @@ export const UPA_MOUNT = '/non/upa';
 const mount = (path: string) => path.startsWith('/') && !path.startsWith('//') && !/^\/non\/upa(?:[/?#]|$)/.test(path) ? UPA_MOUNT + path : path;
 const css = (value: string) => value.replace(/(url\(\s*["']?)(\/(?!\/)[^)"']+)/g, (_match, start: string, path: string) => start + mount(path));
 
+function browseContext(url: URL): string | null {
+  const roots = [UPA_MOUNT + '/', UPA_MOUNT + '/en', UPA_MOUNT + '/en/'];
+  const raw = roots.includes(url.pathname) ? url.pathname + url.search : url.searchParams.get('from');
+  if (!raw?.startsWith(UPA_MOUNT + '/')) return null;
+  const source = new URL(raw, url);
+  if (source.origin !== url.origin || !roots.includes(source.pathname)) return null;
+  const params = new URLSearchParams();
+  source.searchParams.forEach((value, key) => {
+    if (['q', 'kind', 'color', 'excludeColor', 'page', 'maxHeight', 'frieze', 'saved'].includes(key)) params.append(key, value);
+  });
+  const lang = url.pathname.startsWith(UPA_MOUNT + '/en/') || url.pathname === UPA_MOUNT + '/en' ? '/en' : '';
+  return UPA_MOUNT + lang + '/' + (params.size ? '?' + params : '') + '#browse';
+}
+
 function apiLinks(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(apiLinks);
   if (!value || typeof value !== 'object') return value;
@@ -42,6 +56,7 @@ export async function upaRequest(request: Request, service?: Pick<Fetcher, 'fetc
   const edited = () => { for (const name of ['content-length', 'content-encoding', 'etag']) headers.delete(name); };
   if (type.includes('text/html')) {
     edited();
+    const from = browseContext(url);
     // Swagger's inline configuration also needs the mounted OpenAPI URL.
     const body = upstreamUrl.pathname === '/api/v1/docs' ? (await response.text()).replace('url: "/api/v1/openapi.json"', `url: "${UPA_MOUNT}/api/v1/openapi.json"`) : response.body;
     return new HTMLRewriter()
@@ -52,6 +67,21 @@ export async function upaRequest(request: Request, service?: Pick<Fetcher, 'fetc
           if (['href', 'src', 'action', 'poster', 'data-atlas-url', 'data-cycle-original'].includes(name)) element.setAttribute(name, mount(value));
           else if (name === 'srcset') element.setAttribute(name, value.replace(/(^|,\s*)(\/(?!\/)[^\s,]+)/g, (_m, start: string, path: string) => start + mount(path)));
           else if (name === 'style') element.setAttribute(name, css(value));
+        }
+        // Native links must retain navigation context before client modules load.
+        if (element.tagName === 'a') {
+          const href = element.getAttribute('href');
+          if (href && element.hasAttribute('data-language')) {
+            const target = new URL(href, url);
+            if (target.origin === url.origin) element.setAttribute('href', target.pathname + url.search + target.hash);
+          } else if (element.hasAttribute('data-browse-back') && from) element.setAttribute('href', from);
+          else if (href && from) {
+            const target = new URL(href, url);
+            if (target.origin === url.origin && /^\/non\/upa\/(?:en\/)?(?:p\/|(?:generate|strip|frame)(?:\/|$))/.test(target.pathname)) {
+              target.searchParams.set('from', from);
+              element.setAttribute('href', target.pathname + target.search + target.hash);
+            }
+          }
         }
       } })
       .on('head', { element(element) { element.prepend(`<meta name="upa-base-path" content="${UPA_MOUNT}">`, { html: true }); } })
