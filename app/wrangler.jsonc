@@ -10,6 +10,7 @@
     "run_worker_first": ["/api/*", "/p/*", "/card/*", "/s/*", "/about", "/api.html", "/blog", "/blog/*", "/uk", "/uk/*", "/en", "/en/*", "/de", "/de/*", "/fr", "/fr/*", "/es", "/es/*", "/pl", "/pl/*", "/it", "/it/*", "/pt", "/pt/*", "/ja", "/ja/*", "/zh", "/zh/*", "/", "/pro", "/pro/*", "/contra", "/contra/*", "/re", "/re/*", "/para", "/para/*", "/non", "/non/*"]
   },
   "observability": { "enabled": true },
+  "services": [{ "binding": "UPA", "service": "upa-local-preview" }],
   "workers_dev": true,
   "preview_urls": true,
   "ai": { "binding": "AI" },

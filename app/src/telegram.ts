@@ -137,6 +137,10 @@ export function initBot(
       supports_inline_queries: true,
       can_connect_to_business: false,
       has_main_web_app: false,
+      has_topics_enabled: false,
+      allows_users_to_create_topics: false,
+      can_manage_bots: false,
+      supports_join_request_queries: false,
     }
   });
   const taxonomy = meta.taxonomy || {};
@@ -379,11 +383,13 @@ export function initBot(
   // Admin approval: post or skip a news-matched proverb to the channel.
   bot.callbackQuery(/^news:(.+):(\d+|skip)$/, async (ctx) => {
     if (ctx.from?.id !== ADMIN_USER_ID) return ctx.answerCallbackQuery("⛔");
+    const newsKv = env.NEWS_KV;
+    if (!newsKv) return ctx.answerCallbackQuery("Новинні чернетки недоступні");
     const [, draftId, action] = ctx.match as RegExpMatchArray;
-    const d = await getDraft(env.NEWS_KV, draftId);
+    const d = await getDraft(newsKv, draftId);
     if (!d) { await ctx.answerCallbackQuery("Чернетка застаріла"); return; }
     if (action === "skip") {
-      await delDraft(env.NEWS_KV, draftId);
+      await delDraft(newsKv, draftId);
       await ctx.editMessageText("⏭ Пропущено.", { reply_markup: undefined });
       return ctx.answerCallbackQuery();
     }
@@ -394,7 +400,7 @@ export function initBot(
     try {
       await bot.api.sendPhoto(env.TELEGRAM_CHANNEL_ID, pngUrl, {
         caption: newsCaption(d, prettify(p.text), modern), parse_mode: "HTML" });
-      await delDraft(env.NEWS_KV, draftId);
+      await delDraft(newsKv, draftId);
       await ctx.editMessageText(`✅ Опубліковано: ${escapeHtml(prettify(p.text)).slice(0, 80)}`, { reply_markup: undefined });
     } catch (e) {
       console.error("news post failed", e);

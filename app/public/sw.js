@@ -1,4 +1,4 @@
-const CACHE = "ukr-proverbs-v33";
+const CACHE = "ukr-proverbs-v34";
 const SHELL = ["/", "/pro/", "/corpora", "/corpora.css", "/umbrella.js", "/styles.css", "/embroidery.css", "/fonts/spectral.css", "/fonts/spectral-400-normal-cyrillic.woff2", "/fonts/spectral-500-normal-cyrillic.woff2", "/app.js", "/chrome.js", "/manifest.webmanifest", "/data/landing.json", "/data/meta.json", "/data/proverbs.json"];
 
 // Network-first for the app shell that changes on deploy (HTML pages, app.js, styles, i18n
@@ -19,6 +19,9 @@ self.addEventListener("activate", (e) => {
 });
 self.addEventListener("fetch", (e) => {
   const url = new URL(e.request.url);
+  // UPA has its own assets and POST APIs; a failed request must not become the
+  // proverb application's cached homepage or enter its data cache.
+  if (url.pathname === "/non/upa" || url.pathname.startsWith("/non/upa/")) return;
   if (url.pathname.startsWith("/api/")) return; // network for API
   const cacheAnd = (resp) => { const copy = resp.clone(); caches.open(CACHE).then((c) => c.put(e.request, copy)); return resp; };
   if (isShell(url.pathname)) {

@@ -10,7 +10,21 @@ const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getEleme
 
 let all: Proverb[] = [];
 let byId = new Map<string, Proverb>();
-let meta: { version?: string; count: number; taxonomy: Record<string, string>; sources: Array<{ key: string; title: string; year: string; author: string; citation?: string }> };
+type CorpusMeta = { version?: string; count: number; taxonomy: Record<string, string>; sources: Array<{ key: string; title: string; year: string; author: string; citation?: string }> };
+type BlogArticle = { slug: string; title: string; date: string; lede: string };
+type SearchResponse = { total: number; results: Array<Proverb & { score?: number }> };
+declare global {
+  interface Window {
+    __LANG__?: string;
+    __verba?: { meta?: Promise<CorpusMeta>; landing?: Promise<Proverb[]> };
+  }
+}
+async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(url, init);
+  if (!response.ok) throw new Error(`Failed to fetch ${url}: ${response.status}`);
+  return await response.json() as T;
+}
+let meta: CorpusMeta;
 let mini: MiniSearch<Proverb>;
 let presentable: Proverb[] = [];
 let landingSample: Proverb[] = [];
@@ -21,7 +35,7 @@ let semanticMode = false;
 let renderSeq = 0;
 let saved: string[] = loadSaved();
 let savedView = false;
-let blogArticles: Array<{ slug: string; title: string; date: string; lede: string }> = [];
+let blogArticles: BlogArticle[] = [];
 
 const SOURCE_ORDER = ["Franko1901", "Nomis1864", "Bobkova", "Mlodzynskyi2009", "Ilkevich1841"];
 
@@ -146,7 +160,7 @@ function renderSavedView() {
 }
 
 async function boot() {
-  const LANG: string = (window as any).__LANG__ || document.documentElement.lang || "uk";
+  const LANG: string = window.__LANG__ || document.documentElement.lang || "uk";
 
   // Load state from URL query parameters
   const qp = new URLSearchParams(location.search);
@@ -160,12 +174,12 @@ async function boot() {
   // meta/landing are kicked off inline in <head> (window.__verba) so the early fetch
   // is actually consumed here; fall back to a direct fetch if that script didn't run.
   const blogPrefix = LANG === "uk" ? "" : `/${LANG}`;
-  const early = (window as any).__verba || {};
+  const early = window.__verba || {};
   const [i18nData, metaData, landing, latestBlog] = await Promise.all([
-    fetch(`/i18n/${LANG}.json`).then((r) => r.json()).catch(() => ({})),
-    early.meta ?? fetch("/data/meta.json", { credentials: "omit" }).then((r) => r.json()),
-    early.landing ?? fetch("/data/landing.json", { credentials: "omit" }).then((r) => r.json()),
-    fetch(`${blogPrefix}/blog/latest.json`).then((r) => r.json()).catch(() => []),
+    fetchJson<Record<string, string>>(`/i18n/${LANG}.json`).catch(() => ({})),
+    early.meta ?? fetchJson<CorpusMeta>("/data/meta.json", { credentials: "omit" }),
+    early.landing ?? fetchJson<Proverb[]>("/data/landing.json", { credentials: "omit" }),
+    fetchJson<BlogArticle[]>(`${blogPrefix}/blog/latest.json`).catch(() => []),
   ]);
   i18n = i18nData;
   meta = metaData;
@@ -308,7 +322,7 @@ let ready = false; // full corpus + MiniSearch index available
 async function loadFullCorpus() {
   let full: Proverb[];
   try {
-    full = await fetch("/data/proverbs.json").then((r) => r.json());
+    full = await fetchJson<Proverb[]>("/data/proverbs.json");
   } catch {
     return; // landing sample stays usable; search will report unavailable
   }
@@ -436,7 +450,7 @@ async function renderResults() {
     try {
       const url = `/api/semantic?q=${encodeURIComponent(q)}` +
         (activeCat ? `&category=${activeCat}` : "") + (activeSource ? `&source=${activeSource}` : "") + "&limit=100";
-      const data = await fetch(url).then((r) => r.json());
+      const data = await fetchJson<SearchResponse>(url);
       if (seq !== renderSeq) return;
       $("count").textContent = tr("results.semantic", "За змістом: {n}").replace("{n}", fmt(data.total));
       showResults(data.results, tr("results.semanticHead", "За змістом"), true);
@@ -490,8 +504,7 @@ let motifsReady: Promise<void> | null = null;
 const MOTIF_CELL = 8;
 function loadMotifs(): Promise<void> {
   if (!motifsReady) {
-    motifsReady = fetch("/data/embroidery-archive.json")
-      .then((r) => r.json())
+    motifsReady = fetchJson<{ units: Motif[]; palette: Record<string, string> }>("/data/embroidery-archive.json")
       .then((d) => { motifUnits = d.units || []; motifPalette = d.palette || {}; })
       .catch(() => { motifUnits = []; });
   }
@@ -591,7 +604,7 @@ function renderPage() {
 
 async function openDetail(p: Proverb, opts: { showCustomizer?: boolean } = {}) {
   if (!explCache) {
-    explCache = await fetch("/data/explanations.json").then((r) => r.json()).catch(() => ({}));
+    explCache = await fetchJson<Record<string, string>>("/data/explanations.json").catch(() => ({}));
   }
   const expl = explCache![p.id];
   const variants = p.variant_group
@@ -656,7 +669,7 @@ async function openDetail(p: Proverb, opts: { showCustomizer?: boolean } = {}) {
     </form>`;
 
   if (navigator.onLine) {
-    fetch(`/api/similar/${encodeURIComponent(p.id)}?limit=6`).then((r) => r.json()).then((data) => {
+    fetchJson<SearchResponse>(`/api/similar/${encodeURIComponent(p.id)}?limit=6`).then((data) => {
       if (!data.results || !data.results.length) return;
       const form = dlg.querySelector(".detail-inner");
       if (!form) return;

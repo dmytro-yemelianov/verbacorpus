@@ -7,6 +7,7 @@ import { makeVyshyvankaGif, makeVyshyvankaPng } from "./card-gif";
 import { parseLang, t, hreflangLinks, DEFAULT_LANG } from "./shared/i18n";
 import { fromShort } from "./shared/shortlink";
 import { directionRoute } from "./shared/directions";
+import { upaRequest } from "./upa";
 import { initBot, formatProverbHtml, draftNews } from "./telegram";
 import { webhookCallback, InlineKeyboard } from "grammy";
 import uk from "../public/i18n/uk.json";
@@ -24,6 +25,7 @@ const CATALOGS: Record<string, Record<string, string>> = { uk, en, de, fr, es, p
 function catalogFor(lang: string) { return CATALOGS[lang] ?? CATALOGS[DEFAULT_LANG]; }
 
 interface Env {
+  UPA?: Cloudflare.Env['UPA'];
   ASSETS: { fetch: (req: Request | string) => Promise<Response> };
   AI: { run: (model: string, inputs: { text: string[] }) => Promise<{ data: number[][] }> };
   VECTORIZE: {
@@ -63,6 +65,12 @@ const J = (data: unknown, status = 200) =>
   new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json; charset=utf-8", ...CORS } });
 
 const finiteOrUndef = (n: number): number | undefined => (Number.isFinite(n) ? n : undefined);
+const integerParam = (params: URLSearchParams, name: string): number | undefined => {
+  const value = params.get(name);
+  if (value === null || value.trim() === "") return undefined;
+  const number = finiteOrUndef(Number(value));
+  return number === undefined ? undefined : Math.trunc(number);
+};
 
 /** Render a record set in the negotiated format with the right headers. */
 function respond(
@@ -97,9 +105,11 @@ function translateHtml(res: Response, lang: string, rest: string, host: string):
 }
 
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(request: Request, env: Env, _ctx?: ExecutionContext): Promise<Response> {
     try {
       const url = new URL(request.url);
+      const upa = await upaRequest(request, env.UPA);
+      if (upa) return upa;
       const { lang, rest } = parseLang(url.pathname);
       // /uk or /uk/... → 301 canonical (unprefixed)
       if (/^\/uk(\/|$)/.test(url.pathname)) {
@@ -285,8 +295,8 @@ export default {
       if (fmt === null) return J({ error: `unknown format '${qp.get("format")}'; use json|jsonl|xml|csv|tsv` }, 400);
 
       const { proverbs, explanations, meta, byId } = await load(env);
-      const lim = () => finiteOrUndef(Number(qp.get("limit")));
-      const off = () => finiteOrUndef(Number(qp.get("offset")));
+      const lim = () => integerParam(qp, "limit");
+      const off = () => integerParam(qp, "offset");
       const eff = (l?: number, o?: number) => ({ limit: Math.min(Math.max(l ?? 50, 1), 200), offset: Math.max(o ?? 0, 0) });
 
       if (path === "/api/search") {
@@ -307,7 +317,7 @@ export default {
         return respond(fmt, r.results as Rec[], { total: r.total, limit: e.limit, offset: e.offset, name: "query" });
       }
       if (path === "/api/random") {
-        const n = Math.min(Math.max(finiteOrUndef(Number(qp.get("n"))) ?? 1, 1), 50);
+        const n = Math.min(Math.max(integerParam(qp, "n") ?? 1, 1), 50);
         const picked: Proverb[] = [];
         const seen = new Set<string>();
         for (let i = 0; i < n * 5 && picked.length < n; i++) {
@@ -354,7 +364,7 @@ export default {
         try {
           const recs = await env.VECTORIZE.getByIds([id]);
           if (!recs.length) return J({ error: "not indexed" }, 404);
-          const l = finiteOrUndef(Number(qp.get("limit"))) ?? 6;
+          const l = Math.min(Math.max(integerParam(qp, "limit") ?? 6, 1), 200);
           const { matches } = await env.VECTORIZE.query(recs[0].values, { topK: Math.min(l + 1, 100) });
           const r = mapMatches(matches, byId, { excludeId: id, limit: l });
           return respond(fmt, r.results as Rec[], { total: r.total, limit: l, offset: 0, name: "similar" });
