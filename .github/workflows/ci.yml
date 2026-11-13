@@ -108,13 +108,6 @@ jobs:
         working-directory: .upa-source
         env:
           VERBA_REPO: ${{ github.workspace }}
-      - name: Preserve browser failure evidence
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: integrated-browser-failures
-          path: .upa-source/test-results/verba
-          if-no-files-found: ignore
       - name: Verify canonical direction domains
         run: node scripts/ensure-domains.mjs
         working-directory: app
@@ -158,3 +151,16 @@ jobs:
           curl --fail --silent --show-error --retry 5 --retry-all-errors https://para.verbacorpus.org/letters-lab > /dev/null
           curl --fail --silent --show-error --retry 5 --retry-all-errors https://non.verbacorpus.org/upa/page-frames > /dev/null
           curl --fail --silent --show-error --retry 5 --retry-all-errors 'https://non.verbacorpus.org/upa/api/v1/patterns?limit=1' > /dev/null
+      - name: Verify the published sites in Chromium
+        timeout-minutes: 5
+        run: pnpm test:verba
+        working-directory: .upa-source
+        env:
+          VERBA_INTEGRATION_URL: https://non.verbacorpus.org
+      - name: Preserve browser failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integrated-browser-failures
+          path: .upa-source/test-results/verba
+          if-no-files-found: ignore
