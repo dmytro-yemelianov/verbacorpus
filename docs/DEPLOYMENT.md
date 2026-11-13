@@ -13,7 +13,11 @@ is not exposed to PR jobs. Existing `CLOUDFLARE_API_TOKEN` and
 
 The job installs UPA's pinned pnpm dependencies, runs lint/type/unit checks,
 builds the source-backed site, and deploys the private UPA service first. It
-then builds Verba and deploys `app/wrangler.non.jsonc`. HTTP smoke checks verify
+then builds Verba and uses its locked Wrangler CLI to upload a version and
+deploy that exact CI-tagged version to 100% of traffic on the existing domain.
+This follows [Cloudflare versioned deployment](https://developers.cloudflare.com/workers/versions-and-deployments/deployment-management/)
+and does not require permission to edit zone routes. Domain and cron changes
+are separate infrastructure operations; ordinary releases retain them. HTTP smoke checks verify
 the published page editor and UPA API. The public workflow can perform these
 checks even while the private repository's own runners are unavailable.
 
