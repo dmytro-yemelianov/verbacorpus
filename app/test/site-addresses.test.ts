@@ -14,6 +14,8 @@ describe('canonical Verba addresses', () => {
     ['https://verbacorpus.org/non/upa/en/letters-lab?height=12', 'https://para.verbacorpus.org/en/letters-lab?height=12'],
     ['https://non.verbacorpus.org/upa/letters-lab', 'https://para.verbacorpus.org/letters-lab'],
     ['https://para.verbacorpus.org/para/letters-lab', 'https://para.verbacorpus.org/letters-lab'],
+    ['https://non.verbacorpus.org/upa/fonts?font=creep-7x12', 'https://para.verbacorpus.org/fonts?font=creep-7x12'],
+    ['https://verbacorpus.org/para/en/fonts', 'https://para.verbacorpus.org/en/fonts'],
     ['https://non.verbacorpus.org/non/upa?color=red&color=blue', 'https://non.verbacorpus.org/upa/?color=red&color=blue'],
     ['https://verbacorpus.org/en/pro/?q=word&src=Nomis1864', 'https://pro.verbacorpus.org/en/?q=word&src=Nomis1864'],
     ['https://verbacorpus.org/?q=word&src=Nomis1864', 'https://pro.verbacorpus.org/?q=word&src=Nomis1864'],
@@ -42,6 +44,7 @@ describe('canonical Verba addresses', () => {
     expect(publicHref('https://para.verbacorpus.org/letters-lab', root, true)).toBe('/letters-lab');
     expect(publicHref('/non/upa/page-frames#title=test', root, true)).toBe('/upa/page-frames#title=test');
     expect(publicHref('/non/upa/letters-lab', root, true)).toBe('/letters-lab');
+    expect(publicHref('https://para.verbacorpus.org/fonts?font=cozette', root, true)).toBe('/fonts?font=cozette');
   });
   it('redirects human legacy URLs before touching either backend', async () => {
     const response = await worker.fetch(new Request('https://non.verbacorpus.org/non/upa/letters-lab?style=cut'), {} as never);

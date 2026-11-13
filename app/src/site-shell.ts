@@ -1,11 +1,11 @@
 import directions from '../content/corpora.json';
-import { hostDirection, isVerbaHost, isAlphabetPath, publicHref, LOCALE_PREFIX } from './shared/site-addresses';
+import { hostDirection, isVerbaHost, isParaToolPath, isFontCatalogPath, publicHref, LOCALE_PREFIX } from './shared/site-addresses';
 
 const languagePrefix = LOCALE_PREFIX;
 export function siteSection(url: URL, local = false): string {
   if (!local && hostDirection(url.hostname)) return hostDirection(url.hostname)!;
   const path = url.pathname.replace(languagePrefix, '') || '/';
-  if (isAlphabetPath(path)) return 'para';
+  if (isParaToolPath(path)) return 'para';
   if (/^\/(?:non|upa)(?:\/|$)/.test(path)) return 'non';
   if (/^\/(?:re|blog)(?:\/|$)/.test(path)) return 're';
   for (const section of ['pro', 'contra', 'para']) if (path === `/${section}` || path.startsWith(`/${section}/`)) return section;
@@ -31,11 +31,12 @@ export function withSiteShell(response: Response, request: Request, local = fals
   if (request.method === 'HEAD' || !response.headers.get('content-type')?.includes('text/html')) return response;
   const url = new URL(request.url), path = url.pathname.replace(languagePrefix, '') || '/';
   if (/\/api\//.test(path)) return response;
-  const alphabet = isAlphabetPath(path) || /^\/(?:para\/)?(?:en\/)?letters-lab\/?$/.test(path);
+  const alphabet = isParaToolPath(path) || /^\/(?:para\/)?(?:en\/)?(?:letters-lab|fonts)\/?$/.test(path);
   const upa = path.startsWith('/upa/') || path.startsWith('/non/upa/') || alphabet;
   const landing = path === '/' && siteSection(url, local) !== 'pro' || /^\/(corpora(?:\.html)?|non|para|re|contra|bez-tabu)\/?$/.test(path);
   const english = url.pathname.startsWith('/en/');
-  const localeHref = ((english ? '/letters-lab' : '/en/letters-lab') + url.search).replaceAll('&', '&amp;').replaceAll('"', '&quot;');
+  const tool = isFontCatalogPath(path) ? 'fonts' : 'letters-lab';
+  const localeHref = ((english ? '/' : '/en/') + tool + url.search).replaceAll('&', '&amp;').replaceAll('"', '&quot;');
   const alphabetNavigation = alphabet ? `<nav class="verba-sectionbar" aria-label="para.verba"><div class="wrap topbar-inner"><div class="topbar-nav"><a href="${!local && isVerbaHost(url.hostname) ? 'https://para.verbacorpus.org/' : '/para/'}">← para.verba</a><a data-language href="${localeHref}">${english ? 'UK' : 'EN'}</a></div></div></nav>` : '';
   const headers = new Headers(response.headers);
   for (const name of ['content-length', 'content-encoding', 'etag']) headers.delete(name);
