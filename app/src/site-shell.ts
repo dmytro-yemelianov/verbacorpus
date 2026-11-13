@@ -10,10 +10,11 @@ export function siteSection(url: URL): string {
   return path === '/' || /^\/corpora(?:\.html)?\/?$/.test(path) ? '' : 'pro';
 }
 export function siteNavigation(url: URL, local = false): string {
-  const uk = !languagePrefix.test(url.pathname) || url.pathname.startsWith('/uk/');
+  const localePath = url.pathname.replace(/^\/non\/upa(?=\/|$)/, '');
+  const language = languagePrefix.exec(localePath)?.[1] ?? 'uk';
+  const uk = language === 'uk';
   const production = !local && (url.hostname === 'verbacorpus.org' || url.hostname.endsWith('.verbacorpus.org'));
   const root = production ? 'https://verbacorpus.org' : '';
-  const language = languagePrefix.exec(url.pathname)?.[1];
   const active = siteSection(url);
   return `<a class="verba-skip" href="#verba-content">${uk ? 'До вмісту' : 'Skip to content'}</a><nav class="verba-network" aria-label="${uk ? 'Напрями Verba' : 'Verba directions'}" data-verba-navigation><div class="verba-network-inner"><a class="verba-network-brand" data-no-localize href="${root || '/corpora'}"><img src="/logo-willow.svg" width="42" height="42" alt=""><span>verba<span class="verba-period">.</span></span></a><div class="verba-network-links"><a data-no-localize data-verba-direction="" href="${root || '/corpora'}"${!active ? ' aria-current="page"' : ''}>${uk ? 'Усі напрями' : 'All directions'}</a>${directions.map(direction => {
     const locale = direction.prefix === 'pro' && language && language !== 'uk' ? `/${language}` : '';
