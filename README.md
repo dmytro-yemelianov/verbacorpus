@@ -33,6 +33,9 @@ UPA підключається окремим Worker через service binding 
 [non.verbacorpus.org](https://non.verbacorpus.org); повний
 [каталог UPA](https://non.verbacorpus.org/non/upa/) працює без авторизації.
 Публікація після збірки: `cd app && npm run deploy:non`.
+Генератор [рамок для сторінок](https://non.verbacorpus.org/non/upa/page-frames)
+підтримує A4/A5/Letter, seed, поля, орнаменти, палітри, процедурні кути,
+SVG, прозорий PNG 200 dpi та друк/PDF на одному аркуші.
 Кореневий домен ще працює у попередній структурі; з нових піддоменів підключено `non`.
 
 Старі `/bez-tabu/`, `/blog/*`, `/p/*`, `/s/*`, `/card/*` та `/api/*` підтримуються.

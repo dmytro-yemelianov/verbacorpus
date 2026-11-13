@@ -77,7 +77,7 @@ export async function upaRequest(request: Request, service?: Pick<Fetcher, 'fetc
           } else if (element.hasAttribute('data-browse-back') && from) element.setAttribute('href', from);
           else if (href && from) {
             const target = new URL(href, url);
-            if (target.origin === url.origin && /^\/non\/upa\/(?:en\/)?(?:p\/|(?:generate|strip|frame)(?:\/|$))/.test(target.pathname)) {
+            if (target.origin === url.origin && /^\/non\/upa\/(?:en\/)?(?:p\/|(?:generate|strip|frame|page-frames)(?:\/|$))/.test(target.pathname)) {
               target.searchParams.set('from', from);
               element.setAttribute('href', target.pathname + target.search + target.hash);
             }
