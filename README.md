@@ -15,25 +15,25 @@ A Cloudflare Worker serves a searchable, offline-capable PWA and a JSON REST API
 Хендовер парасольки, стан публічних адрес і порядок завершення інтеграції:
 [docs/CORPORA-HANDOVER.md](docs/CORPORA-HANDOVER.md) (перевірено 2026-11-01).
 
-Головна `/` і `/corpora` об’єднують п’ять погоджених напрямів:
+Головна `https://verbacorpus.org/` об’єднує п’ять погоджених напрямів:
 
-| Напрям | Локальна адреса | Наповнення |
+| Напрям | Публічна адреса | Наповнення |
 | --- | --- | --- |
-| **pro.verba** | `/pro/` | 48 787 прислів’їв, пошук, наявний API і картки |
-| **contra.verba** | `/contra/` | «Українська без табу»: 2 000 рядків, пошук, фільтри й граф |
-| **re.verba** | `/re/` | Редакційний напрям із вже опублікованими статтями |
-| **para.verba** | `/para/` | Nasinnia: перевірений український растровий зразок Cozette |
-| **non.verba** | `/non/` | Повний UPA на `/non/upa/` і 12 авторських іконок 16×16 |
+| **pro.verba** | `https://pro.verbacorpus.org/` | 48 787 прислів’їв, пошук, наявний API і картки |
+| **contra.verba** | `https://contra.verbacorpus.org/` | «Українська без табу»: 2 000 рядків, пошук, фільтри й граф |
+| **re.verba** | `https://re.verbacorpus.org/` | Редакційний напрям із вже опублікованими статтями |
+| **para.verba** | `https://para.verbacorpus.org/` | Nasinnia: перевірений український растровий зразок Cozette |
+| **non.verba** | `https://non.verbacorpus.org/` | Повний UPA на `/upa/` і 12 авторських іконок 16×16 |
 
 Для іконок доступні SVG, PNG, JSON-матриці та SVG-спрайт. Шрифтовий зразок
 зберігає MIT-ліцензію й точні вихідні растри, невідомі символи показує явно.
 UPA підключається окремим Worker через service binding `UPA`: каталог, скани,
-генератор, друк та API доступні на `/non/upa/`. Його PDF, скани й матриці не
+генератор, друк та API доступні на `/upa/`. Його PDF, скани й матриці не
 копіюються до збірки Verba. Візуальний напрям опубліковано на
 [non.verbacorpus.org](https://non.verbacorpus.org); повний
-[каталог UPA](https://non.verbacorpus.org/non/upa/) працює без авторизації.
+[каталог UPA](https://non.verbacorpus.org/upa/) працює без авторизації.
 Публікація — через CI; ручний запуск дозволяє вибрати `all`, `root` або `non`.
-Генератор [рамок для сторінок](https://non.verbacorpus.org/non/upa/page-frames)
+Генератор [рамок для сторінок](https://non.verbacorpus.org/upa/page-frames)
 підтримує A4/A5/Letter, seed, поля, орнаменти, палітри, процедурні кути,
 SVG, прозорий PNG 200 dpi та друк/PDF на одному аркуші.
 Редактор додає заголовок, текст, дату й підпис, шаблони документів і збереження
@@ -41,14 +41,14 @@ SVG, прозорий PNG 200 dpi та друк/PDF на одному аркуш
 в експорті використовуються самодостатні контури пікселів.
 Після злиття в `main` [CI узгоджено публікує головну амбрелу та non.verba](docs/DEPLOYMENT.md) з точно
 зафіксованою ревізією UPA. Головний домен відкриває амбрелу п’яти напрямів,
-а прислів’я доступні в `/pro/`. Спільна навігація, шрифти інтерфейсу й тема
+а прислів’я доступні на `pro.verbacorpus.org`. Назви напрямів у шляхах не дублюються. Спільна навігація, шрифти інтерфейсу й тема
 діють у всіх напрямах, редакційних сторінках та інструментах UPA.
 Каталог шрифтів містить сім перевірених гарнітур; кандидатні абетки
-розміщені окремо в лабораторії `/non/upa/letters-lab`.
+розміщені окремо в лабораторії `https://para.verbacorpus.org/letters-lab`.
 
 Старі `/bez-tabu/`, `/blog/*`, `/p/*`, `/s/*`, `/card/*` та `/api/*` підтримуються.
-Кореневі URL з параметрами пошуку переспрямовуються на `/pro/` зі збереженням
-фільтрів; мови прислів’їв доступні під `/<lang>/pro/`. Парасолька наразі українська.
+Кореневі URL з параметрами пошуку переспрямовуються на `pro.verbacorpus.org/` зі збереженням
+фільтрів; мови прислів’їв доступні під `https://pro.verbacorpus.org/<lang>/`. Парасолька наразі українська.
 Імпорт словника: [BEZ-TABU.md](docs/BEZ-TABU.md).
 Реалізація: [специфікація](docs/superpowers/specs/2026-11-02-verba-umbrella.md)
 та [план і перевірки](docs/superpowers/plans/2026-11-02-verba-umbrella.md).
@@ -68,14 +68,14 @@ npm run dev:integrated                   # зібрати й запустити 
 `VERBA_PORT`, каталог стану — через `VERBA_STATE_DIR`. Команда використовує
 Wrangler з UPA та окремий локальний стан `.wrangler/integrated`. Звичайні збірка й тести Verba не потребують сусіднього
 репозиторію. API прислів’їв лишається на `/api/v1`, API орнаментів доступний
-на `/non/upa/api/v1`; Swagger — `/non/upa/api/v1/docs`.
+на `/upa/api/v1`; Swagger — `/upa/api/v1/docs`.
 Повна браузерна перевірка зв’язки запускається командою `pnpm test:verba`
 з кореня UPA: вона сама піднімає обидва Worker на окремому порту 8794.
 
 ### REST API (`/api/v1`, multi-format)
 
 Versioned, content-negotiated API — every data endpoint serves **JSON · JSONL · XML · CSV · TSV** via
-`?format=` (default `json`) or the `Accept` header. Docs + curl examples at **[/api.html](https://verbacorpus.org/api.html)**; OpenAPI 3 at `/api/v1/openapi.json`.
+`?format=` (default `json`) or the `Accept` header. Docs + curl examples at **[/api.html](https://pro.verbacorpus.org/api.html)**; OpenAPI 3 at `/api/v1/openapi.json`.
 
 - `GET /api/v1/search?q=&category=&source=&limit=&offset=&format=` — lexical
 - `GET /api/v1/semantic?q=&category=&source=&minScore=&limit=&format=` — meaning-based (see below)
@@ -88,8 +88,8 @@ Versioned, content-negotiated API — every data endpoint serves **JSON · JSONL
 Collections return `{total, limit, offset, results}` (+ `X-Total-Count`); file formats download with a filename.
 The unversioned `/api/*` paths remain as back-compatible aliases. Example:
 ```bash
-curl 'https://verbacorpus.org/api/v1/search?q=гроші&format=csv'
-curl -H 'Accept: application/x-ndjson' 'https://verbacorpus.org/api/v1/export'
+curl 'https://pro.verbacorpus.org/api/v1/search?q=гроші&format=csv'
+curl -H 'Accept: application/x-ndjson' 'https://pro.verbacorpus.org/api/v1/export'
 ```
 
 ### Semantic search (embeddings + Vectorize)

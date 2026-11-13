@@ -1,11 +1,32 @@
 # Coordinated Verba releases
 
-Pushes to `main` publish the same gateway revision to both `verbacorpus.org`
-and `non.verbacorpus.org`. The root opens the five-direction umbrella; the
-proverb application is at `/pro/`. The non domain opens its own direction and
-serves UPA at `/non/upa/`. Existing proverb APIs, short links and social cards
-retain their routes. A manual workflow may select `all` (default), `root`, or
-`non` for an intentionally limited release.
+Public addresses follow one rule: directions have their own subdomains and do
+not repeat their names in the path.
+
+| Site | Canonical address |
+| --- | --- |
+| Umbrella | `https://verbacorpus.org/` |
+| Proverbs | `https://pro.verbacorpus.org/` |
+| Dictionary | `https://contra.verbacorpus.org/` |
+| Editorial | `https://re.verbacorpus.org/` |
+| Typography | `https://para.verbacorpus.org/` |
+| Visual collections | `https://non.verbacorpus.org/` |
+| UPA collection | `https://non.verbacorpus.org/upa/` |
+| Alphabet laboratory | `https://para.verbacorpus.org/letters-lab` |
+
+Main releases publish one gateway revision to the shared root/direction Worker
+and the non Worker. The domain list is recorded in the Wrangler configurations;
+`scripts/ensure-domains.mjs` verifies or attaches exact custom domains using the
+Workers Domains API. It refuses to move a domain owned by another Worker.
+Existing root/section paths and repeated direction prefixes redirect directly
+to the final address. Query parameters and document fragments remain intact;
+legacy archive context paths are migrated. Legacy POST bodies are forwarded
+internally without changing their methods or payloads.
+
+Manual workflows can still target `all` (default), `root` (including pro,
+contra, re and para), or `non`. The public URL and redirect policy lives in
+`app/src/shared/site-addresses.ts`; local previews retain explicit direction
+paths while keeping UPA at `/upa/` and the alphabet laboratory at `/letters-lab`.
 
 `app/content/upa-release.json` pins the exact reviewed UPA commit. The release
 job checks out that private repository using `UPA_DEPLOY_KEY`, a read-only SSH

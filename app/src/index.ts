@@ -9,6 +9,7 @@ import { fromShort } from "./shared/shortlink";
 import { directionRoute } from "./shared/directions";
 import { upaRequest } from "./upa";
 import { withSiteShell } from './site-shell';
+import { canonicalAddress, hostDirection, isVerbaHost, publicHref } from './shared/site-addresses';
 import { initBot, formatProverbHtml, draftNews } from "./telegram";
 import { webhookCallback, InlineKeyboard } from "grammy";
 import uk from "../public/i18n/uk.json";
@@ -110,7 +111,7 @@ const application = {
   async fetch(request: Request, env: Env, _ctx?: ExecutionContext): Promise<Response> {
     try {
       const url = new URL(request.url);
-      const upa = await upaRequest(request, env.UPA);
+      const upa = await upaRequest(request, env.UPA, env.VERBA_LOCAL_PREVIEW === '1');
       if (upa) return upa;
       const { lang, rest } = parseLang(url.pathname);
       // /uk or /uk/... → 301 canonical (unprefixed)
@@ -123,7 +124,7 @@ const application = {
         const asset = new URL(direction.asset, url);
         const response = await env.ASSETS.fetch(new Request(asset, request));
         return direction.translateProverbs && lang !== DEFAULT_LANG && response.ok
-          ? translateHtml(response, lang, "/pro/", url.host)
+          ? translateHtml(response, lang, hostDirection(url.hostname) === 'pro' ? '/' : '/pro/', url.host)
           : response;
       }
       const raw0 = url.pathname;
@@ -133,7 +134,7 @@ const application = {
         const { meta } = await load(env);
         const id = fromShort(sMatch[1], meta.count);
         if (!id) return new Response("Not found", { status: 404 });
-        return Response.redirect(new URL(`/p/${id}`, url).href, 301);
+        return Response.redirect(new URL(publicHref(`/p/${id}`, url, env.VERBA_LOCAL_PREVIEW === '1'), url).href, 301);
       }
       // social-card routes (need the corpus) — match on rest for /p/, raw0 for /card/
       if (rest.startsWith("/p/") || raw0.startsWith("/card/")) {
@@ -434,5 +435,18 @@ const application = {
 };
 
 export default { ...application, async fetch(request: Request, env: Env, ctx?: ExecutionContext): Promise<Response> {
-  return withSiteShell(await application.fetch(request, env, ctx), request, env.VERBA_LOCAL_PREVIEW === '1');
+  const local = env.VERBA_LOCAL_PREVIEW === '1', url = new URL(request.url);
+  if (local) {
+    const path = url.pathname + url.search, target = publicHref(path, url, true);
+    if (path !== target) return new Response(null, { status: 308, headers: { location: target } });
+  }
+  if (!local) {
+    const target = canonicalAddress(url);
+    if (target && ['GET', 'HEAD'].includes(request.method)) return new Response(null, { status: 308, headers: { location: target.href, 'cache-control': 'public, max-age=86400' } });
+    if (target) request = new Request(target, request);
+    if (url.pathname === '/sw.js' && isVerbaHost(url.hostname) && hostDirection(url.hostname) !== 'pro') {
+      return new Response("self.addEventListener('install',()=>self.skipWaiting());self.addEventListener('activate',event=>event.waitUntil(self.registration.unregister()));", { headers: { 'content-type': 'application/javascript; charset=utf-8', 'cache-control': 'no-cache' } });
+    }
+  }
+  return withSiteShell(await application.fetch(request, env, ctx), request, local);
 } };

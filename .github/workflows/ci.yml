@@ -64,7 +64,6 @@ jobs:
     timeout-minutes: 20
     env:
       WRANGLER_SEND_METRICS: "false"
-      PUBLISH_HOSTS: ${{ github.event_name == 'workflow_dispatch' && inputs.target == 'root' && 'verbacorpus.org' || github.event_name == 'workflow_dispatch' && inputs.target == 'non' && 'non.verbacorpus.org' || 'verbacorpus.org non.verbacorpus.org' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -116,6 +115,12 @@ jobs:
           name: integrated-browser-failures
           path: .upa-source/test-results/verba
           if-no-files-found: ignore
+      - name: Verify canonical direction domains
+        run: node scripts/ensure-domains.mjs
+        working-directory: app
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       - name: Publish the UPA service first
         uses: cloudflare/wrangler-action@v3
         with:
@@ -145,10 +150,11 @@ jobs:
         run: |
           npx --no-install wrangler versions upload --config wrangler.non.jsonc --tag "$RELEASE_TAG"
           npx --no-install wrangler versions deploy --config wrangler.non.jsonc --version-tag "$RELEASE_TAG@100%" --yes
-      - name: Verify the published editor and API
+      - name: Verify canonical sites, editor and API
         run: |
-          for host in $PUBLISH_HOSTS; do
+          for host in verbacorpus.org pro.verbacorpus.org contra.verbacorpus.org re.verbacorpus.org para.verbacorpus.org non.verbacorpus.org; do
             curl --fail --silent --show-error --retry 5 --retry-all-errors "https://$host/" > /dev/null
-            curl --fail --silent --show-error --retry 5 --retry-all-errors "https://$host/non/upa/page-frames" > /dev/null
-            curl --fail --silent --show-error --retry 5 --retry-all-errors "https://$host/non/upa/api/v1/patterns?limit=1" > /dev/null
           done
+          curl --fail --silent --show-error --retry 5 --retry-all-errors https://para.verbacorpus.org/letters-lab > /dev/null
+          curl --fail --silent --show-error --retry 5 --retry-all-errors https://non.verbacorpus.org/upa/page-frames > /dev/null
+          curl --fail --silent --show-error --retry 5 --retry-all-errors 'https://non.verbacorpus.org/upa/api/v1/patterns?limit=1' > /dev/null

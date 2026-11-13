@@ -8,7 +8,7 @@ async function specimen(): Promise<void> {
   const canvas = document.querySelector<HTMLCanvasElement>("#font-canvas")!;
   const status = document.getElementById("font-status")!;
   try {
-    const response = await fetch("/para/font.json");
+    const response = await fetch(location.hostname === 'para.verbacorpus.org' ? '/font.json' : '/para/font.json');
     if (!response.ok) throw new Error("Font unavailable");
     const font: Font = await response.json();
     const glyphs = new Map(font.glyphData.map(g => [g.character, g]));
