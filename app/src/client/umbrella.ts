@@ -1,14 +1,6 @@
 interface Glyph { character: string; advanceX: number; rows: string[] }
 interface Font { cell: { width: number; height: number }; glyphData: Glyph[] }
 
-document.getElementById("umbrella-theme")?.addEventListener("click", () => {
-  const root = document.documentElement;
-  const dark = root.dataset.theme === "dark" || (!root.dataset.theme && matchMedia("(prefers-color-scheme: dark)").matches);
-  root.dataset.theme = dark ? "light" : "dark";
-  try { localStorage.setItem("theme", root.dataset.theme); } catch {}
-  document.dispatchEvent(new Event("verba-theme"));
-});
-
 async function specimen(): Promise<void> {
   if (!document.querySelector("[data-font-specimen]")) return;
   const input = document.querySelector<HTMLInputElement>("#font-text")!;

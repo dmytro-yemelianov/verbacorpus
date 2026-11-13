@@ -7,10 +7,10 @@ on:
   workflow_dispatch:
     inputs:
       target:
-        description: Deployment target (root requires an explicit manual run)
+        description: Deployment target (main publishes both domains)
         type: choice
-        options: [non, root]
-        default: non
+        options: [all, non, root]
+        default: all
         required: true
 
 concurrency:
@@ -64,7 +64,7 @@ jobs:
     timeout-minutes: 20
     env:
       WRANGLER_SEND_METRICS: "false"
-      PUBLISH_HOST: ${{ github.event_name == 'workflow_dispatch' && inputs.target == 'root' && 'verbacorpus.org' || 'non.verbacorpus.org' }}
+      PUBLISH_HOSTS: ${{ github.event_name == 'workflow_dispatch' && inputs.target == 'root' && 'verbacorpus.org' || github.event_name == 'workflow_dispatch' && inputs.target == 'non' && 'non.verbacorpus.org' || 'verbacorpus.org non.verbacorpus.org' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -101,6 +101,21 @@ jobs:
         working-directory: app
       - run: npm run build
         working-directory: app
+      - name: Install Chromium for integrated browser checks
+        run: pnpm exec playwright install --with-deps chromium
+        working-directory: .upa-source
+      - name: Verify all directions and mounted tools in Chromium
+        run: pnpm test:verba
+        working-directory: .upa-source
+        env:
+          VERBA_REPO: ${{ github.workspace }}
+      - name: Preserve browser failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integrated-browser-failures
+          path: .upa-source/test-results/verba
+          if-no-files-found: ignore
       - name: Publish the UPA service first
         uses: cloudflare/wrangler-action@v3
         with:
@@ -110,6 +125,16 @@ jobs:
           wranglerVersion: "4.153.0"
           command: deploy --config site/wrangler.jsonc
       # Use the locked CLI and update code on the existing domain; no zone access.
+      - name: Publish the umbrella on main updates
+        if: github.event_name != 'workflow_dispatch' || inputs.target != 'non'
+        working-directory: app
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          RELEASE_TAG: ci-${{ github.run_id }}-${{ github.run_attempt }}
+        run: |
+          npx --no-install wrangler versions upload --config wrangler.jsonc --tag "$RELEASE_TAG"
+          npx --no-install wrangler versions deploy --config wrangler.jsonc --version-tag "$RELEASE_TAG@100%" --yes
       - name: Publish non.verba on main updates
         if: github.event_name != 'workflow_dispatch' || inputs.target != 'root'
         working-directory: app
@@ -120,17 +145,10 @@ jobs:
         run: |
           npx --no-install wrangler versions upload --config wrangler.non.jsonc --tag "$RELEASE_TAG"
           npx --no-install wrangler versions deploy --config wrangler.non.jsonc --version-tag "$RELEASE_TAG@100%" --yes
-      - name: Publish the root site only on an explicit manual run
-        if: github.event_name == 'workflow_dispatch' && inputs.target == 'root'
-        working-directory: app
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          RELEASE_TAG: ci-${{ github.run_id }}-${{ github.run_attempt }}
-        run: |
-          npx --no-install wrangler versions upload --config wrangler.jsonc --tag "$RELEASE_TAG"
-          npx --no-install wrangler versions deploy --config wrangler.jsonc --version-tag "$RELEASE_TAG@100%" --yes
       - name: Verify the published editor and API
         run: |
-          curl --fail --silent --show-error --retry 5 --retry-all-errors "https://$PUBLISH_HOST/non/upa/page-frames" > /dev/null
-          curl --fail --silent --show-error --retry 5 --retry-all-errors "https://$PUBLISH_HOST/non/upa/api/v1/patterns?limit=1" > /dev/null
+          for host in $PUBLISH_HOSTS; do
+            curl --fail --silent --show-error --retry 5 --retry-all-errors "https://$host/" > /dev/null
+            curl --fail --silent --show-error --retry 5 --retry-all-errors "https://$host/non/upa/page-frames" > /dev/null
+            curl --fail --silent --show-error --retry 5 --retry-all-errors "https://$host/non/upa/api/v1/patterns?limit=1" > /dev/null
+          done

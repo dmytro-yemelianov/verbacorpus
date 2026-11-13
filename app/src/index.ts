@@ -8,6 +8,7 @@ import { parseLang, t, hreflangLinks, DEFAULT_LANG } from "./shared/i18n";
 import { fromShort } from "./shared/shortlink";
 import { directionRoute } from "./shared/directions";
 import { upaRequest } from "./upa";
+import { withSiteShell } from './site-shell';
 import { initBot, formatProverbHtml, draftNews } from "./telegram";
 import { webhookCallback, InlineKeyboard } from "grammy";
 import uk from "../public/i18n/uk.json";
@@ -25,6 +26,7 @@ const CATALOGS: Record<string, Record<string, string>> = { uk, en, de, fr, es, p
 function catalogFor(lang: string) { return CATALOGS[lang] ?? CATALOGS[DEFAULT_LANG]; }
 
 interface Env {
+  VERBA_LOCAL_PREVIEW?: string;
   UPA?: Cloudflare.Env['UPA'];
   ASSETS: { fetch: (req: Request | string) => Promise<Response> };
   AI: { run: (model: string, inputs: { text: string[] }) => Promise<{ data: number[][] }> };
@@ -104,7 +106,7 @@ function translateHtml(res: Response, lang: string, rest: string, host: string):
     .transform(res);
 }
 
-export default {
+const application = {
   async fetch(request: Request, env: Env, _ctx?: ExecutionContext): Promise<Response> {
     try {
       const url = new URL(request.url);
@@ -430,3 +432,7 @@ export default {
     })());
   }
 };
+
+export default { ...application, async fetch(request: Request, env: Env, ctx?: ExecutionContext): Promise<Response> {
+  return withSiteShell(await application.fetch(request, env, ctx), request, env.VERBA_LOCAL_PREVIEW === '1');
+} };

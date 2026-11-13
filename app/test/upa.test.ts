@@ -40,7 +40,6 @@ describe('UPA mounted in non.verba', () => {
     expect(html).toContain('/non/upa/patterns/p07_L_b00/b.webp 200w');
     expect(html).toContain('data-atlas-url="/non/upa/assets/atlas.webp"');
     expect(html).toContain("url('/non/upa/assets/atlas.webp')");
-    expect(html).toContain('href="/non/">← non.verba');
     expect(html).toContain('href="https://example.org"');
     expect(html).toContain('href="/non/upa/p/p1"');
     expect(html).not.toContain('/non/upa/non/upa/');

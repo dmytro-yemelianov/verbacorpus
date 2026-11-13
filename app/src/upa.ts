@@ -85,7 +85,6 @@ export async function upaRequest(request: Request, service?: Pick<Fetcher, 'fetc
         }
       } })
       .on('head', { element(element) { element.prepend(`<meta name="upa-base-path" content="${UPA_MOUNT}">`, { html: true }); } })
-      .on('body', { element(element) { element.prepend('<div style="padding:.65rem 1rem;border-bottom:1px solid currentColor;font:14px system-ui"><a href="/non/">← non.verba</a> · <a href="/corpora">Усі напрями Verba</a></div>', { html: true }); } })
       .transform(new Response(body, { status: response.status, headers }));
   }
   if (type.includes('text/css')) { edited(); return new Response(css(await response.text()), { status: response.status, headers }); }

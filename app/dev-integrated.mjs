@@ -16,7 +16,7 @@ for (const [command, args, cwd] of [
   if (result.status !== 0) process.exit(result.status ?? 1);
 }
 const state = resolve(app, process.env.VERBA_STATE_DIR || '.wrangler/integrated');
-const server = spawn(process.execPath, [wrangler, 'dev', '--local', '--ip', '127.0.0.1', '--port', process.env.VERBA_PORT || '8793', '--persist-to', state, '-c', resolve(app, 'wrangler.jsonc'), '-c', resolve(upa, 'site/wrangler.jsonc')], {
+const server = spawn(process.execPath, [wrangler, 'dev', '--local', '--var', 'VERBA_LOCAL_PREVIEW:1', '--ip', '127.0.0.1', '--port', process.env.VERBA_PORT || '8793', '--persist-to', state, '-c', resolve(app, 'wrangler.jsonc'), '-c', resolve(upa, 'site/wrangler.jsonc')], {
   cwd: app, stdio: 'inherit', env: { ...process.env, WRANGLER_SEND_METRICS: 'false' },
 });
 for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, () => server.kill(signal));
