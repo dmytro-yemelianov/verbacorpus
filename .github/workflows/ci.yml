@@ -109,6 +109,7 @@ jobs:
           workingDirectory: .upa-source
           wranglerVersion: "4.153.0"
           command: deploy --config site/wrangler.jsonc
+      # Match the gateway CLI to app/package-lock.json and its Workers types.
       - name: Publish non.verba on main updates
         if: github.event_name != 'workflow_dispatch' || inputs.target != 'root'
         uses: cloudflare/wrangler-action@v3
@@ -116,7 +117,7 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: app
-          wranglerVersion: "4.153.0"
+          wranglerVersion: "4.103.0"
           command: deploy --config wrangler.non.jsonc
       - name: Publish the root site only on an explicit manual run
         if: github.event_name == 'workflow_dispatch' && inputs.target == 'root'
@@ -125,7 +126,7 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: app
-          wranglerVersion: "4.153.0"
+          wranglerVersion: "4.103.0"
           command: deploy --config wrangler.jsonc
       - name: Verify the published editor and API
         run: |
