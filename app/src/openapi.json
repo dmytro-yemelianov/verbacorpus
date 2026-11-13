@@ -2,12 +2,12 @@
   "openapi": "3.0.3",
   "info": {
     "title": "Ukrainian Proverbs API",
-    "description": "REST API for the Ukrainian Proverbs Corpus — 48 787 proverbs, sayings and expressions from five collections. Supports JSON, JSONL, XML, CSV and TSV output via ?format= or Accept negotiation. Compilation and enrichment are licensed under CC BY 4.0; historical source texts are public domain, while modern-collection texts retain their publishers' rights. See https://verbacorpus.org/about for source-specific reuse terms.",
+    "description": "REST API for the Ukrainian Proverbs Corpus — 48 787 proverbs, sayings and expressions from five collections. Supports JSON, JSONL, XML, CSV and TSV output via ?format= or Accept negotiation. Compilation and enrichment are licensed under CC BY 4.0; historical source texts are public domain, while modern-collection texts retain their publishers' rights. See https://pro.verbacorpus.org/about for source-specific reuse terms.",
     "version": "1.0.0",
     "license": { "name": "CC BY 4.0 (compilation and enrichment)", "url": "https://creativecommons.org/licenses/by/4.0/" }
   },
   "servers": [
-    { "url": "https://verbacorpus.org", "description": "Production" }
+    { "url": "https://pro.verbacorpus.org", "description": "Production" }
   ],
   "tags": [
     { "name": "search", "description": "Full-text and semantic search" },
