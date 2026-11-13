@@ -74,3 +74,10 @@ release job; retained traces and screenshots are uploaded as
 A four-minute Playwright global timeout leaves time for failure evidence before
 the five-minute CI step timeout. Main releases remain serialized so another
 release cannot replace the deployed code while these checks are running.
+
+The pinned UPA build also creates BDF/OTB assets. Before publishing, the release
+installs the pinned `scripts/font-validation-requirements.txt` tools and runs
+`validate-font-exports.py` over every public face. fontTools verifies character
+maps, metrics, notices and embedded masks; FreeType independently renders ready
+Ukrainian alphabets and experimental samples in both formats. A mismatch fails
+the release before any Worker is published.
