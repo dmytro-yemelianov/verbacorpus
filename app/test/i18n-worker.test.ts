@@ -24,8 +24,8 @@ describe("lang routing", () => {
 });
 
 describe("HTMLRewriter translation", () => {
-  it("/en/ → SPA HTML with lang=en, __LANG__, and hreflang", async () => {
-    const res = await call("/en/");
+  it("/en/pro/ → SPA HTML with lang=en, __LANG__, and hreflang", async () => {
+    const res = await call("/en/pro/");
     expect(res.status).toBe(200);
     const html = await res.text();
     expect(html).toContain('lang="en"');

@@ -1,0 +1,74 @@
+{
+  "checkedAt": "2026-11-01T23:21:04.282575+00:00",
+  "baseUrl": "http://localhost:8791",
+  "checks": [
+    {
+      "path": "/",
+      "result": "200 text/html; charset=utf-8"
+    },
+    {
+      "path": "/pro/",
+      "result": "200 text/html; charset=utf-8"
+    },
+    {
+      "path": "/contra/",
+      "result": "200 text/html; charset=utf-8"
+    },
+    {
+      "path": "/re/",
+      "result": "200 text/html; charset=utf-8"
+    },
+    {
+      "path": "/para/",
+      "result": "200 text/html; charset=utf-8"
+    },
+    {
+      "path": "/non/",
+      "result": "200 text/html; charset=utf-8"
+    },
+    {
+      "path": "/corpora",
+      "result": "200 text/html; charset=utf-8"
+    },
+    {
+      "path": "/en/pro/",
+      "result": "200 text/html; charset=utf-8"
+    },
+    {
+      "path": "/bez-tabu/",
+      "result": "200 text/html; charset=utf-8"
+    },
+    {
+      "path": "/api/v1/meta",
+      "result": "200 application/json; charset=utf-8"
+    },
+    {
+      "path": "/api/v1/search?q=мова&limit=1",
+      "result": "200 application/json; charset=utf-8"
+    },
+    {
+      "path": "/p/p000001",
+      "result": "200 text/html; charset=utf-8"
+    },
+    {
+      "path": "/s/1",
+      "result": "200 text/html; charset=utf-8"
+    },
+    {
+      "path": "/non/icons/sun.svg",
+      "result": "200 image/svg+xml"
+    },
+    {
+      "path": "/non/icons/sun.png",
+      "result": "200 image/png"
+    },
+    {
+      "path": "/para/font.json",
+      "result": "200 application/json"
+    }
+  ],
+  "publicSnapshotHashesValid": true,
+  "crons": [
+    "0 6 * * *"
+  ]
+}

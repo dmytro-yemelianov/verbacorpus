@@ -1,0 +1,162 @@
+{
+  "checkedAt": "2026-11-01T23:22:22.572Z",
+  "pages": [
+    {
+      "brokenImages": [],
+      "cards": 5,
+      "h1": "verba.",
+      "icons": 0,
+      "path": "/",
+      "scrollWidth": 1280,
+      "title": "Українська культурна спадщина в даних — Verba Corpus",
+      "width": 1280
+    },
+    {
+      "brokenImages": [],
+      "cards": 0,
+      "h1": "pro.verba",
+      "icons": 0,
+      "path": "/pro/",
+      "scrollWidth": 1280,
+      "title": "verba — українські прислів'я та приказки",
+      "width": 1280
+    },
+    {
+      "brokenImages": [],
+      "cards": 0,
+      "h1": "Українська без табу.",
+      "icons": 0,
+      "path": "/contra/",
+      "scrollWidth": 1280,
+      "status": "Знайдено 2000 · показано 60",
+      "title": "contra.verba — Українська без табу",
+      "width": 1280
+    },
+    {
+      "brokenImages": [],
+      "cards": 0,
+      "h1": "re.verba",
+      "icons": 0,
+      "path": "/re/",
+      "scrollWidth": 1280,
+      "title": "re.verba — історії та переосмислення — Verba Corpus",
+      "width": 1280
+    },
+    {
+      "brokenImages": [],
+      "cards": 0,
+      "h1": "para.verba",
+      "icons": 0,
+      "path": "/para/",
+      "scrollWidth": 1280,
+      "status": "Усі символи є в зразку. Кожна клітинка відтворена без згладжування.",
+      "title": "para.verba — шрифти та літери — Verba Corpus",
+      "width": 1280
+    },
+    {
+      "brokenImages": [],
+      "cards": 0,
+      "h1": "non.verba",
+      "icons": 12,
+      "path": "/non/",
+      "scrollWidth": 1280,
+      "title": "non.verba — орнаменти та піксельні знаки — Verba Corpus",
+      "width": 1280
+    },
+    {
+      "brokenImages": [],
+      "cards": 5,
+      "h1": "verba.",
+      "icons": 0,
+      "path": "/",
+      "scrollWidth": 390,
+      "title": "Українська культурна спадщина в даних — Verba Corpus",
+      "width": 390
+    },
+    {
+      "brokenImages": [],
+      "cards": 0,
+      "h1": "pro.verba",
+      "icons": 0,
+      "path": "/pro/",
+      "scrollWidth": 390,
+      "title": "verba — українські прислів'я та приказки",
+      "width": 390
+    },
+    {
+      "brokenImages": [],
+      "cards": 0,
+      "h1": "Українська без табу.",
+      "icons": 0,
+      "path": "/contra/",
+      "scrollWidth": 390,
+      "status": "Знайдено 2000 · показано 60",
+      "title": "contra.verba — Українська без табу",
+      "width": 390
+    },
+    {
+      "brokenImages": [],
+      "cards": 0,
+      "h1": "re.verba",
+      "icons": 0,
+      "path": "/re/",
+      "scrollWidth": 390,
+      "title": "re.verba — історії та переосмислення — Verba Corpus",
+      "width": 390
+    },
+    {
+      "brokenImages": [],
+      "cards": 0,
+      "h1": "para.verba",
+      "icons": 0,
+      "path": "/para/",
+      "scrollWidth": 390,
+      "status": "Усі символи є в зразку. Кожна клітинка відтворена без згладжування.",
+      "title": "para.verba — шрифти та літери — Verba Corpus",
+      "width": 390
+    },
+    {
+      "brokenImages": [],
+      "cards": 0,
+      "h1": "non.verba",
+      "icons": 12,
+      "path": "/non/",
+      "scrollWidth": 390,
+      "title": "non.verba — орнаменти та піксельні знаки — Verba Corpus",
+      "width": 390
+    }
+  ],
+  "interactions": [
+    {
+      "dictionarySearch": {
+        "status": "Знайдено 4 · показано 4",
+        "url": "?q=%D0%B1%D1%96%D0%B4%D0%B0"
+      }
+    },
+    {
+      "dictionaryGraph": true
+    },
+    {
+      "fontUkrainian": "Усі символи є в зразку. Кожна клітинка відтворена без згладжування."
+    },
+    {
+      "fontMissing": "У цьому зразку відсутні: 🙂. Позначено червоними рамками."
+    },
+    {
+      "themeAfterToggle": "light"
+    },
+    {
+      "offlineApiProbe": {
+        "blocked": true
+      }
+    },
+    {
+      "offlineProverbs": {
+        "heading": "pro.verba",
+        "online": true,
+        "query": "хата"
+      }
+    }
+  ],
+  "exceptions": []
+}

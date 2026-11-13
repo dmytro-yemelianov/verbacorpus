@@ -2,6 +2,11 @@ import { env, createExecutionContext, waitOnExecutionContext } from "cloudflare:
 import { describe, it, expect } from "vitest";
 import worker from "../src/index";
 
+it("keeps the local HTTP scheme in short-link redirects", async () => {
+  const res = await worker.fetch(new Request("http://localhost:8791/s/1"), env as any);
+  expect(res.headers.get("location")).toMatch(/^http:\/\/localhost:8791\/p\//);
+});
+
 async function call(path: string, headers: Record<string, string> = {}) {
   const ctx = createExecutionContext();
   const res = await worker.fetch(new Request("https://verbacorpus.org" + path, { headers }), env as any, ctx);

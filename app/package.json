@@ -4,11 +4,17 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "sync-bez-tabu": "python3 sync_bez_tabu.py",
     "sync-data": ".venv/bin/python build_data.py ../corpus.csv ../enrich/taxonomy.csv ../sources.csv public/data ../corpus.xml",
     "build": "node build.mjs",
     "dev": "wrangler dev",
+    "dev:integrated": "node dev-integrated.mjs",
     "deploy": "wrangler deploy",
-    "test": "vitest run"
+    "deploy:non": "wrangler deploy --config wrangler.non.jsonc",
+    "test": "npm run test:catalog && vitest run",
+    "typecheck": "tsc --noEmit",
+    "sync-corpora": "python3 sync_corpora.py",
+    "test:catalog": "node --test test-catalog/*.test.mjs"
   },
   "dependencies": {
     "gifenc": "^1.0.3",
@@ -21,6 +27,7 @@
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "^0.9.6",
     "@cloudflare/workers-types": "^4.20260626.1",
+    "@types/upng-js": "^2.1.5",
     "esbuild": "^0.25.10",
     "typescript": "^5.9.3",
     "vitest": "~3.2.4",

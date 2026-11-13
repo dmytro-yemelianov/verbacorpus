@@ -1,0 +1,20 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "non-verba",
+  "main": "src/index.ts",
+  "compatibility_date": "2025-10-11",
+  "workers_dev": false,
+  "preview_urls": false,
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    "not_found_handling": "none",
+    "run_worker_first": true
+  },
+  "services": [{ "binding": "UPA", "service": "upa-local-preview" }],
+  "ai": { "binding": "AI" },
+  "vectorize": [{ "binding": "VECTORIZE", "index_name": "proverbs-bge-m3-v2" }],
+  "routes": [{ "pattern": "non.verbacorpus.org", "custom_domain": true }],
+  "observability": { "enabled": true },
+  "rules": [{ "type": "Data", "globs": ["**/*.ttf"], "fallthrough": true }]
+}

@@ -5,14 +5,17 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+    inputs:
+      target:
+        description: Deployment target (root requires an explicit manual run)
+        type: choice
+        options: [non, root]
+        default: non
+        required: true
 
-# Avoid overlapping deploys when pushes land quickly.
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: false
-
-# Least-privilege default — no job needs more than read (deploy authenticates
-# to Cloudflare with its own API token, not GITHUB_TOKEN).
 permissions:
   contents: read
 
@@ -25,14 +28,17 @@ jobs:
         working-directory: app
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
           cache-dependency-path: app/package-lock.json
       - run: npm ci
+      - run: npm run typecheck
       - run: node build.mjs
-      - run: npx vitest run
+      - run: npm test
 
   pytest:
     name: Data pipeline tests
@@ -50,31 +56,78 @@ jobs:
       - run: python -m pytest -q
 
   deploy:
-    name: Deploy to Cloudflare
+    name: Publish pinned UPA and Verba
     needs: [test, pytest]
-    # Only deploy real pushes to main — never PRs.
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # PRs never receive the private source key or deploy credentials.
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: app
+    timeout-minutes: 20
+    env:
+      WRANGLER_SEND_METRICS: "false"
+      PUBLISH_HOST: ${{ github.event_name == 'workflow_dispatch' && inputs.target == 'root' && 'verbacorpus.org' || 'non.verbacorpus.org' }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: app/package-lock.json
+          node-version: 24
+      - name: Read the reviewed UPA revision
+        id: upa
+        run: |
+          node <<'JS'
+          const fs = require('node:fs');
+          const { revision } = JSON.parse(fs.readFileSync('app/content/upa-release.json', 'utf8'));
+          if (!/^[a-f0-9]{40}$/.test(revision)) throw new Error('Expected a pinned UPA commit');
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, 'revision=' + revision + '\n');
+          JS
+      - name: Check out private UPA with a read-only deploy key
+        uses: actions/checkout@v4
+        with:
+          repository: dmytro-yemelianov/upa-archive
+          ref: ${{ steps.upa.outputs.revision }}
+          path: .upa-source
+          ssh-key: ${{ secrets.UPA_DEPLOY_KEY }}
+          persist-credentials: false
+      - run: npm install --global pnpm@12.9.1
+      - run: pnpm install --frozen-lockfile
+        working-directory: .upa-source
+      - name: Verify the UPA source before deployment
+        run: pnpm lint && pnpm exec tsc --noEmit && pnpm site:check && pnpm test
+        working-directory: .upa-source
+      - run: pnpm site:build --sources
+        working-directory: .upa-source
       - run: npm ci
-      # build.mjs regenerates public/app.js (gitignored), chrome.js and embroidery.css.
-      - run: node build.mjs
-      - name: Deploy worker
+        working-directory: app
+      - run: npm run build
+        working-directory: app
+      - name: Publish the UPA service first
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: .upa-source
+          wranglerVersion: "4.153.0"
+          command: deploy --config site/wrangler.jsonc
+      - name: Publish non.verba on main updates
+        if: github.event_name != 'workflow_dispatch' || inputs.target != 'root'
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: app
-          # Pin to a version that supports wrangler.jsonc (the action defaults to an
-          # older wrangler that predates it → "Missing entry-point").
-          wranglerVersion: "4.103.0"
-          command: deploy
+          wranglerVersion: "4.153.0"
+          command: deploy --config wrangler.non.jsonc
+      - name: Publish the root site only on an explicit manual run
+        if: github.event_name == 'workflow_dispatch' && inputs.target == 'root'
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: app
+          wranglerVersion: "4.153.0"
+          command: deploy --config wrangler.jsonc
+      - name: Verify the published editor and API
+        run: |
+          curl --fail --silent --show-error --retry 5 --retry-all-errors "https://$PUBLISH_HOST/non/upa/page-frames" > /dev/null
+          curl --fail --silent --show-error --retry 5 --retry-all-errors "https://$PUBLISH_HOST/non/upa/api/v1/patterns?limit=1" > /dev/null

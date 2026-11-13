@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Українська без табу — Verba Corpus</title>
+  <meta name="description" content="Словник української обсценної лексики: пошук за словом, терміном і тематичною групою. Проєкт ua-bez-tabu у Verba Corpus.">
+  <link rel="icon" href="/favicon.svg"><link rel="stylesheet" href="/fonts/spectral.css">
+  <link rel="stylesheet" href="/styles.css"><link rel="stylesheet" href="/corpora.css">
+  <link rel="stylesheet" href="/bez-tabu/styles.css">
+  <script type="module" src="/bez-tabu/app.js"></script>
+</head>
+<body class="tabu-page">
+  <nav class="topbar"><div class="wrap topbar-inner"><a class="topbar-brand" href="/corpora.html"><img class="brandmark" src="/logo-willow.svg" alt=""><span>verba</span></a><div class="topbar-nav"><a class="topbar-link" href="/corpora.html">Усі корпуси</a><a class="topbar-link" href="#source">Джерело й дані</a><a class="topbar-link" href="https://github.com/MurzikVasilyevich/ua-bez-tabu">GitHub</a></div></div></nav>
+  <header class="tabu-mast wrap">
+    <div><p class="eyebrow">Verba Corpus <span aria-hidden="true">/</span> Лексикографія</p><h1>Українська <em>без табу</em><span class="title-dot">.</span></h1><p class="tabu-intro">Слова, які теж належать мові. Обсценізми, евфемізми й сексуалізми — досліджуйте відповідники та їхні зв’язки.</p></div>
+    <div class="tabu-stat-block"><strong>2 000</strong><span>рядків у словнику</span><p id="tabu-stats">55 термінів · 12 груп</p></div>
+  </header>
+  <main class="wrap tabu-main">
+    <div class="tabu-workspace">
+      <form class="tabu-controls" role="search">
+        <div class="tabu-search-line"><label class="tabu-search"><span class="vh">Слово або вислів</span><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg><input id="tabu-q" type="search" placeholder="Знайти слово або вислів…" autocomplete="off" disabled><kbd aria-hidden="true">/</kbd></label><button id="tabu-reset" type="button" disabled>Скинути</button></div>
+        <button id="tabu-exact" type="button" hidden aria-label="Прибрати фільтр точного написання"></button>
+        <details class="tabu-filter-details" id="tabu-filter-details" open><summary><span id="tabu-filter-label">Фільтри</span><span>Група, термін, форма</span></summary><div class="tabu-filters"><label>Група<select id="tabu-group" disabled><option value="">Усі групи</option></select></label><label>Термін<select id="tabu-term" disabled><option value="">Усі терміни</option></select></label><label>Форма<select id="tabu-kind" disabled><option value="">Усі форми</option><option value="word">Слова</option><option value="phrase">Словосполучення</option></select></label></div></details>
+      </form>
+      <div class="tabu-viewbar"><p id="tabu-status" role="status" aria-live="polite">Завантаження словника…</p><div class="tabu-view-switch" role="group" aria-label="Спосіб перегляду"><button id="view-cards" type="button" aria-pressed="true"><svg viewBox="0 0 20 20" aria-hidden="true"><rect x="2" y="2" width="6" height="6"/><rect x="12" y="2" width="6" height="6"/><rect x="2" y="12" width="6" height="6"/><rect x="12" y="12" width="6" height="6"/></svg>Картки</button><button id="view-graph" type="button" aria-pressed="false"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="m5 5 10 3-6 7-4-10"/><circle cx="5" cy="5" r="2.5"/><circle cx="15" cy="8" r="2.5"/><circle cx="9" cy="15" r="2.5"/></svg>Граф зв’язків</button></div></div>
+    </div>
+    <noscript><p>Для пошуку ввімкніть JavaScript або завантажте дані нижче.</p></noscript>
+    <section id="cards-panel" aria-label="Картки словника"><div id="tabu-results" class="tabu-card-grid"></div><div class="tabu-more-wrap"><button id="tabu-more" type="button" hidden>Показати ще 60 <span aria-hidden="true">↓</span></button></div></section>
+    <section id="graph-panel" aria-label="Граф зв’язків словника" hidden>
+      <div class="graph-topline"><div class="graph-legend"><span class="node-group">Група</span><span class="node-term">Термін</span><span class="node-synonym">Відповідник</span></div><div class="graph-navigation"><button id="graph-back" type="button" disabled>← Назад</button><button id="graph-home" type="button">Усі групи ↗</button></div></div>
+      <div class="graph-layout"><div class="graph-stage"><div id="graph-viewport"><svg id="tabu-graph" xmlns="http://www.w3.org/2000/svg" role="group" aria-label="Граф словника" viewBox="0 0 900 640"></svg></div><div class="graph-tools"><span>Тягніть вузли або тло</span><div><button id="graph-zoom-out" type="button" aria-label="Зменшити граф">−</button><button id="graph-fit" type="button" aria-label="Вмістити граф">⌖</button><button id="graph-zoom-in" type="button" aria-label="Збільшити граф">+</button></div></div><div class="graph-pagination"><button id="graph-prev" type="button" aria-label="Попередні вузли">←</button><span id="graph-page"></span><button id="graph-next" type="button" aria-label="Наступні вузли">→</button></div></div><aside class="graph-inspector"><p id="graph-kind" class="eyebrow">Словник</p><h2 id="graph-heading" tabindex="-1">Без табу</h2><p id="graph-summary"></p><button id="graph-cards" type="button">Переглянути картки ↗</button><h3>Пов’язані вузли</h3><div id="graph-neighbors"></div><p class="graph-note">Лінії показують зв’язки з CSV. Спільний відповідник об’єднує однакові написання; це не оцінка семантичної схожості.</p></aside></div>
+    </section>
+    <section id="source" class="corpus-source">
+      <h2>Джерело й дані</h2>
+      <p>Проєкт <a href="https://github.com/MurzikVasilyevich/ua-bez-tabu">ua-bez-tabu</a> Дмитра Ємельянова (MurzikVasilyevich), створений на основі книжки Лесі Ставицької <cite>«Українська мова без табу. Словник нецензурної лексики та її відповідників: Обсценізми, евфемізми, сексуалізми»</cite>.</p>
+      <p>Це вибірка відповідників, а не повний текст словника. Значення, стилістичні позначки, цитати й сторінки книжки у вихідних даних відсутні.</p>
+      <div class="corpus-actions"><a href="/bez-tabu/data/synonyms.csv" download>CSV</a><a href="/bez-tabu/data/entries.json" download>JSON із метаданими</a><a href="/bez-tabu/data/synonyms.json" download>JSON груп</a><a href="/bez-tabu/data/synonyms.xml" download>XML</a><a href="/bez-tabu/data/provenance.json">Походження знімка</a></div>
+      <details><summary>Якість даних і ліцензія</summary><p>Збережено всі 2 000 рядків першоджерела, включно з 5 повторними. У 26 записів не вказано термін, у 593 немає емодзі. Ознака слова чи словосполучення взята з CSV без переоцінки. <a href="/bez-tabu/data/audit.json">Машиночитний аудит</a>.</p><p>Репозиторій містить <a href="/bez-tabu/data/LICENSE.txt">MIT License</a>. Окремі умови використання матеріалів книжки в ньому не зазначені.</p></details>
+    </section>
+  </main>
+  <footer class="colophon"><div class="wrap"><p><a href="/corpora.html">Verba Corpus</a> · Українська культурна спадщина в даних</p></div></footer>
+</body>
+</html>

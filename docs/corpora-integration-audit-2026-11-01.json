@@ -1,0 +1,70 @@
+{
+  "checked_at_utc": "2026-11-01T18:26:15.871079+00:00",
+  "method": "curl GET with redirects; DNS resolution from local machine",
+  "checks": [
+    {
+      "url": "https://verbacorpus.org/",
+      "status": 200,
+      "curl_exit_code": 0
+    },
+    {
+      "url": "https://verbacorpus.org/corpora",
+      "status": 404,
+      "curl_exit_code": 0
+    },
+    {
+      "url": "https://verbacorpus.org/corpora.html",
+      "status": 404,
+      "curl_exit_code": 0
+    },
+    {
+      "url": "https://verbacorpus.org/bez-tabu/",
+      "status": 404,
+      "curl_exit_code": 0
+    },
+    {
+      "url": "https://verbacorpus.org/data/corpora.json",
+      "status": 404,
+      "curl_exit_code": 0
+    },
+    {
+      "url": "https://verbacorpus.org/api/v1/meta",
+      "status": 200,
+      "curl_exit_code": 0,
+      "meta": {
+        "version": "1.0.2",
+        "count": 48787,
+        "with_explanation": 30532
+      },
+      "sources": [
+        "Franko1901",
+        "Nomis1864",
+        "Bobkova",
+        "Ilkevich1841",
+        "Mlodzynskyi2009"
+      ]
+    },
+    {
+      "url": "https://verbacorpus.org/data/embroidery-archive.json",
+      "status": 200,
+      "curl_exit_code": 0,
+      "units": 123,
+      "keys": [
+        "palette",
+        "units"
+      ]
+    },
+    {
+      "url": "https://upa.verbacorpus.org/",
+      "status": 0,
+      "curl_exit_code": 6,
+      "error": "curl: (6) Could not resolve host: upa.verbacorpus.org"
+    },
+    {
+      "url": "https://slovo.verbacorpus.org/",
+      "status": 0,
+      "curl_exit_code": 6,
+      "error": "curl: (6) Could not resolve host: slovo.verbacorpus.org"
+    }
+  ]
+}

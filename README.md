@@ -10,6 +10,65 @@ It is **enriched**: every entry carries a modern-spelling rendering and 1–3 th
 A Cloudflare Worker serves a searchable, offline-capable PWA and a JSON REST API over the corpus
 (in `app/`, mirroring the ua-bez-tabu stack). Live: **https://verbacorpus.org**
 
+### Verba Corpus: каталог проєктів
+
+Хендовер парасольки, стан публічних адрес і порядок завершення інтеграції:
+[docs/CORPORA-HANDOVER.md](docs/CORPORA-HANDOVER.md) (перевірено 2026-11-01).
+
+Локальна головна `/` і `/corpora` об’єднують п’ять погоджених напрямів:
+
+| Напрям | Локальна адреса | Наповнення |
+| --- | --- | --- |
+| **pro.verba** | `/pro/` | 48 787 прислів’їв, пошук, наявний API і картки |
+| **contra.verba** | `/contra/` | «Українська без табу»: 2 000 рядків, пошук, фільтри й граф |
+| **re.verba** | `/re/` | Редакційний напрям із вже опублікованими статтями |
+| **para.verba** | `/para/` | Nasinnia: перевірений український растровий зразок Cozette |
+| **non.verba** | `/non/` | Повний UPA на `/non/upa/` і 12 авторських іконок 16×16 |
+
+Для іконок доступні SVG, PNG, JSON-матриці та SVG-спрайт. Шрифтовий зразок
+зберігає MIT-ліцензію й точні вихідні растри, невідомі символи показує явно.
+UPA підключається окремим Worker через service binding `UPA`: каталог, скани,
+генератор, друк та API доступні на `/non/upa/`. Його PDF, скани й матриці не
+копіюються до збірки Verba. Візуальний напрям опубліковано на
+[non.verbacorpus.org](https://non.verbacorpus.org); повний
+[каталог UPA](https://non.verbacorpus.org/non/upa/) працює без авторизації.
+Публікація після збірки: `cd app && npm run deploy:non`.
+Генератор [рамок для сторінок](https://non.verbacorpus.org/non/upa/page-frames)
+підтримує A4/A5/Letter, seed, поля, орнаменти, палітри, процедурні кути,
+SVG, прозорий PNG 200 dpi та друк/PDF на одному аркуші.
+Редактор додає заголовок, текст, дату й підпис, шаблони документів і збереження
+в браузері. Шрифти Spleen із Texted та Cozette з Verba підтримують українську;
+в експорті використовуються самодостатні контури пікселів.
+Після злиття в `main` [CI публікує non.verba](docs/DEPLOYMENT.md) з точно
+зафіксованою ревізією UPA; деплой кореневого домену запускається окремо вручну.
+Кореневий домен ще працює у попередній структурі; з нових піддоменів підключено `non`.
+
+Старі `/bez-tabu/`, `/blog/*`, `/p/*`, `/s/*`, `/card/*` та `/api/*` підтримуються.
+Кореневі URL з параметрами пошуку переспрямовуються на `/pro/` зі збереженням
+фільтрів; мови прислів’їв доступні під `/<lang>/pro/`. Парасолька наразі українська.
+Імпорт словника: [BEZ-TABU.md](docs/BEZ-TABU.md).
+Реалізація: [специфікація](docs/superpowers/specs/2026-11-02-verba-umbrella.md)
+та [план і перевірки](docs/superpowers/plans/2026-11-02-verba-umbrella.md).
+
+```sh
+cd app
+python3 sync_bez_tabu.py ../../ua-bez-tabu  # лише для оновлення знімка
+python3 sync_corpora.py                   # явне оновлення метаданих UPA/Nasinnia
+npm run build                            # звичайна збірка не потребує сусіднього репо
+npm run typecheck                        # типи клієнта, Worker і тестів
+npm test                                 # каталог, растри, маршрути й наявний API
+npm run dev:integrated                   # зібрати й запустити Verba + UPA на localhost:8793
+```
+
+Інтегроване прев’ю потребує встановлених залежностей обох репозиторіїв і сусідньої
+теки `../upa-archive`. Інший шлях задається через `UPA_REPO`, порт — через
+`VERBA_PORT`, каталог стану — через `VERBA_STATE_DIR`. Команда використовує
+Wrangler з UPA та окремий локальний стан `.wrangler/integrated`. Звичайні збірка й тести Verba не потребують сусіднього
+репозиторію. API прислів’їв лишається на `/api/v1`, API орнаментів доступний
+на `/non/upa/api/v1`; Swagger — `/non/upa/api/v1/docs`.
+Повна браузерна перевірка зв’язки запускається командою `pnpm test:verba`
+з кореня UPA: вона сама піднімає обидва Worker на окремому порту 8794.
+
 ### REST API (`/api/v1`, multi-format)
 
 Versioned, content-negotiated API — every data endpoint serves **JSON · JSONL · XML · CSV · TSV** via

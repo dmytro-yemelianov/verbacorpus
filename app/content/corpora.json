@@ -1,0 +1,62 @@
+[
+  {
+    "id": "slovo",
+    "prefix": "pro",
+    "title": "Прислів’я та приказки",
+    "eyebrow": "Усна традиція",
+    "kind": "corpus",
+    "description": "Народна мудрість у словах. П’ять зібрань, історичні написання, пояснення та пошук за змістом.",
+    "href": "/pro/",
+    "domain": "pro.verbacorpus.org",
+    "status": "Доступний у перегляді",
+    "repository": "https://github.com/dmytro-yemelianov/verbacorpus"
+  },
+  {
+    "id": "bez-tabu",
+    "prefix": "contra",
+    "title": "Українська без табу",
+    "eyebrow": "Лексикографія",
+    "kind": "corpus",
+    "description": "Слова, які теж належать мові. Відповідники, тематичні групи та граф зв’язків зі збереженим походженням.",
+    "href": "/contra/",
+    "domain": "contra.verbacorpus.org",
+    "status": "Доступний у перегляді",
+    "repository": "https://github.com/MurzikVasilyevich/ua-bez-tabu"
+  },
+  {
+    "id": "editorial",
+    "prefix": "re",
+    "title": "Історії та переосмислення",
+    "eyebrow": "Редакція",
+    "kind": "editorial",
+    "description": "Читаємо джерела заново. Історії про мову, дані та візуальну спадщину з усіх напрямів Verba.",
+    "href": "/re/",
+    "domain": "re.verbacorpus.org",
+    "status": "Редакційний напрям",
+    "repository": null
+  },
+  {
+    "id": "nasinnia",
+    "prefix": "para",
+    "title": "Шрифти та літери",
+    "eyebrow": "Nasinnia",
+    "kind": "corpus",
+    "description": "Як виглядає українська мова. Растрові шрифти, точні гліфи й перевірка покриття української абетки.",
+    "href": "/para/",
+    "domain": "para.verbacorpus.org",
+    "status": "Зразок Nasinnia у перегляді",
+    "repository": null
+  },
+  {
+    "id": "upa",
+    "prefix": "non",
+    "title": "Орнаменти та піксельні знаки",
+    "eyebrow": "Візуальна спадщина",
+    "kind": "collections",
+    "description": "Зміст поза словами. Вишивальні орнаменти UPA Archive та окрема авторська колекція піксельних іконок.",
+    "href": "/non/",
+    "domain": "non.verbacorpus.org",
+    "status": "UPA та іконки доступні",
+    "repository": null
+  }
+]

@@ -1,0 +1,33 @@
+{
+  "desktopColumns": 3,
+  "mobile": {
+    "columns": "358px",
+    "scrollWidth": 390,
+    "width": 390
+  },
+  "initialCards": 60,
+  "diversifiedMeanings": 12,
+  "cardPagination": true,
+  "cardToGraph": true,
+  "graphToCards": true,
+  "overviewGroups": 12,
+  "sharedSpellingMeanings": 3,
+  "pointerSelect": true,
+  "keyboardActivation": true,
+  "graphBack": true,
+  "zoom": true,
+  "nodeDrag": true,
+  "edgeUpdates": true,
+  "canvasPan": true,
+  "neighborPagination": true,
+  "nodeUrlReplay": true,
+  "graphUsesFilters": true,
+  "unlabelledTerms": 26,
+  "emptyGraph": true,
+  "mobileNeighborPages": 2,
+  "nonOverlappingNodes": true,
+  "lightAndDark": true,
+  "mobileFiltersCollapse": true,
+  "exactSpellingRows": 3,
+  "consoleExceptions": []
+}

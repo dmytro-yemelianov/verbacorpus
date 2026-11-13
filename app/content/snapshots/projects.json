@@ -1,0 +1,17 @@
+{
+  "upa": {
+    "patterns": 167,
+    "publication": "preparation",
+    "source": "upa-archive/data/patterns.v3.json",
+    "revision": "2f94f0dc3053027f035417907accc2d4cad321e9",
+    "sha256": "a1e51d00eba03aa1ee26faef31e3d62d4743171ace3cc43a5f1d05e0e38d750f"
+  },
+  "nasinnia": {
+    "rasterRecords": 321,
+    "ukrainianRedistributableRecords": 1,
+    "specimenId": "cozette-13x15",
+    "source": "nasinnia/data/cozette-6x13.json",
+    "revision": "fdd545febf4a23048b4d5927c1f70fd649c845c8",
+    "sha256": "66d8dedf3cc8a799c69f13e4ce5fca24ac52646deb6ba1d0e1f37d0a42bcab00"
+  }
+}
