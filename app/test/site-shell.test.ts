@@ -15,6 +15,9 @@ describe('shared Verba shell', () => {
     expect(siteSection(new URL('https://non.verbacorpus.org/'))).toBe('non');
     expect(siteNavigation(new URL('http://localhost:8794/para/'))).toContain('href="/non/"');
     expect(siteNavigation(new URL('https://verbacorpus.org/en/non/upa/'))).toContain('href="https://verbacorpus.org/en/pro/"');
+    const mountedEnglish = siteNavigation(new URL('https://non.verbacorpus.org/non/upa/en/page-frames'));
+    expect(mountedEnglish).toContain('All directions');
+    expect(mountedEnglish).toContain('href="https://verbacorpus.org/en/pro/"');
     expect(siteNavigation(new URL('https://verbacorpus.org/para/'), true)).not.toContain('href="https://');
   });
   it('gives landing pages and mounted tools one shell without remounting its assets', async () => {
