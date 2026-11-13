@@ -138,7 +138,7 @@ function initChrome(): void {
   localizeNav();
   appendWebsiteVersion();
   const nav = document.querySelector<HTMLElement>(".topbar-nav");
-  if (nav) {
+  if (nav && !document.documentElement.hasAttribute('data-verba-shell')) {
     const link = nav.querySelector<HTMLAnchorElement>('[href="/corpora.html"], [href="/corpora"]') || document.createElement("a");
     link.href = "/corpora";
     link.setAttribute("data-no-localize", "");
