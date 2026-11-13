@@ -57,3 +57,19 @@ API payloads retain their original bytes. A non-sensitive domain-wide theme
 preference keeps the umbrella and non subdomain aligned. Integrated local
 previews explicitly keep navigation on localhost, even when Wrangler supplies
 a production hostname internally.
+
+## Post-publication browser gate
+
+Every successful deployment runs the integrated Chromium suite again with
+`VERBA_INTEGRATION_URL=https://non.verbacorpus.org`. This reaches the actual
+Cloudflare domains, service binding, assets, redirects and public APIs. The
+production-only address case verifies ten one-hop legacy redirects and the
+canonical metadata/navigation on all six site roots plus the archive and tools.
+The same run checks editor exports, fonts, language changes, mobile layouts,
+shared theme and the proverbs offline cache. A failed public check fails the
+release job; retained traces and screenshots are uploaded as
+`integrated-browser-failures`. No additional credentials are used for browsing.
+
+A four-minute Playwright global timeout leaves time for failure evidence before
+the five-minute CI step timeout. Main releases remain serialized so another
+release cannot replace the deployed code while these checks are running.
