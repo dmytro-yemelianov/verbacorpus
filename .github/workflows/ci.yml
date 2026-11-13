@@ -96,6 +96,15 @@ jobs:
         working-directory: .upa-source
       - run: pnpm site:build --sources
         working-directory: .upa-source
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install independent bitmap font validators
+        run: python -m pip install -r scripts/font-validation-requirements.txt
+        working-directory: .upa-source
+      - name: Verify BDF and OTB pixels with fontTools and FreeType
+        run: python scripts/validate-font-exports.py site/dist
+        working-directory: .upa-source
       - run: npm ci
         working-directory: app
       - run: npm run build
