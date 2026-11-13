@@ -3,6 +3,15 @@ import { upaRequest } from '../src/upa';
 
 const request = (path: string, init?: RequestInit) => new Request('https://verbacorpus.org' + path, init);
 describe('UPA mounted in non.verba', () => {
+  it('serves the full font catalogue and its index directly on para', async () => {
+    const response = await upaRequest(new Request('https://para.verbacorpus.org/fonts?font=creep-7x12'), { async fetch() {
+      return new Response('<html><head></head><body><a href="/font-index.json">Index</a><a href="/letters-lab">Lab</a><script src="/assets/fonts.js"></script></body></html>', { headers: { 'content-type': 'text/html' } });
+    } });
+    const html = await response!.text();
+    expect(html).toContain('href="/font-index.json"'); expect(html).toContain('href="/letters-lab"');
+    const index = await upaRequest(new Request('https://para.verbacorpus.org/font-index.json'), { async fetch(req: Request) { return Response.json({ path: new URL(req.url).pathname }); } });
+    expect(await index!.json()).toEqual({ path: '/font-index.json' });
+  });
   it('serves alphabet pages and their assets directly on para without an archive prefix', async () => {
     const service = { async fetch() { return new Response('<html><head></head><body><a data-language href="/en/letters-lab">EN</a><a href="/page-frames#font-catalog">Editor</a><script src="/assets/letters.js"></script></body></html>', { headers: { 'content-type': 'text/html' } }); } };
     const response = await upaRequest(new Request('https://para.verbacorpus.org/letters-lab?style=cut'), service);

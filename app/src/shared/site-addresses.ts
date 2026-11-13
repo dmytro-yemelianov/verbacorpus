@@ -13,6 +13,10 @@ export function isVerbaHost(hostname: string): boolean {
 export function isAlphabetPath(path: string): boolean {
   return /^\/(?:en\/)?letters-lab(?:\.html)?\/?$/.test(path);
 }
+export function isFontCatalogPath(path: string): boolean {
+  return /^\/(?:en\/)?fonts(?:\.html)?\/?$/.test(path);
+}
+export const isParaToolPath = (path: string) => isAlphabetPath(path) || isFontCatalogPath(path);
 /** Resolve every historical namespace directly to its final public URL. */
 export function canonicalAddress(input: URL): URL | null {
   if (!isVerbaHost(input.hostname)) return null;
@@ -23,9 +27,9 @@ export function canonicalAddress(input: URL): URL | null {
   for (let pass = 0; pass < 8; pass++) {
     const before = url.href;
     if (url.hostname === 'www.verbacorpus.org') url.hostname = 'verbacorpus.org';
-    const nested = url.pathname.match(/^\/(?:non\/)?upa\/(en\/)?letters-lab(?:\.html)?\/?$/);
-    if (nested) { url.hostname = 'para.verbacorpus.org'; url.pathname = `/${nested[1] ?? ''}letters-lab`; }
-    else if (isAlphabetPath(url.pathname)) { url.hostname = 'para.verbacorpus.org'; url.pathname = url.pathname.replace(/\.html\/?$|\/$/g, ''); }
+    const nested = url.pathname.match(/^\/(?:non\/)?upa\/(en\/)?(letters-lab|fonts)(?:\.html)?\/?$/);
+    if (nested) { url.hostname = 'para.verbacorpus.org'; url.pathname = `/${nested[1] ?? ''}${nested[2]}`; }
+    else if (isParaToolPath(url.pathname) || url.pathname === '/font-index.json') { url.hostname = 'para.verbacorpus.org'; url.pathname = url.pathname.replace(/\.html\/?$|\/$/g, ''); }
     else {
       const prefix = directionPrefix.exec(url.pathname);
       if (prefix) {
@@ -56,11 +60,11 @@ export function publicHref(value: string, source: URL, local = false): string {
   const url = new URL(value, source);
   if (local || !isVerbaHost(source.hostname)) {
     if (isVerbaHost(url.hostname) && !value.startsWith('/')) {
-      if (hostDirection(url.hostname) === 'para' && isAlphabetPath(url.pathname)) return url.pathname + url.search + url.hash;
+      if (hostDirection(url.hostname) === 'para' && isParaToolPath(url.pathname)) return url.pathname + url.search + url.hash;
       const direction = hostDirection(url.hostname);
       return publicHref((direction ? `/${direction}${url.pathname === '/' ? '/' : url.pathname}` : '/corpora') + url.search + url.hash, source, true);
     }
-    return value.replace(/^\/para\/(en\/)?letters-lab(?=\?|#|$)/, '/$1letters-lab').replace(/^\/(?:non\/)?upa\/(en\/)?letters-lab(?=\?|#|$)/, '/$1letters-lab').replace(/^\/non\/upa(?=\/|\?|#|$)/, UPA_BASE);
+    return value.replace(/^\/para\/(en\/)?(letters-lab|fonts)(?=\?|#|$)/, '/$1$2').replace(/^\/(?:non\/)?upa\/(en\/)?(letters-lab|fonts)(?=\?|#|$)/, '/$1$2').replace(/^\/non\/upa(?=\/|\?|#|$)/, UPA_BASE);
   }
   if (!isVerbaHost(url.hostname)) return value;
   const target = canonicalAddress(url) ?? url;

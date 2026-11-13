@@ -1,4 +1,4 @@
-import { UPA_BASE, hostDirection, isAlphabetPath, publicHref } from './shared/site-addresses';
+import { UPA_BASE, hostDirection, isParaToolPath, publicHref } from './shared/site-addresses';
 
 export const UPA_MOUNT = UPA_BASE;
 type Mount = (path: string) => string;
@@ -28,17 +28,17 @@ function apiLinks(value: unknown, mount: Mount): unknown {
 /** Archive at non/upa; the alphabet tool is served directly by para. */
 export async function upaRequest(request: Request, service?: Pick<Fetcher, 'fetch'>, local = false): Promise<Response | null> {
   const url = new URL(request.url);
-  const alphabet = (hostDirection(url.hostname) === 'para' || local) && (isAlphabetPath(url.pathname) || url.pathname.startsWith('/assets/'));
+  const alphabet = (hostDirection(url.hostname) === 'para' || local) && (isParaToolPath(url.pathname) || url.pathname === '/font-index.json' || url.pathname.startsWith('/assets/'));
   if (!alphabet && url.pathname !== UPA_BASE && !url.pathname.startsWith(UPA_BASE + '/')) return null;
   if (url.pathname === UPA_BASE) return new Response(null, { status: 308, headers: { location: UPA_BASE + '/' + url.search } });
   const base = alphabet ? '' : UPA_BASE;
   const mount: Mount = path => {
     if (!path.startsWith('/') || path.startsWith('//')) return path;
     if (alphabet) {
-      if (path.startsWith('/assets/') || isAlphabetPath(path)) return path;
+      if (path.startsWith('/assets/') || path === '/font-index.json' || isParaToolPath(path)) return path;
       return publicHref('https://non.verbacorpus.org' + UPA_BASE + path, url, local);
     }
-    if (isAlphabetPath(path)) return publicHref('https://para.verbacorpus.org' + path, url, local);
+    if (isParaToolPath(path)) return publicHref('https://para.verbacorpus.org' + path, url, local);
     return path === base || path.startsWith(base + '/') ? path : base + path;
   };
   const upstreamUrl = new URL(url); upstreamUrl.pathname = alphabet ? url.pathname : url.pathname.slice(base.length);

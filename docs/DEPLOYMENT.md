@@ -12,6 +12,7 @@ not repeat their names in the path.
 | Typography | `https://para.verbacorpus.org/` |
 | Visual collections | `https://non.verbacorpus.org/` |
 | UPA collection | `https://non.verbacorpus.org/upa/` |
+| Full font catalogue | `https://para.verbacorpus.org/fonts` |
 | Alphabet laboratory | `https://para.verbacorpus.org/letters-lab` |
 
 Main releases publish one gateway revision to the shared root/direction Worker
@@ -63,8 +64,8 @@ a production hostname internally.
 Every successful deployment runs the integrated Chromium suite again with
 `VERBA_INTEGRATION_URL=https://non.verbacorpus.org`. This reaches the actual
 Cloudflare domains, service binding, assets, redirects and public APIs. The
-production-only address case verifies ten one-hop legacy redirects and the
-canonical metadata/navigation on all six site roots plus the archive and tools.
+production-only address case verifies twelve one-hop legacy redirects and the
+canonical metadata/navigation on all six site roots plus the archive, font catalogue and tools.
 The same run checks editor exports, fonts, language changes, mobile layouts,
 shared theme and the proverbs offline cache. A failed public check fails the
 release job; retained traces and screenshots are uploaded as
