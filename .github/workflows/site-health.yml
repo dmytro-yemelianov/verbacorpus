@@ -1,0 +1,54 @@
+name: Site health
+
+on:
+  schedule:
+    - cron: '17,47 * * * *'
+  workflow_dispatch:
+  workflow_run:
+    workflows: [CI]
+    branches: [main]
+    types: [completed]
+
+permissions:
+  contents: read
+concurrency:
+  group: site-health
+  cancel-in-progress: false
+
+jobs:
+  browser:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    name: Public sites (${{ matrix.browser }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, webkit]
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+      - run: npm ci
+      - run: npx --no-install playwright install --with-deps ${{ matrix.browser }}
+      - run: npm run test:health -- --project=${{ matrix.browser }}
+      - name: Preserve health results and failure screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: site-health-${{ matrix.browser }}
+          path: app/node_modules/.cache/verba-health
+          include-hidden-files: true
+          retention-days: 14
+          if-no-files-found: ignore
+      - name: Add the result to the run summary
+        if: always()
+        run: node scripts/health-summary.mjs

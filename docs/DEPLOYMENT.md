@@ -36,7 +36,7 @@ exposed to PR jobs. `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`
 authenticate publication.
 
 Before publishing, the job runs Verba and Python tests, UPA lint/type/unit
-checks, builds both sites and runs integrated Chromium checks. These cover
+checks, builds both sites and runs integrated Chromium and WebKit checks. These cover
 all five directions, shared navigation/theme on desktop and mobile, the
 proverb offline view, mounted UPA APIs, frames, fonts and alphabet provenance.
 Browser failure evidence is retained as an Actions artifact.
@@ -61,7 +61,7 @@ a production hostname internally.
 
 ## Post-publication browser gate
 
-Every successful deployment runs the integrated Chromium suite again with
+Every successful deployment runs the integrated Chromium and WebKit suite again with
 `VERBA_INTEGRATION_URL=https://non.verbacorpus.org`. This reaches the actual
 Cloudflare domains, service binding, assets, redirects and public APIs. The
 production-only address case verifies twelve one-hop legacy redirects and the
@@ -71,8 +71,8 @@ shared theme and the proverbs offline cache. A failed public check fails the
 release job; retained traces and screenshots are uploaded as
 `integrated-browser-failures`. No additional credentials are used for browsing.
 
-A four-minute Playwright global timeout leaves time for failure evidence before
-the five-minute CI step timeout. Main releases remain serialized so another
+An eight-minute Playwright global timeout leaves time for failure evidence before
+the nine-minute CI step timeout. Main releases remain serialized so another
 release cannot replace the deployed code while these checks are running.
 
 The pinned UPA build also creates BDF/OTB assets. Before publishing, the release
@@ -81,3 +81,6 @@ installs the pinned `scripts/font-validation-requirements.txt` tools and runs
 maps, metrics, notices and embedded masks; FreeType independently renders ready
 Ukrainian alphabets and experimental samples in both formats. A mismatch fails
 the release before any Worker is published.
+
+See [site reliability](SITE-RELIABILITY.md) for independent scheduled public checks,
+early browser diagnostics, CSP handling and the diagnostic data contract.

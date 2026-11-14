@@ -38,6 +38,7 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: node build.mjs
+      - run: git diff --exit-code -- content/diagnostics-bootstrap.json
       - run: npm test
 
   pytest:
@@ -109,10 +110,10 @@ jobs:
         working-directory: app
       - run: npm run build
         working-directory: app
-      - name: Install Chromium for integrated browser checks
-        run: pnpm exec playwright install --with-deps chromium
+      - name: Install Chromium and WebKit for integrated browser checks
+        run: pnpm exec playwright install --with-deps chromium webkit
         working-directory: .upa-source
-      - name: Verify all directions and mounted tools in Chromium
+      - name: Verify all directions and mounted tools in Chromium and WebKit
         run: pnpm test:verba
         working-directory: .upa-source
         env:
@@ -160,8 +161,8 @@ jobs:
           curl --fail --silent --show-error --retry 5 --retry-all-errors https://para.verbacorpus.org/letters-lab > /dev/null
           curl --fail --silent --show-error --retry 5 --retry-all-errors https://non.verbacorpus.org/upa/page-frames > /dev/null
           curl --fail --silent --show-error --retry 5 --retry-all-errors 'https://non.verbacorpus.org/upa/api/v1/patterns?limit=1' > /dev/null
-      - name: Verify the published sites in Chromium
-        timeout-minutes: 5
+      - name: Verify the published sites in Chromium and WebKit
+        timeout-minutes: 9
         run: pnpm test:verba
         working-directory: .upa-source
         env:

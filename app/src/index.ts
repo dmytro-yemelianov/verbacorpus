@@ -9,6 +9,7 @@ import { fromShort } from "./shared/shortlink";
 import { directionRoute } from "./shared/directions";
 import { upaRequest } from "./upa";
 import { withSiteShell } from './site-shell';
+import { receiveDiagnostics } from './diagnostics';
 import { canonicalAddress, hostDirection, isVerbaHost, publicHref } from './shared/site-addresses';
 import { initBot, formatProverbHtml, draftNews } from "./telegram";
 import { webhookCallback, InlineKeyboard } from "grammy";
@@ -27,6 +28,7 @@ const CATALOGS: Record<string, Record<string, string>> = { uk, en, de, fr, es, p
 function catalogFor(lang: string) { return CATALOGS[lang] ?? CATALOGS[DEFAULT_LANG]; }
 
 interface Env {
+  DIAGNOSTICS_LIMITER: Cloudflare.Env['DIAGNOSTICS_LIMITER'];
   VERBA_LOCAL_PREVIEW?: string;
   UPA?: Cloudflare.Env['UPA'];
   ASSETS: { fetch: (req: Request | string) => Promise<Response> };
@@ -436,6 +438,7 @@ const application = {
 
 export default { ...application, async fetch(request: Request, env: Env, ctx?: ExecutionContext): Promise<Response> {
   const local = env.VERBA_LOCAL_PREVIEW === '1', url = new URL(request.url);
+  if (url.pathname === '/_diagnostics') return receiveDiagnostics(request, env.DIAGNOSTICS_LIMITER, local);
   if (local) {
     const path = url.pathname + url.search, target = publicHref(path, url, true);
     if (path !== target) return new Response(null, { status: 308, headers: { location: target } });
