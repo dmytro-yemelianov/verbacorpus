@@ -48,6 +48,7 @@ export function canonicalAddress(input: URL): URL | null {
         else if (url.hostname === 'verbacorpus.org' && (/^\/(p|card)(?:\/|$)/.test(rest) || rest === '/api.html' || rest === '/' && ['q', 'cat', 'src', 'sem'].some(key => url.searchParams.has(key)))) url.hostname = 'pro.verbacorpus.org';
       }
     }
+    if (url.pathname.replace(LOCALE_PREFIX, '') === '/blog/') url.pathname = url.pathname.slice(0, -1);
     if (url.pathname === '/index.html') url.pathname = '/';
     if (url.href === before) break;
   }
@@ -59,6 +60,7 @@ export function publicHref(value: string, source: URL, local = false): string {
   if (!value.startsWith('/') && !/^https:\/\/[^/]*verbacorpus\.org(?:\/|$)/.test(value) || value.startsWith('//')) return value;
   const url = new URL(value, source);
   if (local || !isVerbaHost(source.hostname)) {
+    if (url.pathname.replace(LOCALE_PREFIX, '') === '/blog/') return url.pathname.slice(0, -1) + url.search + url.hash;
     if (isVerbaHost(url.hostname) && !value.startsWith('/')) {
       if (hostDirection(url.hostname) === 'para' && isParaToolPath(url.pathname)) return url.pathname + url.search + url.hash;
       const direction = hostDirection(url.hostname);
