@@ -787,7 +787,7 @@ function renderColophon() {
     .replace("{themes}", String(Object.keys(meta.taxonomy).length));
   if (meta.version) {
     const websiteRef = typeof __COMMIT_HASH__ !== "undefined" && __COMMIT_HASH__
-      ? ` · ${tr("colophon.websiteVersion", "Сайт")}: <a href="https://github.com/dmytro-yemelianov/verbacorpus/commit/${esc(__COMMIT_HASH__)}" rel="noopener">${esc(__COMMIT_HASH__)}</a>`
+      ? ` · ${tr("colophon.websiteVersion", document.documentElement.lang === "uk" ? "Сайт" : "Site")}: <a href="https://github.com/dmytro-yemelianov/verbacorpus/commit/${esc(__COMMIT_HASH__)}" rel="noopener">${esc(__COMMIT_HASH__)}</a>`
       : "";
     $("colVersion").innerHTML =
       `${esc(tr("colophon.version", "Версія даних"))} <a href="https://github.com/dmytro-yemelianov/verbacorpus/releases/tag/v${esc(meta.version)}" rel="noopener">v${esc(meta.version)}</a>` + websiteRef;

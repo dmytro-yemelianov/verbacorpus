@@ -1,7 +1,34 @@
 import { describe, it, expect } from 'vitest';
-import { siteSection, siteNavigation, withSiteShell } from '../src/site-shell';
+import { siteSection, siteNavigation, siteFooter, withSiteShell } from '../src/site-shell';
 
 describe('shared Verba shell', () => {
+  it('provides one canonical author link and shared project links for every host and locale', () => {
+    for (const host of ['verbacorpus.org', ...['pro', 'contra', 're', 'para', 'non'].map(prefix => `${prefix}.verbacorpus.org`)]) for (const path of ['/', '/en/', '/upa/en/page-frames']) {
+      const footer = siteFooter(new URL('https://' + host + path));
+      expect(footer.match(/data-verba-author/g)).toHaveLength(1);
+      expect(footer).toContain('href="https://yemelianov.dev/"');
+      expect(footer).toContain('href="https://verbacorpus.org"');
+      expect(footer).toContain('data-no-localize');
+      expect(footer).toContain(path.includes('/en') ? 'Dmytro Yemelianov' : 'Дмитро Ємельянов');
+    }
+    expect(siteFooter(new URL('http://localhost/upa/'), true)).toContain('href="/corpora"');
+  });
+  it('keeps corpus source notes but replaces unrelated landing footers and fixes para tool metadata', async () => {
+    const html = '<html><head><title>Old · upa</title><meta name="description" content="Ornaments"></head><body><main>Content<svg><title>Glyph sample</title></svg></main><footer class="colophon"><p>Source licence and attribution</p></footer></body></html>';
+    for (const path of ['/upa/page-frames', '/pro/', '/fonts', '/en/letters-lab', '/para/']) {
+      const response = withSiteShell(new Response(html, { headers: { 'content-type': 'text/html' } }), new Request('http://localhost' + path), true);
+      const output = await response.text();
+      expect(output.match(/<footer\b/g)).toHaveLength(1);
+      expect(output.match(/data-verba-author/g)).toHaveLength(1);
+      expect(output).toContain('<title>Glyph sample</title>');
+      if (path.startsWith('/upa') || path === '/pro/') {
+        expect(output).toContain('Source licence and attribution'); expect(output).toContain('data-verba-context');
+      } else expect(output).not.toContain('Source licence and attribution');
+      if (path === '/fonts' || path.includes('letters-lab')) {
+        expect(output).toContain('· para.verba</title>'); expect(output).not.toContain('content="Ornaments"');
+      }
+    }
+  });
   it('uses canonical umbrella and non hosts, with the correct section on nested pages', () => {
     for (const [path, section] of [['/', ''], ['/pro/', 'pro'], ['/en/p/p1', 'pro'], ['/contra/', 'contra'], ['/blog/story', 're'], ['/para/', 'para'], ['/non/upa/en/page-frames', 'non']]) {
       const url = new URL(path, 'https://verbacorpus.org');

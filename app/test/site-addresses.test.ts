@@ -21,6 +21,8 @@ describe('canonical Verba addresses', () => {
     ['https://verbacorpus.org/?q=word&src=Nomis1864', 'https://pro.verbacorpus.org/?q=word&src=Nomis1864'],
     ['https://non.verbacorpus.org/corpora', 'https://verbacorpus.org/'],
     ['https://verbacorpus.org/blog/dzherela', 'https://re.verbacorpus.org/blog/dzherela'],
+    ['https://re.verbacorpus.org/blog/?q=source', 'https://re.verbacorpus.org/blog?q=source'],
+    ['https://verbacorpus.org/en/blog/', 'https://re.verbacorpus.org/en/blog'],
   ])('resolves %s in one step', (from, to) => {
     expect(canonicalAddress(new URL(from))?.href).toBe(to);
     expect(canonicalAddress(new URL(to))).toBeNull();
@@ -43,6 +45,7 @@ describe('canonical Verba addresses', () => {
     expect(publicHref('/non/icons/sun.svg', non)).toBe('/icons/sun.svg');
     expect(publicHref('https://para.verbacorpus.org/letters-lab', root, true)).toBe('/letters-lab');
     expect(publicHref('/non/upa/page-frames#title=test', root, true)).toBe('/upa/page-frames#title=test');
+    expect(publicHref('/en/blog/?q=source', root, true)).toBe('/en/blog?q=source');
     expect(publicHref('/non/upa/letters-lab', root, true)).toBe('/letters-lab');
     expect(publicHref('https://para.verbacorpus.org/fonts?font=cozette', root, true)).toBe('/fonts?font=cozette');
   });
