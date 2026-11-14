@@ -46,23 +46,23 @@ interface Env {
 const SEMANTIC_MIN_SCORE = 0.4;
 const CORS = { "access-control-allow-origin": "*" };
 
-let cache: Promise<{ proverbs: Proverb[]; explanations: Record<string, string>; meta: any; byId: Map<string, Proverb> }> | null = null;
-function load(env: Env) {
-  if (!cache) {
-    cache = (async () => {
-      const get = async (p: string) => {
-        const res = await env.ASSETS.fetch("https://assets" + p);
-        if (!res.ok) throw new Error(`Failed to fetch ${p}: ${res.status}`);
-        return res.json();
-      };
-      const [proverbs, explanations, meta] = await Promise.all([
-        get("/data/proverbs.json") as Promise<Proverb[]>,
-        get("/data/explanations.json") as Promise<Record<string, string>>,
-        get("/data/meta.json") as Promise<any>,
-      ]);
-      return { proverbs, explanations, meta, byId: new Map(proverbs.map((p) => [p.id, p])) };
-    })().catch((err) => { cache = null; throw err; });
-  }
+type CorpusData = { proverbs: Proverb[]; explanations: Record<string, string>; meta: any; byId: Map<string, Proverb> };
+let cache: CorpusData | null = null;
+async function load(env: Env): Promise<CorpusData> {
+  if (cache) return cache;
+  // Pending asset I/O belongs to this invocation. Cache only fully decoded data,
+  // so a cancelled or stalled cold request cannot block another invocation.
+  const get = async (p: string) => {
+    const res = await env.ASSETS.fetch("https://assets" + p);
+    if (!res.ok) throw new Error(`Failed to fetch ${p}: ${res.status}`);
+    return res.json();
+  };
+  const [proverbs, explanations, meta] = await Promise.all([
+    get("/data/proverbs.json") as Promise<Proverb[]>,
+    get("/data/explanations.json") as Promise<Record<string, string>>,
+    get("/data/meta.json") as Promise<any>,
+  ]);
+  cache ??= { proverbs, explanations, meta, byId: new Map(proverbs.map((p) => [p.id, p])) };
   return cache;
 }
 
