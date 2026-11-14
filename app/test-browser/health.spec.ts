@@ -57,6 +57,15 @@ test('primary UPA and alphabet tools open from their parent sites', async ({ pag
   await page.getByRole('link', { name: /Рамки для сторінок/ }).first().click();
   await expect(page.locator('#page-frame-form')).toHaveAttribute('data-ready', 'true');
   await expect(page.locator('#page-frame-image')).toBeVisible();
+  await page.goto('https://non.verbacorpus.org/upa/p/p26_-_b00');
+  await page.getByRole('link', { name: 'Використати в рамці', exact: true }).click();
+  await expect(page.locator('#page-frame-form')).toHaveAttribute('data-ready', 'true');
+  await expect(page.locator('[name=motif]')).toHaveValue('p26_-_b00');
+  await expect(page.locator('[name=palette]')).toHaveValue('source');
+  await expect(page.locator('[name=corner]')).toHaveValue('miter');
+  await page.locator('[name=fitRepeat]').check();
+  await expect(page.locator('#page-frame-dimensions')).toContainText('рапортів');
+  await expect(page.locator('#page-frame-source')).toHaveAttribute('href', '/upa/p/p26_-_b00');
   for (const path of ['fonts', 'letters-lab']) {
     await page.goto('https://para.verbacorpus.org/');
     const destination = `https://para.verbacorpus.org/${path}`;
