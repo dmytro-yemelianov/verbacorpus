@@ -66,6 +66,14 @@ test('primary UPA and alphabet tools open from their parent sites', async ({ pag
   await page.locator('[name=fitRepeat]').check();
   await expect(page.locator('#page-frame-dimensions')).toContainText('рапортів');
   await expect(page.locator('#page-frame-source')).toHaveAttribute('href', '/upa/p/p26_-_b00');
+  await page.locator('#page-motif-open').click();
+  const borders = page.locator('#page-motif-catalog');
+  await borders.locator('[data-motif-search]').fill('66');
+  await expect(borders.locator('[data-motif-id]:visible')).toHaveCount(1);
+  await expect(borders.locator('[data-motif-id=p26_-_b00]')).toHaveAttribute('aria-pressed', 'true');
+  await borders.getByRole('button', { name: /Візерунок №066/ }).click();
+  await expect(borders).not.toBeVisible();
+  await expect(page.locator('[name=fitRepeat]')).toBeChecked();
   for (const path of ['fonts', 'letters-lab']) {
     await page.goto('https://para.verbacorpus.org/');
     const destination = `https://para.verbacorpus.org/${path}`;
