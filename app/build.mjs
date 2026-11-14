@@ -11,6 +11,13 @@ try {
 
 await mkdir("public/data", { recursive: true });
 await import("./build_corpora.mjs");
+// Compile the early inline listener separately: stringifying a Worker-bundled
+// function would leave references to esbuild's server-side naming helpers.
+const diagnostics = await build({
+  stdin: { contents: 'import { installDiagnostics } from "./src/client/diagnostics"; installDiagnostics();', resolveDir: import.meta.dirname },
+  bundle: true, minify: true, format: 'iife', target: ['es2022'], write: false,
+});
+await writeFile('content/diagnostics-bootstrap.json', JSON.stringify(diagnostics.outputFiles[0].text) + '\n');
 await build({ entryPoints: ["src/client/site-shell.ts"], bundle: true, minify: true,
   format: "iife", target: ["es2022"], outfile: "public/site-shell.js" });
 await build({

@@ -12,6 +12,7 @@
   "observability": {
     "enabled": true
   },
+  "ratelimits": [{ "name": "DIAGNOSTICS_LIMITER", "namespace_id": "2026111401", "simple": { "limit": 20, "period": 60 } }],
   "services": [
     {
       "binding": "UPA",

@@ -1,4 +1,5 @@
 import directions from '../content/corpora.json';
+import { diagnosticsBootstrap, allowDiagnosticsNonce } from './diagnostics';
 import { hostDirection, isVerbaHost, isParaToolPath, isFontCatalogPath, publicHref, LOCALE_PREFIX } from './shared/site-addresses';
 
 const languagePrefix = LOCALE_PREFIX;
@@ -52,10 +53,14 @@ export function withSiteShell(response: Response, request: Request, local = fals
   const localeHref = ((english ? '/' : '/en/') + tool + url.search).replaceAll('&', '&amp;').replaceAll('"', '&quot;');
   const alphabetNavigation = alphabet ? `<nav class="verba-sectionbar" aria-label="para.verba"><div class="wrap topbar-inner"><div class="topbar-nav"><a href="${!local && isVerbaHost(url.hostname) ? 'https://para.verbacorpus.org/' : '/para/'}">← para.verba</a><a data-language href="${localeHref}">${english ? 'UK' : 'EN'}</a></div></div></nav>` : '';
   const headers = new Headers(response.headers);
+  if (!headers.get('content-type')?.includes('charset=')) headers.set('content-type', 'text/html; charset=utf-8');
   for (const name of ['content-length', 'content-encoding', 'etag']) headers.delete(name);
+  const nonce = crypto.randomUUID().replaceAll('-', '');
+  const policy = headers.get('content-security-policy');
+  if (policy) headers.set('content-security-policy', allowDiagnosticsNonce(policy, nonce));
   return new HTMLRewriter()
     .on('html', { element(el) { el.setAttribute('data-verba-shell', ''); } })
-    .on('head', { element(el) { el.append(`<link rel="stylesheet" href="/fonts/spectral.css"><link rel="stylesheet" href="/site-shell.css"><script defer src="/site-shell.js"></script>${!local && isVerbaHost(url.hostname) ? `<link rel="canonical" href="${url.origin}${url.pathname}">` : ''}`, { html: true }); } })
+    .on('head', { element(el) { el.prepend(`<script nonce="${nonce}" data-verba-diagnostics>${diagnosticsBootstrap}</script>`, { html: true }); el.append(`<link rel="stylesheet" href="/fonts/spectral.css"><link rel="stylesheet" href="/site-shell.css"><script defer src="/site-shell.js"></script>${!local && isVerbaHost(url.hostname) ? `<link rel="canonical" href="${url.origin}${url.pathname}">` : ''}`, { html: true }); } })
     .on('body', { element(el) { if (upa) el.setAttribute('data-verba-upa', ''); el.prepend(siteNavigation(url, local) + alphabetNavigation, { html: true }); el.append(siteFooter(url, local), { html: true }); } })
     .on('head > title', { element(el) { if (alphabet) el.setInnerContent(`${toolTitle} · para.verba`); } })
     .on('head > meta[name="description"]', { element(el) { if (alphabet) el.setAttribute('content', toolDescription); } })

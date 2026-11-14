@@ -52,13 +52,15 @@ describe('shared Verba shell', () => {
       const html = '<html><head></head><body><nav class="topbar">Old</nav><main id="main">Content</main></body></html>';
       const response = withSiteShell(new Response(html, { headers: { 'content-type': 'text/html', etag: 'old', 'content-security-policy': "script-src 'self'" } }), new Request('https://non.verbacorpus.org' + path));
       const output = await response.text();
-      expect(output.match(/data-verba-navigation/g)).toHaveLength(1);
+      expect(output.match(/<nav[^>]*data-verba-navigation/g)).toHaveLength(1);
       expect(output).toContain('src="/site-shell.js"');
       expect(output).toContain('href="/site-shell.css"');
       expect(output).toContain('id="verba-content"');
       expect(output).not.toContain('class="topbar"');
       expect(response.headers.has('etag')).toBe(false);
-      expect(response.headers.get('content-security-policy')).toBe("script-src 'self'");
+      const nonce = output.match(/<script nonce="([^"]+)" data-verba-diagnostics/)?.[1];
+      expect(nonce).toBeTruthy();
+      expect(response.headers.get('content-security-policy')).toBe(`script-src 'self' 'nonce-${nonce}'`);
     }
   });
   it('preserves local language navigation and leaves API and downloaded bytes intact', async () => {

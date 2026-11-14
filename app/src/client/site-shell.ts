@@ -30,7 +30,7 @@
     apply(preference() ?? (media.matches ? 'dark' : 'light'));
     document.querySelector('[data-verba-theme]')?.addEventListener('click', () => apply(root.dataset.theme === 'dark' ? 'light' : 'dark', true));
     // Visitors arriving from the old proverb homepage may still have its worker.
-    if ('serviceWorker' in navigator) void navigator.serviceWorker.getRegistration('/').then(registration => registration?.update()).catch(() => {});
+    if (location.hostname !== 'pro.verbacorpus.org' && /^(?:[a-z]+\.)?verbacorpus\.org$/.test(location.hostname) && 'serviceWorker' in navigator) void navigator.serviceWorker.getRegistration('/').then(registration => registration?.update()).catch(() => {});
   });
   addEventListener('storage', event => { if (event.key === 'theme') apply(preference() ?? (media.matches ? 'dark' : 'light')); });
   media.addEventListener('change', () => { if (!preference()) apply(media.matches ? 'dark' : 'light'); });

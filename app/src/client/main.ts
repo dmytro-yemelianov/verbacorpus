@@ -311,7 +311,7 @@ async function boot() {
     renderResults();
   });
 
-  if ("serviceWorker" in navigator) navigator.serviceWorker.register("/sw.js");
+  if ("serviceWorker" in navigator) void navigator.serviceWorker.register("/sw.js").catch(() => { /* Offline caching may be disabled by the browser. */ });
 
   // Load the full corpus + build the search index off the first-paint path.
   loadFullCorpus();
