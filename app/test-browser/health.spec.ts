@@ -47,6 +47,10 @@ for (const url of roots) test(`${new URL(url).hostname} renders content and shar
 
 test('primary UPA and alphabet tools open from their parent sites', async ({ page }) => {
   await page.goto('https://non.verbacorpus.org/');
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Візерунки української вишивки');
+  const hero = page.locator('.non-hero-pattern img');
+  await expect(hero).toBeVisible();
+  await expect.poll(() => hero.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0)).toBe(true);
   await page.getByRole('link', { name: 'Відкрити каталог UPA →' }).click();
   await expect(page).toHaveURL('https://non.verbacorpus.org/upa/');
   await expect(page.locator('#result-count')).toContainText('167 / 167');
