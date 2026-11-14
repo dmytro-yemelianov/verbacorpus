@@ -55,7 +55,7 @@ export function withSiteShell(response: Response, request: Request, local = fals
   for (const name of ['content-length', 'content-encoding', 'etag']) headers.delete(name);
   return new HTMLRewriter()
     .on('html', { element(el) { el.setAttribute('data-verba-shell', ''); } })
-    .on('head', { element(el) { el.append(`<link rel="stylesheet" href="/fonts/spectral.css"><link rel="stylesheet" href="/site-shell.css"><script src="/site-shell.js"></script>${!local && isVerbaHost(url.hostname) ? `<link rel="canonical" href="${url.origin}${url.pathname}">` : ''}`, { html: true }); } })
+    .on('head', { element(el) { el.append(`<link rel="stylesheet" href="/fonts/spectral.css"><link rel="stylesheet" href="/site-shell.css"><script defer src="/site-shell.js"></script>${!local && isVerbaHost(url.hostname) ? `<link rel="canonical" href="${url.origin}${url.pathname}">` : ''}`, { html: true }); } })
     .on('body', { element(el) { if (upa) el.setAttribute('data-verba-upa', ''); el.prepend(siteNavigation(url, local) + alphabetNavigation, { html: true }); el.append(siteFooter(url, local), { html: true }); } })
     .on('head > title', { element(el) { if (alphabet) el.setInnerContent(`${toolTitle} · para.verba`); } })
     .on('head > meta[name="description"]', { element(el) { if (alphabet) el.setAttribute('content', toolDescription); } })
