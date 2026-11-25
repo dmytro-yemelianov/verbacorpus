@@ -1,4 +1,4 @@
-import type { Corpus, Item } from "./contract.js";
+import { ApiError, type Corpus, type Item } from "./contract.js";
 import type { Adapter } from "./adapters/types.js";
 
 // FNV-1a 32-bit hash of the string, fed into mulberry32. Returns [0,1).
@@ -47,11 +47,11 @@ async function pickWithHead(
       offsets.push(offset);
     }
   }
+  const results = await Promise.all(
+    offsets.map((offset) => (offset === 0 && head.items[0] ? head : adapter.list(1, offset, filters))),
+  );
   const items: Item[] = [];
-  for (const offset of offsets) {
-    const r = offset === 0 && head.items[0] ? head : await adapter.list(1, offset, filters);
-    if (r.items[0]) items.push(r.items[0]);
-  }
+  for (const r of results) if (r.items[0]) items.push(r.items[0]);
   return items;
 }
 
@@ -71,6 +71,7 @@ export async function pickMixed(
   corpora: Corpus[],
   n: number,
   next: () => number,
+  tolerant = false,
 ): Promise<Item[]> {
   const draws: Corpus[] = [];
   for (let i = 0; i < n; i++) draws.push(corpora[Math.floor(next() * corpora.length)]);
@@ -80,7 +81,15 @@ export async function pickMixed(
     const adapter = adapters[corpus];
     if (!adapter) continue;
     const count = draws.filter((c) => c === corpus).length;
-    queues.set(corpus, await pickWithHead(adapter, await adapter.list(1, 0, none), count, next, none));
+    try {
+      queues.set(corpus, await pickWithHead(adapter, await adapter.list(1, 0, none), count, next, none));
+    } catch (e) {
+      // Default mix: skip a failing corpus and refill from the rest.
+      if (!tolerant || !(e instanceof ApiError) || (e.status !== 502 && e.status !== 503)) throw e;
+      const rest = corpora.filter((c) => c !== corpus);
+      if (rest.length === 0) throw e;
+      return pickMixed(adapters, rest, n, next, true);
+    }
   }
   const out: Item[] = [];
   for (const c of draws) {

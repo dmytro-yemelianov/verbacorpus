@@ -6,8 +6,23 @@ const FILTERS = ["kind", "color", "frieze", "q", "include"] as const;
 interface Pattern {
   patternId: string;
   name: string;
-  catalogPage: number;
+  catalogPage: number | null;
   [k: string]: unknown;
+}
+
+const NON_ORIGIN = "https://non.verbacorpus.org";
+
+// Upstream links.catalog is relative ("/upa/catalog?..." or "/catalog?...");
+// make it absolute with the /upa prefix exactly once.
+function htmlLink(p: Pattern): string {
+  const catalog = (p.links as { catalog?: unknown } | undefined)?.catalog;
+  if (p.catalogPage != null && typeof catalog === "string" && catalog.startsWith("/")) {
+    const path = catalog === "/upa" || catalog.startsWith("/upa/") || catalog.startsWith("/upa?") || catalog.startsWith("/upa#")
+      ? catalog
+      : "/upa" + catalog;
+    return NON_ORIGIN + path;
+  }
+  return `${NON_ORIGIN}/upa/catalog#${p.patternId}`;
 }
 
 function toItem(p: Pattern): Item {
@@ -18,7 +33,7 @@ function toItem(p: Pattern): Item {
     licence: LICENCES.non,
     links: {
       self: `${API_BASE}/v1/non/items/${encodeURIComponent(p.patternId)}`,
-      html: `https://non.verbacorpus.org/upa/catalog?page=${p.catalogPage}#${p.patternId}`,
+      html: htmlLink(p),
     },
     data: p,
   };

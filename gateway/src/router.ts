@@ -50,6 +50,7 @@ function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
 const API_VERSION = "v1" as const;
 const CORS_HEADERS = {
   "access-control-allow-origin": "*",
+  "access-control-expose-headers": "x-verba-seed",
   "access-control-allow-methods": "GET, HEAD, OPTIONS",
   "access-control-allow-headers": "content-type",
   "access-control-max-age": "86400",
@@ -67,6 +68,12 @@ function decode(segment: string): string {
   } catch {
     throw new ApiError(400, "invalid_request", "malformed percent-encoding in path");
   }
+}
+
+// "." and ".." are never valid local ids (and could be normalised away by upstream URL handling).
+function checkLocalId(localId: string): string {
+  if (localId === "." || localId === "..") throw new ApiError(404, "not_found", "item not found");
+  return localId;
 }
 
 function intParam(params: URLSearchParams, name: string, def: number, min: number, max: number): number {
@@ -106,7 +113,8 @@ async function corpora(adapters: Partial<Record<Corpus, Adapter>>): Promise<Resp
       licence: licenceOf(e.prefix),
     };
   });
-  return json({ apiVersion: API_VERSION, corpora: list }, { cache: "public, max-age=300" });
+  const allAvailable = list.every((c) => c.available);
+  return json({ apiVersion: API_VERSION, corpora: list }, { cache: allAvailable ? "public, max-age=300" : "no-store" });
 }
 
 const DEFAULT_MIX: Corpus[] = ["pro", "non", "para"];
@@ -152,6 +160,7 @@ async function route(request: Request, adapters: Partial<Record<Corpus, Adapter>
     return new Response(docsHtml, {
       headers: {
         "access-control-allow-origin": "*",
+        "access-control-expose-headers": "x-verba-seed",
         "content-type": "text/html; charset=utf-8",
         "cache-control": "public, max-age=300",
       },
@@ -173,13 +182,14 @@ async function route(request: Request, adapters: Partial<Record<Corpus, Adapter>
       if (!list.includes(c)) list.push(c);
     }
     for (const c of list) adapterOf(adapters, c);
-    return randomResponse(p, "mixed", (next) => pickMixed(adapters, list, n, next));
+    return randomResponse(p, "mixed", (next) => pickMixed(adapters, list, n, next, !explicit));
   }
 
   if (rest[0] === "items" && rest.length >= 2) {
     const id = decode(rest.slice(1).join("/"));
     const g = parseGlobalId(id);
     if (!g) throw new ApiError(404, "not_found", "unknown item id");
+    checkLocalId(g.localId);
     const item = await adapterOf(adapters, g.corpus).get(g.localId);
     if (!item) throw new ApiError(404, "not_found", "item not found");
     return json(item, { cache: "public, max-age=3600" });
@@ -213,7 +223,7 @@ async function route(request: Request, adapters: Partial<Record<Corpus, Adapter>
       return json(body, { cache: "public, max-age=3600" });
     }
     if (what === "items" && rest.length === 3) {
-      const item = await adapterOf(adapters, corpus).get(decode(rest[2]));
+      const item = await adapterOf(adapters, corpus).get(checkLocalId(decode(rest[2])));
       if (!item) throw new ApiError(404, "not_found", "item not found");
       return json(item, { cache: "public, max-age=3600" });
     }

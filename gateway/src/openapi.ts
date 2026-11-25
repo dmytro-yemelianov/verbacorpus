@@ -87,7 +87,7 @@ export const openapi = {
       "Шлюз об'єднує корпуси pro (прислів'я), contra (без табу), para (шрифти Nasinnia) і non (орнаменти) " +
       "за єдиним контрактом. Усі відповіді — JSON; CORS відкритий. Права на дані різні за корпусами — див. поле `licence`.",
   },
-  servers: [{ url: "https://api.verbacorpus.org" }],
+  servers: [{ url: "/" }],
   paths: {
     "/v1/corpora": {
       get: {

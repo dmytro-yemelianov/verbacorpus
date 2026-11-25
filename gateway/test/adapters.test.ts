@@ -48,6 +48,21 @@ describe("adapter specifics", () => {
     expect((item.data as any).symmetry.frieze).toBe("p2mm");
     expect(item.links.html).toBe("https://non.verbacorpus.org/upa/catalog?page=7#p07_L_b00");
   });
+  it("non builds absolute html link from links.catalog with /upa exactly once", async () => {
+    const mk = (pattern: any) => makeNonAdapter({ fetch: async () => new Response(JSON.stringify({ pattern })) });
+    const base = { patternId: "p07_L_b00", name: "n", catalogPage: 7 };
+    expect((await mk({ ...base, links: { catalog: "/catalog?page=7#p07_L_b00" } }).get("p07_L_b00"))!.links.html).toBe("https://non.verbacorpus.org/upa/catalog?page=7#p07_L_b00");
+    expect((await mk({ ...base, links: { catalog: "/upa/catalog?page=7#p07_L_b00" } }).get("p07_L_b00"))!.links.html).toBe("https://non.verbacorpus.org/upa/catalog?page=7#p07_L_b00");
+  });
+  it("non falls back to catalog#id when links.catalog is absent or catalogPage is null", async () => {
+    const mk = (pattern: any) => makeNonAdapter({ fetch: async () => new Response(JSON.stringify({ pattern })) });
+    expect((await mk({ patternId: "x1", name: "n", catalogPage: 7 }).get("x1"))!.links.html).toBe("https://non.verbacorpus.org/upa/catalog#x1");
+    expect((await mk({ patternId: "x1", name: "n", catalogPage: null, links: { catalog: "/upa/catalog?page=null#x1" } }).get("x1"))!.links.html).toBe("https://non.verbacorpus.org/upa/catalog#x1");
+  });
+  it("para get returns null unless the returned font id matches", async () => {
+    const up = { fetch: async () => new Response(JSON.stringify({ id: "other", displayName: "O" })) };
+    expect(await makeParaAdapter(up).get("f1")).toBeNull();
+  });
   it("whitelists filters and encodes ids", async () => {
     const seen: string[] = [];
     const up = { fetch: async (r: Request | string) => { seen.push(typeof r === "string" ? r : r.url); return new Response("{}", { status: 404 }); } };

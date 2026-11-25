@@ -155,4 +155,34 @@ describe("random routes", () => {
     expect(new Set(a.items.map((i: any) => i.id)).size).toBe(5);
     expect(a.items.map((i: any) => i.id)).toEqual(b.items.map((i: any) => i.id));
   });
+  it("picks offsets concurrently", async () => {
+    const ad = fakeAdapter("pro", 100);
+    let inflight = 0, peak = 0;
+    const orig = ad.list;
+    ad.list = async (l: number, o: number, f: URLSearchParams) => {
+      inflight++; peak = Math.max(peak, inflight);
+      await new Promise((r) => setTimeout(r, 5));
+      try { return await orig(l, o, f); } finally { inflight--; }
+    };
+    const items = await pickRandom(ad, 10, rng("c"), new URLSearchParams());
+    expect(items.length).toBe(10);
+    expect(peak).toBeGreaterThan(1);
+    const again = await pickRandom(fakeAdapter("pro", 100), 10, rng("c"), new URLSearchParams());
+    expect(items.map((i) => i.id)).toEqual(again.map((i) => i.id));
+  });
+  it("default mix skips a failing corpus; explicit list fails strictly; all failing errors", async () => {
+    const { ApiError } = await import("../src/contract.js");
+    const bad = (c: Corpus) => ({ ...fakeAdapter(c, 10), list: async () => { throw new ApiError(503, "unavailable", "down"); } });
+    const ad = { pro: fakeAdapter("pro", 10), non: bad("non"), para: fakeAdapter("para", 10) };
+    for (const s of ["a", "b", "c", "d"]) {
+      const r = await handle(req(`/v1/random?seed=${s}&n=8`), {}, ad);
+      const b = await r.json() as any;
+      expect(r.status).toBe(200);
+      expect(b.items.length).toBe(8);
+      expect(b.items.every((i: any) => i.corpus !== "non")).toBe(true);
+    }
+    expect((await handle(req("/v1/random?corpus=pro,non&seed=a&n=8"), {}, ad)).status).toBe(503);
+    const allBad = { pro: bad("pro"), non: bad("non"), para: bad("para") };
+    expect((await handle(req("/v1/random?seed=a"), {}, allBad)).status).toBe(503);
+  });
 });

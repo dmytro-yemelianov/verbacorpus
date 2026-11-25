@@ -11,7 +11,7 @@ describe("router", () => {
     const r = await handle(req("/v1/corpora"), { PRO: fakeVerba() as any, FONTS: fakeNasinnia(fonts(3)) as any });
     const b = (await r.json()) as any;
     expect(r.status).toBe(200);
-    expect(r.headers.get("cache-control")).toBe("public, max-age=300");
+    expect(r.headers.get("cache-control")).toBe("no-store");
     expect(b.apiVersion).toBe("v1");
     expect(b.corpora.map((c: any) => c.corpus).sort()).toEqual(["contra", "non", "para", "pro"]);
     expect(b.corpora.find((c: any) => c.corpus === "non")).toMatchObject({ total: null, available: false });
@@ -154,5 +154,31 @@ describe("router", () => {
     expect(r.status).toBe(204);
     expect(r.headers.get("access-control-allow-origin")).toBe("*");
     expect(r.headers.get("access-control-allow-methods")).toContain("GET");
+  });
+
+  it.each(["/v1/items/para:.", "/v1/items/para:..", "/v1/items/para:%2E%2E", "/v1/non/items/..", "/v1/non/items/%2e%2e"]) (
+    "dot local id %s is 404 without upstream calls",
+    async (path) => {
+      const spy = countingVerba();
+      const r = await handle(req(path), { PRO: spy as any, UPA: spy as any, FONTS: spy as any });
+      expect(r.status).toBe(404);
+      expect(((await r.json()) as any).error.code).toBe("not_found");
+      expect(spy.calls).toBe(0);
+    },
+  );
+
+  it("random responses expose x-verba-seed to CORS", async () => {
+    const r = await handle(req("/v1/pro/random?seed=a"), all());
+    expect(r.headers.get("access-control-expose-headers")).toBe("x-verba-seed");
+    expect((await handle(req("/v1/corpora", { method: "OPTIONS" }), all())).headers.get("access-control-expose-headers")).toBe("x-verba-seed");
+    expect((await handle(req("/v1/docs"), all())).headers.get("access-control-expose-headers")).toBe("x-verba-seed");
+  });
+
+  it("corpora is no-store when a corpus is unavailable, cached when all are available", async () => {
+    const down = await handle(req("/v1/corpora"), { PRO: fakeVerba() as any });
+    expect(down.headers.get("cache-control")).toBe("no-store");
+    const mk = (corpus: any): Adapter => ({ corpus, meta: async () => ({ total: 1 }), list: async () => ({ total: 0, items: [] }), get: async () => null });
+    const up = await handle(req("/v1/corpora"), {}, { pro: mk("pro"), contra: mk("contra"), non: mk("non"), para: mk("para") });
+    expect(up.headers.get("cache-control")).toBe("public, max-age=300");
   });
 });
