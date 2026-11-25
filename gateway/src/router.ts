@@ -7,6 +7,7 @@ import {
   json,
   parseGlobalId,
   type Corpus,
+  type Item,
   type ItemList,
   type Licence,
 } from "./contract.js";
@@ -14,6 +15,7 @@ import type { Adapter, Upstream } from "./adapters/types.js";
 import { makeNonAdapter } from "./adapters/non.js";
 import { makeParaAdapter } from "./adapters/para.js";
 import { makeProAdapter } from "./adapters/pro.js";
+import { pickMixed, pickRandom, rng } from "./random.js";
 
 export interface Env {
   PRO?: Fetcher;
@@ -101,6 +103,34 @@ async function corpora(adapters: Partial<Record<Corpus, Adapter>>): Promise<Resp
   return json({ apiVersion: API_VERSION, corpora: list }, { cache: "public, max-age=300" });
 }
 
+const DEFAULT_MIX: Corpus[] = ["pro", "non", "para"];
+
+function randomResponse(
+  params: URLSearchParams,
+  corpus: Corpus | "mixed",
+  pick: (next: () => number) => Promise<Item[]>,
+): Promise<Response> {
+  return (async () => {
+    const n = intParam(params, "n", 1, 1, 50);
+    const given = params.get("seed");
+    const seed = given !== null && given !== "" ? given : crypto.randomUUID();
+    const seeded = seed === given;
+    const items = await pick(rng(seed));
+    const body: ItemList = {
+      apiVersion: API_VERSION,
+      corpus,
+      total: items.length,
+      limit: n,
+      offset: 0,
+      nextOffset: null,
+      items,
+    };
+    const r = json(body, { cache: seeded ? "public, max-age=86400" : "no-store" });
+    r.headers.set("x-verba-seed", seed);
+    return r;
+  })();
+}
+
 async function route(request: Request, adapters: Partial<Record<Corpus, Adapter>>): Promise<Response> {
   const url = new URL(request.url);
   const parts = url.pathname.split("/").filter((p, i) => i === 0 || p !== "").slice(1);
@@ -108,6 +138,20 @@ async function route(request: Request, adapters: Partial<Record<Corpus, Adapter>
   const rest = parts.slice(1);
 
   if (rest.length === 1 && rest[0] === "corpora") return corpora(adapters);
+
+  if (rest.length === 1 && rest[0] === "random") {
+    const p = url.searchParams;
+    const n = intParam(p, "n", 1, 1, 50);
+    const raw = p.get("corpus");
+    const names = raw === null || raw === "" ? DEFAULT_MIX : raw.split(",").map((s) => s.trim());
+    const list: Corpus[] = [];
+    for (const c of names) {
+      if (!isCorpus(c)) throw new ApiError(400, "invalid_request", `unknown corpus "${c}"`);
+      if (!list.includes(c)) list.push(c);
+    }
+    for (const c of list) adapterOf(adapters, c);
+    return randomResponse(p, "mixed", (next) => pickMixed(adapters, list, n, next));
+  }
 
   if (rest[0] === "items" && rest.length >= 2) {
     const id = decode(rest.slice(1).join("/"));
@@ -124,6 +168,11 @@ async function route(request: Request, adapters: Partial<Record<Corpus, Adapter>
     if (what === "meta" && rest.length === 2) {
       const { total } = await adapterOf(adapters, corpus).meta();
       return json({ apiVersion: API_VERSION, corpus, total, licence: licenceOf(corpus) }, { cache: "public, max-age=300" });
+    }
+    if (what === "random" && rest.length === 2) {
+      const n = intParam(url.searchParams, "n", 1, 1, 50);
+      const adapter = adapterOf(adapters, corpus);
+      return randomResponse(url.searchParams, corpus, (next) => pickRandom(adapter, n, next, url.searchParams));
     }
     if (what === "items" && rest.length === 2) {
       const limit = intParam(url.searchParams, "limit", 50, 1, 100);
