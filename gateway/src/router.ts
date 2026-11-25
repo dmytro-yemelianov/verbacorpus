@@ -111,7 +111,7 @@ function randomResponse(
   pick: (next: () => number) => Promise<Item[]>,
 ): Promise<Response> {
   return (async () => {
-    const n = intParam(params, "n", 1, 1, 50);
+    const n = intParam(params, "n", 1, 1, 20);
     const given = params.get("seed");
     if (given !== null && given.length > 128) throw new ApiError(400, "invalid_request", "seed must be at most 128 characters");
     const seed = given !== null && given !== "" ? given : crypto.randomUUID();
@@ -143,7 +143,7 @@ async function route(request: Request, adapters: Partial<Record<Corpus, Adapter>
 
   if (rest.length === 1 && rest[0] === "random") {
     const p = url.searchParams;
-    const n = intParam(p, "n", 1, 1, 50);
+    const n = intParam(p, "n", 1, 1, 20);
     const raw = p.get("corpus");
     const explicit = raw !== null && raw !== "";
     const names = explicit ? raw.split(",").map((s) => s.trim()) : DEFAULT_MIX.filter((c) => adapters[c]);
@@ -174,7 +174,7 @@ async function route(request: Request, adapters: Partial<Record<Corpus, Adapter>
       return json({ apiVersion: API_VERSION, corpus, total, licence: licenceOf(corpus) }, { cache: "public, max-age=300" });
     }
     if (what === "random" && rest.length === 2) {
-      const n = intParam(url.searchParams, "n", 1, 1, 50);
+      const n = intParam(url.searchParams, "n", 1, 1, 20);
       const adapter = adapterOf(adapters, corpus);
       return randomResponse(url.searchParams, corpus, (next) => pickRandom(adapter, n, next, url.searchParams));
     }

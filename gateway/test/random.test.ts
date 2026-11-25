@@ -78,7 +78,7 @@ describe("random routes", () => {
     expect(b.corpus).toBe("pro");
     expect(b.items.length).toBe(3);
   });
-  it.each(["n=51", "n=0", "n=x", "n=1.5"])("rejects %s without upstream calls", async (q) => {
+  it.each(["n=21", "n=0", "n=x", "n=1.5"])("rejects %s without upstream calls", async (q) => {
     const spy = countingVerba();
     const r = await handle(req(`/v1/pro/random?${q}`), { PRO: spy as any });
     expect(r.status).toBe(400);
@@ -86,7 +86,7 @@ describe("random routes", () => {
     expect(spy.calls).toBe(0);
   });
   it("mixed rejects bad n and unknown corpus", async () => {
-    expect((await handle(req("/v1/random?n=99"), env())).status).toBe(400);
+    expect((await handle(req("/v1/random?n=21"), env())).status).toBe(400);
     expect((await handle(req("/v1/random?corpus=pro,zzz"), env())).status).toBe(400);
   });
   it("requested corpus without adapter is 503", async () => {
