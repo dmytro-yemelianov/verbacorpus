@@ -113,11 +113,13 @@ function randomResponse(
   return (async () => {
     const n = intParam(params, "n", 1, 1, 50);
     const given = params.get("seed");
+    if (given !== null && given.length > 128) throw new ApiError(400, "invalid_request", "seed must be at most 128 characters");
     const seed = given !== null && given !== "" ? given : crypto.randomUUID();
     const seeded = seed === given;
     const items = await pick(rng(seed));
-    const body: ItemList = {
+    const body: ItemList & { seed: string } = {
       apiVersion: API_VERSION,
+      seed,
       corpus,
       total: items.length,
       limit: n,
@@ -126,7 +128,7 @@ function randomResponse(
       items,
     };
     const r = json(body, { cache: seeded ? "public, max-age=86400" : "no-store" });
-    r.headers.set("x-verba-seed", seed);
+    r.headers.set("x-verba-seed", encodeURIComponent(seed));
     return r;
   })();
 }
@@ -143,7 +145,9 @@ async function route(request: Request, adapters: Partial<Record<Corpus, Adapter>
     const p = url.searchParams;
     const n = intParam(p, "n", 1, 1, 50);
     const raw = p.get("corpus");
-    const names = raw === null || raw === "" ? DEFAULT_MIX : raw.split(",").map((s) => s.trim());
+    const explicit = raw !== null && raw !== "";
+    const names = explicit ? raw.split(",").map((s) => s.trim()) : DEFAULT_MIX.filter((c) => adapters[c]);
+    if (!explicit && names.length === 0) throw new ApiError(503, "unavailable", "no corpus is available");
     const list: Corpus[] = [];
     for (const c of names) {
       if (!isCorpus(c)) throw new ApiError(400, "invalid_request", `unknown corpus "${c}"`);

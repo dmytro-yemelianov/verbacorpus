@@ -93,4 +93,50 @@ describe("random routes", () => {
     expect((await handle(req("/v1/random?corpus=contra"), env())).status).toBe(503);
     expect((await handle(req("/v1/non/random"), { PRO: fakePro() as any })).status).toBe(503);
   });
+  it("accepts non-Latin-1 seeds", async () => {
+    const q = "/v1/pro/random?n=3&seed=" + encodeURIComponent("картка-дня");
+    const r1 = await handle(req(q), {}, withContra());
+    expect(r1.status).toBe(200);
+    expect(r1.headers.get("x-verba-seed")).toBe(encodeURIComponent("картка-дня"));
+    const a = await r1.json() as any;
+    const b = await (await handle(req(q), {}, withContra())).json() as any;
+    expect(a.seed).toBe("картка-дня");
+    expect(a.items.map((i: any) => i.id)).toEqual(b.items.map((i: any) => i.id));
+  });
+  it("rejects a 129-char seed", async () => {
+    expect((await handle(req("/v1/pro/random?seed=" + "a".repeat(129)), {}, withContra())).status).toBe(400);
+    expect((await handle(req("/v1/pro/random?seed=" + "a".repeat(128)), {}, withContra())).status).toBe(200);
+  });
+  it("mixed fetches each total once", async () => {
+    const ad = withContra();
+    const r = await handle(req("/v1/random?n=20&seed=s"), {}, ad);
+    const b = await r.json() as any;
+    expect(b.items.length).toBe(20);
+    const per = { pro: 0, non: 0, para: 0 } as Record<string, number>;
+    for (const k of ["pro", "non", "para"] as const) {
+      const orig = ad[k].list;
+      let heads = 0;
+      ad[k].list = async (l: number, o: number, f: URLSearchParams) => { if (o === 0) heads++; return orig(l, o, f); };
+      per[k] = 0;
+      (ad as any)["_h" + k] = () => heads;
+    }
+    await handle(req("/v1/random?n=20&seed=s"), {}, ad);
+    for (const k of ["pro", "non", "para"]) expect((ad as any)["_h" + k]()).toBeLessThanOrEqual(1);
+    const ids = b.items.map((i: any) => i.id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+  it("default mix uses available adapters; 503 when none", async () => {
+    const r = await handle(req("/v1/random?seed=s&n=5"), {}, { pro: fakeAdapter("pro", 10) });
+    expect(r.status).toBe(200);
+    expect(((await r.json()) as any).items.every((i: any) => i.corpus === "pro")).toBe(true);
+    expect((await handle(req("/v1/random"), {}, { contra: contra() })).status).toBe(503);
+    expect((await handle(req("/v1/random?corpus=pro,non"), {}, { pro: fakeAdapter("pro", 10) })).status).toBe(503);
+  });
+  it("n >= total returns all items, shuffled deterministically", async () => {
+    const q = "/v1/pro/random?n=5&seed=z";
+    const a = await (await handle(req(q), {}, { pro: fakeAdapter("pro", 5) })).json() as any;
+    const b = await (await handle(req(q), {}, { pro: fakeAdapter("pro", 5) })).json() as any;
+    expect(new Set(a.items.map((i: any) => i.id)).size).toBe(5);
+    expect(a.items.map((i: any) => i.id)).toEqual(b.items.map((i: any) => i.id));
+  });
 });
