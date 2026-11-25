@@ -43,11 +43,11 @@ describe("adapter specifics", () => {
     await makeProAdapter(up2).list(5, 0, new URLSearchParams("category=x&evil=1&source=y"));
     expect(seen[1]).toBe("https://upstream/api/v1/query?limit=5&offset=0&category=x&source=y");
   });
-  it("upstream 500 becomes 502 upstream_error", async () => {
+  it("upstream 500 becomes 503 unavailable", async () => {
     await expect(makeProAdapter(failing(500)).list(1, 0, new URLSearchParams())).rejects.toMatchObject({
-      status: 502,
-      code: "upstream_error",
+      status: 503,
+      code: "unavailable",
     });
-    await expect(makeNonAdapter(failing(500)).get("x")).rejects.toMatchObject({ status: 502 });
+    await expect(makeNonAdapter(failing(500)).get("x")).rejects.toMatchObject({ status: 503 });
   });
 });

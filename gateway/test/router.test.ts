@@ -1,7 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { handle } from "../src/router.js";
 import type { Adapter } from "../src/adapters/types.js";
-import { countingVerba, fakeNasinnia, fakePro, fakeUpa, fakeVerba, fonts, recordingUpa } from "./fakes.js";
+import { countingVerba, failing, fakeNasinnia, fakePro, fakeUpa, fakeVerba, fonts, recordingUpa } from "./fakes.js";
 
 const req = (path: string, init?: RequestInit) => new Request("https://api.test" + path, init);
 const all = () => ({ PRO: fakePro() as any, UPA: fakeUpa() as any, FONTS: fakeNasinnia(fonts(3)) as any });
@@ -96,6 +96,45 @@ describe("router", () => {
     expect((await handle(req("/v1/items/%E0%A4%A"), { UPA: up as any })).status).toBe(400);
     await handle(req("/v1/non/items/" + encodeURIComponent("а/б")), { UPA: up as any });
     expect(up.lastPath).toContain("/api/v1/patterns/");
+  });
+
+  it("upstream 500 is 503 unavailable", async () => {
+    const r = await handle(req("/v1/pro/items"), { PRO: failing(500) as any });
+    expect(r.status).toBe(503);
+    expect(((await r.json()) as any).error.code).toBe("unavailable");
+  });
+
+  it("upstream bad JSON is 502", async () => {
+    const bad = { fetch: async () => new Response("<html>", { status: 200 }) };
+    const r = await handle(req("/v1/pro/items"), { PRO: bad as any });
+    expect(r.status).toBe(502);
+    expect(((await r.json()) as any).error.code).toBe("upstream_error");
+  });
+
+  it("corpora does not hang on a never-resolving upstream", async () => {
+    vi.useFakeTimers();
+    try {
+      const hang = { fetch: () => new Promise<Response>(() => {}) };
+      const p = handle(req("/v1/corpora"), { PRO: hang as any, UPA: fakeUpa() as any });
+      await vi.advanceTimersByTimeAsync(2600);
+      const b = (await (await p).json()) as any;
+      expect(b.corpora.find((c: any) => c.corpus === "pro")).toMatchObject({ total: null, available: false });
+      expect(b.corpora.find((c: any) => c.corpus === "non").available).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("global id with slash and cyrillic reaches upstream exactly encoded", async () => {
+    const up = recordingUpa();
+    await handle(req("/v1/items/" + encodeURIComponent("non:а/б")), { UPA: up as any });
+    expect(up.lastPath).toBe("/api/v1/patterns/" + encodeURIComponent("а/б"));
+  });
+
+  it("local id with percent reaches upstream exactly encoded", async () => {
+    const up = recordingUpa();
+    await handle(req("/v1/non/items/p%25x"), { UPA: up as any });
+    expect(up.lastPath).toBe("/api/v1/patterns/p%25x");
   });
 
   it("non-ApiError becomes 502 upstream_error", async () => {

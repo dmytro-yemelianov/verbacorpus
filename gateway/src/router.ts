@@ -29,6 +29,16 @@ export function adaptersFor(env: Env): Partial<Record<Corpus, Adapter>> {
   return out;
 }
 
+export const META_TIMEOUT_MS = 2500;
+
+function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout>;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error("timeout")), ms);
+  });
+  return Promise.race([p, timeout]).finally(() => clearTimeout(timer));
+}
+
 const API_VERSION = "v1" as const;
 const CORS_HEADERS = {
   "access-control-allow-origin": "*",
@@ -71,7 +81,7 @@ async function corpora(adapters: Partial<Record<Corpus, Adapter>>): Promise<Resp
   const metas = await Promise.allSettled(
     entries.map((e) => {
       const a = adapters[e.prefix as Corpus];
-      return a ? a.meta() : Promise.reject(new Error("no adapter"));
+      return a ? withTimeout(a.meta(), META_TIMEOUT_MS) : Promise.reject(new Error("no adapter"));
     }),
   );
   const list = entries.map((e, i) => {

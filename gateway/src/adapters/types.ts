@@ -16,10 +16,14 @@ export interface Adapter {
 }
 
 const upstreamError = (message: string) => new ApiError(502, "upstream_error", message);
+const unavailable = (message: string) => new ApiError(503, "unavailable", message);
+
+export const UPSTREAM_TIMEOUT_MS = 8000;
 
 // Fetches `path` from the upstream and parses JSON. A 404 yields null when
 // `allow404` is set; any other failure (non-2xx, network error, bad JSON)
-// becomes ApiError(502, "upstream_error").
+// is classified: network error / timeout / 5xx -> ApiError(503, "unavailable");
+// other 4xx or an unparseable body -> ApiError(502, "upstream_error").
 export async function fetchJson(
   up: Upstream,
   path: string,
@@ -27,11 +31,14 @@ export async function fetchJson(
 ): Promise<unknown | null> {
   let res: Response;
   try {
-    res = await up.fetch(new Request("https://upstream" + path));
+    res = await up.fetch(
+      new Request("https://upstream" + path, { signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS) }),
+    );
   } catch (e) {
-    throw upstreamError(`upstream request failed: ${(e as Error).message}`);
+    throw unavailable(`upstream request failed: ${(e as Error).message}`);
   }
   if (res.status === 404 && allow404) return null;
+  if (res.status >= 500) throw unavailable(`upstream responded ${res.status}`);
   if (!res.ok) throw upstreamError(`upstream responded ${res.status}`);
   try {
     return await res.json();
