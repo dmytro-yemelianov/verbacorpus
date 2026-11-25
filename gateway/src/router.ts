@@ -16,6 +16,7 @@ import { makeContraAdapter } from "./adapters/contra.js";
 import { makeNonAdapter } from "./adapters/non.js";
 import { makeParaAdapter } from "./adapters/para.js";
 import { makeProAdapter } from "./adapters/pro.js";
+import { docsHtml, openapi } from "./openapi.js";
 import { pickMixed, pickRandom, rng } from "./random.js";
 
 export interface Env {
@@ -143,6 +144,19 @@ async function route(request: Request, adapters: Partial<Record<Corpus, Adapter>
   const parts = url.pathname.split("/").filter((p, i) => i === 0 || p !== "").slice(1);
   if (parts[0] !== "v1") throw new ApiError(404, "not_found", "no such route");
   const rest = parts.slice(1);
+
+  if (rest.length === 0 || (rest.length === 1 && rest[0] === "openapi.json")) {
+    return json(openapi, { cache: "public, max-age=300" });
+  }
+  if (rest.length === 1 && rest[0] === "docs") {
+    return new Response(docsHtml, {
+      headers: {
+        "access-control-allow-origin": "*",
+        "content-type": "text/html; charset=utf-8",
+        "cache-control": "public, max-age=300",
+      },
+    });
+  }
 
   if (rest.length === 1 && rest[0] === "corpora") return corpora(adapters);
 

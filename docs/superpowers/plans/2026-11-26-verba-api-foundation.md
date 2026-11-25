@@ -213,7 +213,7 @@ it("CORS preflight", async () => {
   - `rng(seed: string): () => number` — FNV-1a 32-bit від рядка → mulberry32; повертає [0,1).
   - `pickRandom(adapter: Adapter, n: number, next: () => number, filters: URLSearchParams): Promise<Item[]>` — `total` з `list(1,0,filters)`, далі `n` різних offset'ів `floor(next()*total)` (повтор → наступне значення; максимум `n*5` спроб), кожен через `list(1, offset, filters)`.
   - `pickMixed(adapters: Partial<Record<Corpus, Adapter>>, corpora: Corpus[], n: number, next: () => number): Promise<Item[]>` — для кожного з `n` записів корпус = `corpora[floor(next()*corpora.length)]`, далі `pickRandom(…, 1, …)`.
-- Маршрути: `/v1/{corpus}/random?n&seed&…` (n 1–50, за замовч. 1) і `/v1/random?corpus=a,b&n&seed`. Без `corpus` — `["pro","non","para"]` (без `contra`). Відповідь — `ItemList` з `corpus` = корпус або `"mixed"`, `offset: 0`, `nextOffset: null`. Без `seed` — `seed = crypto.randomUUID()`, заголовок `cache-control: no-store`; з `seed` — `public, max-age=86400`. Використаний seed — у заголовку `x-verba-seed`.
+- Маршрути: `/v1/{corpus}/random?n&seed&…` (n 1–20, за замовч. 1) і `/v1/random?corpus=a,b&n&seed`. Без `corpus` — `["pro","non","para"]` (без `contra`). Відповідь — `ItemList` з `corpus` = корпус або `"mixed"`, `offset: 0`, `nextOffset: null`. Без `seed` — `seed = crypto.randomUUID()`, заголовок `cache-control: no-store`; з `seed` — `public, max-age=86400`. Використаний seed — у заголовку `x-verba-seed`.
 
 - [ ] **Step 1: Failing tests**
 
