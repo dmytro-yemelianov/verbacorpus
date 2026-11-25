@@ -1,0 +1,52 @@
+{
+ "id": "public-domain-8x8-demo",
+ "family": "Public Domain Bitmap Demo",
+ "displayName": "Public Domain Bitmap Demo 8×8",
+ "version": 1,
+ "description": "A small CC0 raster fixture used to validate the API contract.",
+ "sourceType": "derivative",
+ "availability": "downloadable",
+ "cell": {
+  "width": 8,
+  "height": 8,
+  "monospace": true,
+  "nativeScale": 1
+ },
+ "glyphs": {
+  "count": 4,
+  "defaultGlyph": "U+003F",
+  "missingGlyph": "U+003F"
+ },
+ "encodings": [
+  {
+   "name": "cp437",
+   "primary": true,
+   "mappingUrl": "/v1/encodings/cp437"
+  },
+  {
+   "name": "unicode",
+   "primary": false
+  }
+ ],
+ "tags": [
+  "terminal",
+  "monospace",
+  "latin",
+  "demo"
+ ],
+ "platform": "generic",
+ "license": {
+  "id": "CC0-1.0",
+  "name": "Creative Commons Zero v1.0 Universal",
+  "url": "https://creativecommons.org/publicdomain/zero/1.0/",
+  "attributionRequired": false,
+  "shareAlikeRequired": false,
+  "redistributionAllowed": true
+ },
+ "source": {
+  "name": "Nasinnia fixture",
+  "url": "https://github.com/example/nasinnia",
+  "author": "Nasinnia",
+  "retrievedAt": "2026-07-20"
+ }
+}

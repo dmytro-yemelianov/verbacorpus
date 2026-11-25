@@ -1,0 +1,195 @@
+{
+ "data": [
+  {
+   "id": "public-domain-8x8-demo",
+   "family": "Public Domain Bitmap Demo",
+   "displayName": "Public Domain Bitmap Demo 8×8",
+   "version": 1,
+   "description": "A small CC0 raster fixture used to validate the API contract.",
+   "sourceType": "derivative",
+   "availability": "downloadable",
+   "cell": {
+    "width": 8,
+    "height": 8,
+    "monospace": true,
+    "nativeScale": 1
+   },
+   "glyphs": {
+    "count": 4,
+    "defaultGlyph": "U+003F",
+    "missingGlyph": "U+003F"
+   },
+   "encodings": [
+    {
+     "name": "cp437",
+     "primary": true,
+     "mappingUrl": "/v1/encodings/cp437"
+    },
+    {
+     "name": "unicode",
+     "primary": false
+    }
+   ],
+   "tags": [
+    "terminal",
+    "monospace",
+    "latin",
+    "demo"
+   ],
+   "platform": "generic",
+   "license": {
+    "id": "CC0-1.0",
+    "name": "Creative Commons Zero v1.0 Universal",
+    "url": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "attributionRequired": false,
+    "shareAlikeRequired": false,
+    "redistributionAllowed": true
+   },
+   "source": {
+    "name": "Nasinnia fixture",
+    "url": "https://github.com/example/nasinnia",
+    "author": "Nasinnia",
+    "retrievedAt": "2026-07-20"
+   }
+  },
+  {
+   "availability": "downloadable",
+   "cell": {
+    "height": 16,
+    "monospace": true,
+    "nativeScale": 1,
+    "width": 8
+   },
+   "description": "Faithful 8×16 CP437 bitmap strike listed by the Oldschool PC Font Pack.",
+   "displayName": "Acer VGA 8x8-2y",
+   "downloadAllowed": true,
+   "encodings": [
+    {
+     "mappingUrl": "/v1/encodings/cp437",
+     "name": "cp437",
+     "primary": true
+    },
+    {
+     "name": "unicode",
+     "primary": false
+    }
+   ],
+   "family": "Acer VGA",
+   "glyphs": {
+    "count": 256,
+    "defaultGlyph": "U+003F",
+    "missingGlyph": "U+003F"
+   },
+   "id": "acer-vga-8x8-2y",
+   "license": {
+    "attribution": "The Ultimate Oldschool PC Font Pack by VileR.",
+    "attributionRequired": true,
+    "id": "CC-BY-SA-4.0",
+    "name": "Creative Commons Attribution-ShareAlike 4.0",
+    "redistributionAllowed": true,
+    "shareAlikeRequired": true,
+    "url": "https://creativecommons.org/licenses/by-sa/4.0/"
+   },
+   "platform": "ibm-pc",
+   "source": {
+    "archive": "oldschool_pc_font_pack_v2.2_FULL.zip",
+    "archiveSha256": "21b3c0a3770ef0afc46564760613d7b078f4fcc9ed93db4b829a440b68822e08",
+    "archiveUrl": "https://int10h.org/oldschool-pc-fonts/download/oldschool_pc_font_pack_v2.2_FULL.zip",
+    "author": "VileR",
+    "file": "otb - Bm (linux bitmap)/Bm437_Acer_VGA_8x8-2y.otb",
+    "fileSha256": "04cd6f8c19d4d6233ed0f55450cb66b3d53beacc58c6813dc989cbdd2076afd7",
+    "fontListSnapshotSha256": {
+     "nasinnia-fontlist-1.html": "47aa34250aa38f337d5b66e137f12d7bb0f155fcbe9119e1276c548f09e5b2d9",
+     "nasinnia-fontlist-2.html": "d6726211618cdd40e55377b981172f94909546f34ab546e35757ec747ddcf63d",
+     "nasinnia-fontlist-3.html": "d7f25eabb93fa09646dc2bfdc628e13eaf2f858dfb41b7eb9a11ef5c7a455a28",
+     "nasinnia-fontlist-4.html": "de64003247c0496cbc85da499c4bd3db4c5bc11d98335b2dc64b3c9ef9c48293"
+    },
+    "fontListUrl": "https://int10h.org/oldschool-pc-fonts/fontlist/",
+    "name": "The Ultimate Oldschool PC Font Pack",
+    "retrievedAt": "2026-07-21",
+    "url": "https://int10h.org/oldschool-pc-fonts/"
+   },
+   "sourceType": "faithful-remake",
+   "tags": [
+    "ibm-pc",
+    "bios",
+    "terminal",
+    "cp437",
+    "8x16"
+   ],
+   "version": 1
+  },
+  {
+   "availability": "downloadable",
+   "cell": {
+    "height": 8,
+    "monospace": true,
+    "nativeScale": 1,
+    "width": 8
+   },
+   "description": "Faithful 8×8 CP437 bitmap strike listed by the Oldschool PC Font Pack.",
+   "displayName": "Acer VGA 8x8",
+   "downloadAllowed": true,
+   "encodings": [
+    {
+     "mappingUrl": "/v1/encodings/cp437",
+     "name": "cp437",
+     "primary": true
+    },
+    {
+     "name": "unicode",
+     "primary": false
+    }
+   ],
+   "family": "Acer VGA",
+   "glyphs": {
+    "count": 256,
+    "defaultGlyph": "U+003F",
+    "missingGlyph": "U+003F"
+   },
+   "id": "acer-vga-8x8",
+   "license": {
+    "attribution": "The Ultimate Oldschool PC Font Pack by VileR.",
+    "attributionRequired": true,
+    "id": "CC-BY-SA-4.0",
+    "name": "Creative Commons Attribution-ShareAlike 4.0",
+    "redistributionAllowed": true,
+    "shareAlikeRequired": true,
+    "url": "https://creativecommons.org/licenses/by-sa/4.0/"
+   },
+   "platform": "ibm-pc",
+   "source": {
+    "archive": "oldschool_pc_font_pack_v2.2_FULL.zip",
+    "archiveSha256": "21b3c0a3770ef0afc46564760613d7b078f4fcc9ed93db4b829a440b68822e08",
+    "archiveUrl": "https://int10h.org/oldschool-pc-fonts/download/oldschool_pc_font_pack_v2.2_FULL.zip",
+    "author": "VileR",
+    "file": "otb - Bm (linux bitmap)/Bm437_Acer_VGA_8x8.otb",
+    "fileSha256": "85b827929c74f7f986bc19896ba88c66965d6776fefb7f01cd41fe1c1e531b15",
+    "fontListSnapshotSha256": {
+     "nasinnia-fontlist-1.html": "47aa34250aa38f337d5b66e137f12d7bb0f155fcbe9119e1276c548f09e5b2d9",
+     "nasinnia-fontlist-2.html": "d6726211618cdd40e55377b981172f94909546f34ab546e35757ec747ddcf63d",
+     "nasinnia-fontlist-3.html": "d7f25eabb93fa09646dc2bfdc628e13eaf2f858dfb41b7eb9a11ef5c7a455a28",
+     "nasinnia-fontlist-4.html": "de64003247c0496cbc85da499c4bd3db4c5bc11d98335b2dc64b3c9ef9c48293"
+    },
+    "fontListUrl": "https://int10h.org/oldschool-pc-fonts/fontlist/",
+    "name": "The Ultimate Oldschool PC Font Pack",
+    "retrievedAt": "2026-07-21",
+    "url": "https://int10h.org/oldschool-pc-fonts/"
+   },
+   "sourceType": "faithful-remake",
+   "tags": [
+    "ibm-pc",
+    "bios",
+    "terminal",
+    "cp437",
+    "8x8"
+   ],
+   "version": 1
+  }
+ ],
+ "pagination": {
+  "page": 1,
+  "perPage": 3,
+  "total": 2261
+ }
+}
