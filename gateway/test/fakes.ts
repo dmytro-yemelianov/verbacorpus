@@ -103,3 +103,31 @@ export function fakeNasinnia(all: any[]): Upstream {
 export function fakeNasinniaFixture(): Upstream {
   return fakeNasinnia(fixture("para", "list").data);
 }
+
+// Counts every upstream call; delegates to fakePro().
+export function countingVerba(): Upstream & { calls: number } {
+  const inner = fakePro();
+  const spy = {
+    calls: 0,
+    fetch(input: Request | string) {
+      spy.calls++;
+      return inner.fetch(input);
+    },
+  };
+  return spy;
+}
+
+export const fakeVerba = fakePro;
+
+// Records the path of the last upstream request; delegates to fakeUpa().
+export function recordingUpa(): Upstream & { lastPath: string | null } {
+  const inner = fakeUpa();
+  const spy = {
+    lastPath: null as string | null,
+    fetch(input: Request | string) {
+      spy.lastPath = new URL(typeof input === "string" ? input : input.url).pathname;
+      return inner.fetch(input);
+    },
+  };
+  return spy;
+}
