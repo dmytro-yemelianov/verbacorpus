@@ -43,16 +43,24 @@ def assign_ids(entries, table):
     return {"version": 1, "ids": ids}
 
 
-def update_ids(entries, path=IDS_PATH):
+def compute_ids(entries, path=IDS_PATH):
     path = Path(path)
     table = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {"version": 1, "ids": {}}
-    table = assign_ids(entries, table)
+    return assign_ids(entries, table)
+
+
+def write_ids(table, path=IDS_PATH):
+    path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(table, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+
+def update_ids(entries, path=IDS_PATH):
+    table = compute_ids(entries, path)
+    write_ids(table, path)
     return table
 
 
-def sync(source, destination):
+def sync(source, destination, ids_path=IDS_PATH):
     source, destination = Path(source), Path(destination)
     raw = (source / "synonyms.csv").read_bytes()
     data = json.loads((source / "data/entries.json").read_text(encoding="utf-8"))
@@ -84,10 +92,11 @@ def sync(source, destination):
                   "exporterSha256": hashlib.sha256((source / "tools/converter.py").read_bytes()).hexdigest(),
                   "files": {name: hashlib.sha256(raw).hexdigest() for name, raw in files.items()}}
     files["provenance.json"] = (json.dumps(provenance, ensure_ascii=False, indent=2) + "\n").encode()
+    table = compute_ids(entries, ids_path)  # validate before touching anything
     destination.mkdir(parents=True, exist_ok=True)
     for name, raw in files.items():
         (destination / name).write_bytes(raw)
-    table = update_ids(entries)
+    write_ids(table, ids_path)
     print(f"Imported {len(entries)} source rows ({digest[:12]}); {len(table['ids'])} stable ids")
 
 

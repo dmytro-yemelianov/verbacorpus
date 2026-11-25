@@ -3,7 +3,7 @@ import { handle } from "../src/router.js";
 import { pickRandom, rng } from "../src/random.js";
 import type { Adapter } from "../src/adapters/types.js";
 import { LICENCES, type Corpus, type Item } from "../src/contract.js";
-import { countingVerba, fakeNasinnia, fakePro, fakeUpa, fonts } from "./fakes.js";
+import { countingVerba, fakeNasinnia, fakePro, fakeUpa, fakeVerbaContra, fonts } from "./fakes.js";
 
 const req = (path: string) => new Request("https://api.test" + path);
 const env = () => ({ PRO: fakePro() as any, UPA: fakeUpa() as any, FONTS: fakeNasinnia(fonts(5)) as any });
@@ -56,6 +56,21 @@ describe("random routes", () => {
   it("default mix never includes contra", async () => {
     for (const s of ["a", "b", "c", "d", "e"]) {
       const b = await (await handle(req(`/v1/random?seed=${s}&n=20`), {}, withContra())).json() as any;
+      expect(b.items.length).toBeGreaterThan(0);
+      expect(b.items.every((i: any) => i.corpus !== "contra")).toBe(true);
+    }
+  });
+  it("default mix excludes contra even when PRO is bound and the contra adapter exists", async () => {
+    const pro = fakePro(), contraUp = fakeVerbaContra();
+    const both = {
+      fetch: (i: Request | string) => {
+        const path = new URL(typeof i === "string" ? i : i.url).pathname;
+        return (path.startsWith("/api/v1/contra") ? contraUp : pro).fetch(i);
+      },
+    };
+    const e = { PRO: both as any, UPA: fakeUpa() as any, FONTS: fakeNasinnia(fonts(5)) as any };
+    for (const s of ["a", "b", "c", "d", "e", "f", "g"]) {
+      const b = await (await handle(req(`/v1/random?seed=${s}&n=20`), e)).json() as any;
       expect(b.items.length).toBeGreaterThan(0);
       expect(b.items.every((i: any) => i.corpus !== "contra")).toBe(true);
     }

@@ -38,9 +38,15 @@ function entryKey(e: SourceEntry): string {
   return [e.group, e.term, e.synonym].map(part).join("\x1f") + "\x1f" + (e.isWord ? "1" : "0");
 }
 
+const warned = new Set<string>();
+
 async function idFor(key: string): Promise<string> {
   const known = ID_TABLE[key];
   if (known) return known;
+  if (!warned.has(key)) {
+    warned.add(key);
+    console.warn("contra: entry missing from bez-tabu-ids.json, using fallback id; run sync_bez_tabu.py --ids-only", key.replaceAll("\x1f", "|"));
+  }
   // Not in the vendored table yet: the id sync_bez_tabu.py would assign absent a collision.
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(key));
   return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("").slice(0, 10);

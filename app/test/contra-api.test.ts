@@ -67,6 +67,12 @@ describe("/api/v1/contra", () => {
 
   it("leaves other routes alone", async () => {
     expect((await call("/api/v1/random")).status).toBe(200);
+    // At base 2a7f8b0 the fixture site has no bez-tabu page: /bez-tabu/ fell through to ASSETS and was an
+    // empty 404 (no content-type); the new fixture data file must not change that.
+    const page = await call("/bez-tabu/");
+    expect(page.status).toBe(404);
+    expect(page.headers.get("content-type")).toBeNull();
+    expect(await page.text()).toBe("");
     expect((await call("/api/v1/nothing-here")).status).toBe(404);
     expect((await call("/api/contra/items")).status).toBe(200);
   });
