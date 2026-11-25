@@ -25,7 +25,7 @@ describe("/p/:id", () => {
   it("is card-first with the top nav", async () => {
     const html = await (await call("/p/p1")).text();
     expect(html).toContain('class="p-card" src="/card/p1.png?v=3"');
-    expect(html).toContain('class="topbar"');
+    expect(html).toContain('data-verba-navigation');
     expect(html).toContain('id="copyLink"');
   });
 });

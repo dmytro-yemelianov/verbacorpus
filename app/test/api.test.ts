@@ -10,6 +10,19 @@ async function call(path: string) {
 }
 
 describe("API", () => {
+  it.each(["/api/search", "/api/v1/search", "/api/query", "/api/v1/query"])("%s defaults to a 50-record page", async (path) => {
+    const body = await (await call(path)).json() as any;
+    expect(body.limit).toBe(50);
+    expect(body.offset).toBe(0);
+    expect(body.total).toBe(2);
+    expect(body.results).toHaveLength(2);
+  });
+  it("keeps an explicitly requested one-record page", async () => {
+    const body = await (await call("/api/v1/search?limit=1&offset=1")).json() as any;
+    expect(body.limit).toBe(1);
+    expect(body.offset).toBe(1);
+    expect(body.results.map((p: any) => p.id)).toEqual(["p2"]);
+  });
   it("search by q", async () => {
     const res = await call("/api/search?q=робота");
     expect(res.headers.get("access-control-allow-origin")).toBe("*");
@@ -31,6 +44,7 @@ describe("API", () => {
   });
   it("NaN limit is coerced to default — returns non-empty results", async () => {
     const body = await (await call("/api/search?limit=abc")).json() as any;
-    expect(body.results.length).toBeGreaterThan(0);
+    expect(body.limit).toBe(50);
+    expect(body.results).toHaveLength(2);
   });
 });

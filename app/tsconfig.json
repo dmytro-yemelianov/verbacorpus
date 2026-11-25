@@ -2,7 +2,7 @@
   "compilerOptions": {
     "target": "es2022", "module": "es2022", "moduleResolution": "bundler",
     "lib": ["es2022", "dom"], "strict": true, "skipLibCheck": true,
-    "types": ["@cloudflare/workers-types"], "noEmit": true, "esModuleInterop": true
+    "types": ["@cloudflare/workers-types", "@cloudflare/vitest-pool-workers"], "noEmit": true, "esModuleInterop": true
   },
-  "include": ["src/**/*.ts", "test/**/*.ts"]
+  "include": ["src/**/*.ts", "test/**/*.ts", "worker-configuration.d.ts"]
 }

@@ -1,0 +1,83 @@
+{
+  "schemaVersion": 1,
+  "source": {
+    "repository": "dmytro-yemelianov/upa-archive",
+    "revision": "a378fc1a8aaa963ac9e974058ec6adb95c96af5f",
+    "path": "data/patterns.v3.json",
+    "sha256": "a1e51d00eba03aa1ee26faef31e3d62d4743171ace3cc43a5f1d05e0e38d750f"
+  },
+  "patterns": [
+    {
+      "id": "p27_-_b00",
+      "number": 116,
+      "kind": "band",
+      "width": 68,
+      "height": 33,
+      "page": 27
+    },
+    {
+      "id": "p26_-_b00",
+      "number": 66,
+      "kind": "band",
+      "width": 68,
+      "height": 33,
+      "page": 26
+    },
+    {
+      "id": "p38_-_b00",
+      "number": 21,
+      "kind": "band",
+      "width": 65,
+      "height": 65,
+      "page": 38
+    },
+    {
+      "id": "p25_-_b00",
+      "number": 132,
+      "kind": "band",
+      "width": 68,
+      "height": 27,
+      "page": 25
+    },
+    {
+      "id": "p43_-_b01",
+      "number": 79,
+      "kind": "medallion",
+      "width": 69,
+      "height": 21,
+      "page": 43
+    },
+    {
+      "id": "p17_-_b00",
+      "number": 41,
+      "kind": "band",
+      "width": 68,
+      "height": 15,
+      "page": 17
+    },
+    {
+      "id": "p42_-_b01",
+      "number": 134,
+      "kind": "medallion",
+      "width": 23,
+      "height": 43,
+      "page": 42
+    },
+    {
+      "id": "p15_-_b02",
+      "number": 151,
+      "kind": "band",
+      "width": 68,
+      "height": 13,
+      "page": 15
+    },
+    {
+      "id": "p20_-_b00",
+      "number": 149,
+      "kind": "band",
+      "width": 68,
+      "height": 19,
+      "page": 20
+    }
+  ]
+}

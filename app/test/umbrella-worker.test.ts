@@ -14,6 +14,6 @@ it("serves the umbrella through ASSETS without fetching proverb data", async () 
 
 it("redirects a legacy search preserving the complete query", async () => {
   const response = await worker.fetch(new Request("https://verbacorpus.org/?q=%D1%81%D0%BB%D0%BE%D0%B2%D0%BE&src=Nomis1864"), {} as any);
-  expect(response.status).toBe(307);
-  expect(response.headers.get("location")).toBe("https://verbacorpus.org/pro/?q=%D1%81%D0%BB%D0%BE%D0%B2%D0%BE&src=Nomis1864");
+  expect(response.status).toBe(308);
+  expect(response.headers.get("location")).toBe("https://pro.verbacorpus.org/?q=%D1%81%D0%BB%D0%BE%D0%B2%D0%BE&src=Nomis1864");
 });

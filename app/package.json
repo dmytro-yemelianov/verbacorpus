@@ -8,10 +8,14 @@
     "sync-data": ".venv/bin/python build_data.py ../corpus.csv ../enrich/taxonomy.csv ../sources.csv public/data ../corpus.xml",
     "build": "node build.mjs",
     "dev": "wrangler dev",
+    "dev:integrated": "node dev-integrated.mjs",
     "deploy": "wrangler deploy",
+    "deploy:non": "wrangler deploy --config wrangler.non.jsonc",
     "test": "npm run test:catalog && vitest run",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.browser.json",
     "sync-corpora": "python3 sync_corpora.py",
-    "test:catalog": "node --test test-catalog/*.test.mjs"
+    "test:catalog": "node --test test-catalog/*.test.mjs",
+    "test:health": "playwright test --config playwright.health.config.ts"
   },
   "dependencies": {
     "gifenc": "^1.0.3",
@@ -24,6 +28,9 @@
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "^0.9.6",
     "@cloudflare/workers-types": "^4.20260626.1",
+    "@playwright/test": "1.64.1",
+    "@types/node": "22.20.5",
+    "@types/upng-js": "^2.1.5",
     "esbuild": "^0.25.10",
     "typescript": "^5.9.3",
     "vitest": "~3.2.4",

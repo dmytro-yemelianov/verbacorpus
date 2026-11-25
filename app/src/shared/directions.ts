@@ -6,6 +6,8 @@ export function directionRoute(url: URL, lang: string, rest: string, method = "G
   if (method !== "GET" && method !== "HEAD") return null;
   let path = rest;
   const domainPrefix = PREFIXES.find(p => url.hostname === `${p}.verbacorpus.org`);
+  if (domainPrefix === 'non' && /^\/icons(?:\/|\.|$)/.test(path)) return { asset: '/non' + path };
+  if (domainPrefix === 'para' && ['/font.json', '/LICENSE.txt'].includes(path)) return { asset: '/para' + path };
   if (path === "/" && domainPrefix) path = `/${domainPrefix}/`;
   if (path === "/") {
     if (["q", "cat", "src", "sem"].some(key => url.searchParams.has(key))) {

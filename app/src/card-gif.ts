@@ -46,7 +46,7 @@ async function composeCardBase(model: CardModel, format: string, seedKey: string
 
 // One composited frame: cream field → tile the border into top/bottom bands at
 // `phase` → composite the proverb on the clean cream center.
-function renderCardFrame(b: CardBase, phase: number): Uint8Array {
+function renderCardFrame(b: CardBase, phase: number): Uint8Array<ArrayBuffer> {
   const frame = new Uint8Array(b.W * b.H * 4);
   for (let o = 0; o < frame.length; o += 4) {
     frame[o] = CREAM[0]; frame[o + 1] = CREAM[1]; frame[o + 2] = CREAM[2]; frame[o + 3] = 255;
@@ -60,7 +60,7 @@ function renderCardFrame(b: CardBase, phase: number): Uint8Array {
 // UPA pattern corpus, picked per proverb) is tiled into top + bottom bands that
 // frame the card; the proverb sits on the clean cream center. The border gently
 // drifts across the loop. The fixed palette rides frame 0 only as the GCT.
-export async function makeVyshyvankaGif(model: CardModel, format: string, seedKey = ""): Promise<Uint8Array> {
+export async function makeVyshyvankaGif(model: CardModel, format: string, seedKey = ""): Promise<Uint8Array<ArrayBuffer>> {
   const b = await composeCardBase(model, format, seedKey);
   const enc = GIFEncoder();
   for (let i = 0; i < FRAMES; i++) {
@@ -73,7 +73,7 @@ export async function makeVyshyvankaGif(model: CardModel, format: string, seedKe
 
 // Static рушник share-card — the GIF's first frame, encoded as a (lossless) PNG so
 // the PNG endpoint and OG image carry the same border design as the GIF.
-export async function makeVyshyvankaPng(model: CardModel, format: string, seedKey = "", extra: RenderExtra = {}): Promise<Uint8Array> {
+export async function makeVyshyvankaPng(model: CardModel, format: string, seedKey = "", extra: RenderExtra = {}): Promise<Uint8Array<ArrayBuffer>> {
   const b = await composeCardBase(model, format, seedKey, extra);
   const frame = renderCardFrame(b, 0);
   return new Uint8Array(UPNG.encode([frame.buffer], b.W, b.H, 0));

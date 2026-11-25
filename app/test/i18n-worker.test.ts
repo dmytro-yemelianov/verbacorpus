@@ -2,9 +2,9 @@ import { env, createExecutionContext, waitOnExecutionContext } from "cloudflare:
 import { describe, it, expect } from "vitest";
 import worker from "../src/index";
 
-async function call(path: string, headers: Record<string, string> = {}) {
+async function call(path: string, headers: Record<string, string> = {}, host = 'verbacorpus.org') {
   const ctx = createExecutionContext();
-  const res = await worker.fetch(new Request("https://verbacorpus.org" + path, { headers }), env as any, ctx);
+  const res = await worker.fetch(new Request('https://' + host + path, { headers }), env as any, ctx);
   await waitOnExecutionContext(ctx);
   return res;
 }
@@ -24,8 +24,8 @@ describe("lang routing", () => {
 });
 
 describe("HTMLRewriter translation", () => {
-  it("/en/pro/ → SPA HTML with lang=en, __LANG__, and hreflang", async () => {
-    const res = await call("/en/pro/");
+  it("pro /en/ → SPA HTML with lang=en, __LANG__, and hreflang", async () => {
+    const res = await call('/en/', {}, 'pro.verbacorpus.org');
     expect(res.status).toBe(200);
     const html = await res.text();
     expect(html).toContain('lang="en"');
@@ -56,7 +56,7 @@ describe("HTMLRewriter translation", () => {
 
 describe("per-lang /p/:id", () => {
   it("/en/p/p1 → English chrome + Ukrainian proverb + og:image", async () => {
-    const res = await call("/en/p/p1");
+    const res = await call('/en/p/p1', {}, 'pro.verbacorpus.org');
     expect(res.status).toBe(200);
     const html = await res.text();
     // English site name in OG meta
@@ -71,7 +71,7 @@ describe("per-lang /p/:id", () => {
   });
 
   it("/p/p1 → Ukrainian page (default lang)", async () => {
-    const res = await call("/p/p1");
+    const res = await call('/p/p1', {}, 'pro.verbacorpus.org');
     expect(res.status).toBe(200);
     const html = await res.text();
     expect(html).toContain('lang="uk"');
