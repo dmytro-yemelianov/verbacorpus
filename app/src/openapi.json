@@ -57,6 +57,81 @@
       }
     },
     "schemas": {
+      "ContraEntry": {
+        "type": "object",
+        "required": [
+          "id",
+          "group",
+          "term",
+          "synonym",
+          "isWord",
+          "emoji",
+          "sourceRows"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "Stable id, derived from group, term, synonym and isWord.",
+            "example": "cd325d32fe"
+          },
+          "group": {
+            "type": "string"
+          },
+          "term": {
+            "type": "string",
+            "description": "The taboo term the synonym stands for."
+          },
+          "synonym": {
+            "type": "string"
+          },
+          "isWord": {
+            "type": "boolean",
+            "description": "True for a single word, false for a phrase."
+          },
+          "emoji": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "nullable": true
+          },
+          "sourceRows": {
+            "type": "array",
+            "items": {
+              "type": "integer"
+            },
+            "description": "Rows of the source CSV that contain this entry (duplicates are merged)."
+          }
+        }
+      },
+      "ContraError": {
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "type": "object",
+            "required": [
+              "code",
+              "message"
+            ],
+            "properties": {
+              "code": {
+                "type": "string",
+                "enum": [
+                  "not_found",
+                  "invalid_request",
+                  "unavailable"
+                ]
+              },
+              "message": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
       "Proverb": {
         "type": "object",
         "required": ["id", "text", "modern_text", "category", "sources"],
@@ -412,6 +487,218 @@
                 "schema": {
                   "type": "object",
                   "description": "Corpus build metadata."
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/contra": {
+      "get": {
+        "operationId": "describeContra",
+        "summary": "Describe the Bez-tabu dictionary",
+        "description": "Total number of unique entries and the list of groups.",
+        "tags": [
+          "contra"
+        ],
+        "responses": {
+          "200": {
+            "description": "OK.",
+            "headers": {
+              "Access-Control-Allow-Origin": {
+                "schema": {
+                  "type": "string",
+                  "example": "*"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "apiVersion": {
+                      "type": "string",
+                      "example": "v1"
+                    },
+                    "total": {
+                      "type": "integer"
+                    },
+                    "groups": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/contra/items": {
+      "get": {
+        "operationId": "listContraItems",
+        "summary": "List dictionary entries",
+        "description": "Unique entries in source order, with optional filters.",
+        "tags": [
+          "contra"
+        ],
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 50
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0
+            }
+          },
+          {
+            "name": "group",
+            "in": "query",
+            "required": false,
+            "description": "Exact group name.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "term",
+            "in": "query",
+            "required": false,
+            "description": "Case-insensitive substring of the term.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK.",
+            "headers": {
+              "Access-Control-Allow-Origin": {
+                "schema": {
+                  "type": "string",
+                  "example": "*"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "apiVersion": {
+                      "type": "string",
+                      "example": "v1"
+                    },
+                    "total": {
+                      "type": "integer"
+                    },
+                    "limit": {
+                      "type": "integer"
+                    },
+                    "offset": {
+                      "type": "integer"
+                    },
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/ContraEntry"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid limit or offset.",
+            "headers": {
+              "Access-Control-Allow-Origin": {
+                "schema": {
+                  "type": "string",
+                  "example": "*"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContraError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/contra/items/{id}": {
+      "get": {
+        "operationId": "getContraItem",
+        "summary": "Get one dictionary entry",
+        "tags": [
+          "contra"
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK.",
+            "headers": {
+              "Access-Control-Allow-Origin": {
+                "schema": {
+                  "type": "string",
+                  "example": "*"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContraEntry"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown id.",
+            "headers": {
+              "Access-Control-Allow-Origin": {
+                "schema": {
+                  "type": "string",
+                  "example": "*"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ContraError"
                 }
               }
             }
