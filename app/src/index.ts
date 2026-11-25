@@ -6,6 +6,7 @@ import { buildProverbPage, cardModel, dailyIndex } from "./shared/meta";
 import { makeVyshyvankaGif, makeVyshyvankaPng } from "./card-gif";
 import { parseLang, t, hreflangLinks, DEFAULT_LANG } from "./shared/i18n";
 import { fromShort } from "./shared/shortlink";
+import { contraRoute } from "./contra-api";
 import { directionRoute } from "./shared/directions";
 import { upaRequest } from "./upa";
 import { withSiteShell } from './site-shell';
@@ -375,6 +376,8 @@ const application = {
           return respond(fmt, r.results as Rec[], { total: r.total, limit: l, offset: 0, name: "similar" });
         } catch { return J({ error: "similar lookup failed" }, 502); }
       }
+      const contra = await contraRoute(path, qp, env);
+      if (contra) return contra;
       return J({ error: "unknown endpoint" }, 404);
     } catch (err: any) {
       console.error("Internal error:", err);

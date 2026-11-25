@@ -37,5 +37,40 @@ class SnapshotTests(unittest.TestCase):
             self.assertFalse(destination.exists())
 
 
+def e(group, term, synonym, is_word=True):
+    return {"group": group, "term": term, "synonym": synonym, "isWord": is_word}
+
+
+class IdTests(unittest.TestCase):
+    def test_ids_are_stable_unique_and_keep_old_assignments(self):
+        entries = [e("Г", "т", "а"), e("Г", "т", "б"), e("Г", "т", "а")]  # третій - дублікат першого
+        table = module.assign_ids(entries, {"version": 1, "ids": {}})
+        self.assertEqual(len(set(table["ids"].values())), 2)
+        again = module.assign_ids(entries[:1], table)  # джерело скоротилось
+        self.assertEqual(again["ids"], table["ids"])  # нічого не втрачено й не змінено
+
+    def test_key_normalises_and_distinguishes_is_word(self):
+        a = module.entry_key(e(" Г", "т", "й"))
+        self.assertEqual(a, module.entry_key(e("Г", "т", "и\u0306")))  # NFC + strip
+        self.assertNotEqual(a, module.entry_key(e("Г", "т", "й", False)))
+
+    def test_prefix_collision_extends_length(self):
+        table = {"version": 1, "ids": {}}
+        k = module.entry_key(e("Г", "т", "а"))
+        short = __import__("hashlib").sha256(k.encode()).hexdigest()[:10]
+        table["ids"]["other-key"] = short
+        out = module.assign_ids([e("Г", "т", "а")], table)
+        self.assertEqual(out["ids"][k], __import__("hashlib").sha256(k.encode()).hexdigest()[:12])
+
+    def test_vendored_table_covers_every_entry(self):
+        base = Path(__file__).resolve().parents[1]
+        data = json.loads((base / "public/bez-tabu/data/entries.json").read_text())
+        table = json.loads((base / "content/bez-tabu-ids.json").read_text())
+        keys = {module.entry_key(x) for x in data["entries"]}
+        self.assertEqual(len(keys), 1995)
+        self.assertTrue(keys <= set(table["ids"]))
+        self.assertEqual(len(set(table["ids"].values())), len(table["ids"]))
+
+
 if __name__ == "__main__":
     unittest.main()

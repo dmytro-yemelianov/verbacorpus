@@ -6,7 +6,50 @@ import io
 import json
 from pathlib import Path
 import subprocess
+import unicodedata
 import xml.etree.ElementTree as ET
+
+HERE = Path(__file__).resolve().parent
+IDS_PATH = HERE / "content/bez-tabu-ids.json"
+ENTRIES_PATH = HERE / "public/bez-tabu/data/entries.json"
+
+
+def entry_key(entry):
+    """Identity of a dictionary entry: NFC-normalised group, term, synonym and isWord."""
+    parts = [unicodedata.normalize("NFC", str(entry[k]).strip()) for k in ("group", "term", "synonym")]
+    return "\x1f".join(parts) + "\x1f" + ("1" if entry["isWord"] else "0")
+
+
+def assign_ids(entries, table):
+    """Return a new table where every entry key has a stable id.
+
+    Existing keys keep their id; keys no longer in the source stay (ids are never
+    reused); new keys get sha256(key)[:10], lengthened on prefix collision.
+    """
+    ids = dict(table.get("ids", {}))
+    used = set(ids.values())
+    for entry in entries:
+        key = entry_key(entry)
+        if key in ids:
+            continue
+        digest = hashlib.sha256(key.encode("utf-8")).hexdigest()
+        length = 10
+        while digest[:length] in used:
+            length += 2
+            if length > len(digest):
+                raise ValueError("Cannot assign a unique id")
+        ids[key] = digest[:length]
+        used.add(digest[:length])
+    return {"version": 1, "ids": ids}
+
+
+def update_ids(entries, path=IDS_PATH):
+    path = Path(path)
+    table = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {"version": 1, "ids": {}}
+    table = assign_ids(entries, table)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(table, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+    return table
 
 
 def sync(source, destination):
@@ -44,11 +87,18 @@ def sync(source, destination):
     destination.mkdir(parents=True, exist_ok=True)
     for name, raw in files.items():
         (destination / name).write_bytes(raw)
-    print(f"Imported {len(entries)} source rows ({digest[:12]})")
+    table = update_ids(entries)
+    print(f"Imported {len(entries)} source rows ({digest[:12]}); {len(table['ids'])} stable ids")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("source", type=Path, nargs="?", default=Path(__file__).resolve().parents[2] / "ua-bez-tabu")
+    parser.add_argument("--ids-only", action="store_true",
+                        help="only update content/bez-tabu-ids.json from the vendored entries.json")
     args = parser.parse_args()
+    if args.ids_only:
+        data = json.loads(ENTRIES_PATH.read_text(encoding="utf-8"))
+        print(f"{len(update_ids(data['entries'])['ids'])} stable ids")
+        raise SystemExit(0)
     sync(args.source, Path(__file__).resolve().parent / "public/bez-tabu/data")

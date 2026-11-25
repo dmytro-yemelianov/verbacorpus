@@ -1,0 +1,51 @@
+{
+ "schemaVersion": 1,
+ "source": {
+  "repository": "fixture",
+  "sha256": "fixture"
+ },
+ "stats": {
+  "rows": 5
+ },
+ "entries": [
+  {
+   "sourceRow": 2,
+   "group": "Частини тіла людини",
+   "term": "Чоловічий статевий орган",
+   "synonym": "агрегат",
+   "isWord": true,
+   "term_emoji": "🍆"
+  },
+  {
+   "sourceRow": 3,
+   "group": "Частини тіла людини",
+   "term": "Чоловічий статевий орган",
+   "synonym": "антена",
+   "isWord": true,
+   "term_emoji": "🍆"
+  },
+  {
+   "sourceRow": 4,
+   "group": "Частини тіла людини",
+   "term": "Чоловічий статевий орган",
+   "synonym": "апарат",
+   "isWord": true
+  },
+  {
+   "sourceRow": 5,
+   "group": "Частини тіла людини",
+   "term": "Чоловічий статевий орган",
+   "synonym": "агрегат",
+   "isWord": true,
+   "term_emoji": "🍆"
+  },
+  {
+   "sourceRow": 6,
+   "group": "Частини тіла людини",
+   "term": "Чоловічий статевий орган",
+   "synonym": "аргумент",
+   "isWord": true,
+   "term_emoji": "🍆"
+  }
+ ]
+}
