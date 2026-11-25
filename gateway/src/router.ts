@@ -12,6 +12,7 @@ import {
   type Licence,
 } from "./contract.js";
 import type { Adapter, Upstream } from "./adapters/types.js";
+import { makeContraAdapter } from "./adapters/contra.js";
 import { makeNonAdapter } from "./adapters/non.js";
 import { makeParaAdapter } from "./adapters/para.js";
 import { makeProAdapter } from "./adapters/pro.js";
@@ -25,7 +26,11 @@ export interface Env {
 
 export function adaptersFor(env: Env): Partial<Record<Corpus, Adapter>> {
   const out: Partial<Record<Corpus, Adapter>> = {};
-  if (env.PRO) out.pro = makeProAdapter(env.PRO as unknown as Upstream);
+  if (env.PRO) {
+    out.pro = makeProAdapter(env.PRO as unknown as Upstream);
+    // The contra API lives in the same Verba Worker as pro.
+    out.contra = makeContraAdapter(env.PRO as unknown as Upstream);
+  }
   if (env.UPA) out.non = makeNonAdapter(env.UPA as unknown as Upstream);
   if (env.FONTS) out.para = makeParaAdapter(env.FONTS as unknown as Upstream);
   return out;

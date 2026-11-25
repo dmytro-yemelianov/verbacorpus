@@ -131,3 +131,32 @@ export function recordingUpa(): Upstream & { lastPath: string | null } {
   };
   return spy;
 }
+
+// Mirrors the Verba Worker contra API (/api/v1/contra...).
+export function fakeVerbaContra(): Upstream {
+  const entries = Array.from({ length: 5 }, (_, i) => ({
+    id: `c${i}a0b1c2d3`,
+    group: i < 3 ? "Група А" : "Група Б",
+    term: `Термін ${i}`,
+    synonym: `синонім ${i}`,
+    isWord: i % 2 === 0,
+    emoji: i === 0 ? "🍆" : null,
+    sourceRows: [i + 2],
+  }));
+  return fake((u) => {
+    if (u.pathname === "/api/v1/contra") return ok({ apiVersion: "v1", total: entries.length, groups: ["Група А", "Група Б"] });
+    if (u.pathname === "/api/v1/contra/items") {
+      const limit = Number(u.searchParams.get("limit") ?? 50);
+      const offset = Number(u.searchParams.get("offset") ?? 0);
+      const group = u.searchParams.get("group");
+      const hits = entries.filter((e) => !group || e.group === group);
+      return ok({ apiVersion: "v1", total: hits.length, limit, offset, items: hits.slice(offset, offset + limit) });
+    }
+    const m = u.pathname.match(/^\/api\/v1\/contra\/items\/(.+)$/);
+    if (m) {
+      const hit = entries.find((e) => e.id === decodeURIComponent(m[1]));
+      return hit ? ok(hit) : new Response(JSON.stringify({ error: { code: "not_found", message: "no" } }), { status: 404 });
+    }
+    return notFound();
+  });
+}

@@ -90,7 +90,8 @@ describe("random routes", () => {
     expect((await handle(req("/v1/random?corpus=pro,zzz"), env())).status).toBe(400);
   });
   it("requested corpus without adapter is 503", async () => {
-    expect((await handle(req("/v1/random?corpus=contra"), env())).status).toBe(503);
+    // contra is served through the PRO binding, so only an empty env lacks it
+    expect((await handle(req("/v1/random?corpus=contra"), {})).status).toBe(503);
     expect((await handle(req("/v1/non/random"), { PRO: fakePro() as any })).status).toBe(503);
   });
   it("accepts non-Latin-1 seeds", async () => {

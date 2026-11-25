@@ -1,15 +1,29 @@
 import { describe, expect, it } from "vitest";
+import { makeContraAdapter } from "../src/adapters/contra.js";
 import { makeNonAdapter } from "../src/adapters/non.js";
 import { makeParaAdapter } from "../src/adapters/para.js";
 import { makeProAdapter } from "../src/adapters/pro.js";
 import { runContractSuite } from "./contract-suite.js";
-import { failing, fakeNasinnia, fakeNasinniaFixture, fakePro, fakeUpa, fonts } from "./fakes.js";
+import { failing, fakeNasinnia, fakeNasinniaFixture, fakePro, fakeUpa, fakeVerbaContra, fonts } from "./fakes.js";
 
 runContractSuite("pro", () => makeProAdapter(fakePro()), "p000001");
 runContractSuite("non", () => makeNonAdapter(fakeUpa()), "p07_L_b00");
+runContractSuite("contra", () => makeContraAdapter(fakeVerbaContra()), "c1a0b1c2d3");
 runContractSuite("para", () => makeParaAdapter(fakeNasinniaFixture()), "public-domain-8x8-demo");
 
 describe("adapter specifics", () => {
+  it("contra: title, html link and filter passthrough", async () => {
+    const a = makeContraAdapter(fakeVerbaContra());
+    const r = await a.list(10, 0, new URLSearchParams({ group: "Група Б", junk: "x" }));
+    expect(r.total).toBe(2);
+    expect(r.items[0].title).toBe("синонім 3 — Термін 3");
+    expect(r.items[0].links.html).toBe("https://contra.verbacorpus.org/?q=" + encodeURIComponent("синонім 3"));
+    expect(r.items[0].licence.status).toBe("terms-pending");
+  });
+  it("contra: upstream failure maps to 503", async () => {
+    await expect(makeContraAdapter(failing(500)).meta()).rejects.toMatchObject({ status: 503 });
+  });
+
   it("para translates offset into pages", async () => {
     const up = fakeNasinnia(fonts(7));
     const r = await makeParaAdapter(up).list(3, 4, new URLSearchParams());
@@ -49,5 +63,13 @@ describe("adapter specifics", () => {
       code: "unavailable",
     });
     await expect(makeNonAdapter(failing(500)).get("x")).rejects.toMatchObject({ status: 503 });
+  });
+});
+
+describe("router wiring", () => {
+  it("adaptersFor exposes contra through the PRO binding", async () => {
+    const { adaptersFor } = await import("../src/router.js");
+    expect(adaptersFor({ PRO: fakeVerbaContra() as any }).contra?.corpus).toBe("contra");
+    expect(adaptersFor({}).contra).toBeUndefined();
   });
 });
