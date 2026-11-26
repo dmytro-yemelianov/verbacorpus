@@ -6,6 +6,7 @@ import { buildProverbPage, dailyIndex } from "./shared/meta";
 import { renderCard } from "./card/render";
 import { parseRecipe, isCardSize, CardRequestError, DEFAULT_FONT, type Recipe } from "./card/recipe";
 import { pickFrame } from "./card/ornament";
+import { embroideryCssResponse } from "./embroidery-css";
 import { parseLang, t, hreflangLinks, DEFAULT_LANG } from "./shared/i18n";
 import { fromShort } from "./shared/shortlink";
 import { directionRoute } from "./shared/directions";
@@ -102,6 +103,7 @@ const application = {
       const url = new URL(request.url);
       const upa = await upaRequest(request, env.UPA, env.VERBA_LOCAL_PREVIEW === '1');
       if (upa) return upa;
+      if (url.pathname === '/embroidery.css' && (request.method === 'GET' || request.method === 'HEAD')) return embroideryCssResponse(env.UPA);
       const { lang, rest } = parseLang(url.pathname);
       // /uk or /uk/... → 301 canonical (unprefixed)
       if (/^\/uk(\/|$)/.test(url.pathname)) {

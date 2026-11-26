@@ -50,15 +50,4 @@ await build({
     __COMMIT_HASH__: JSON.stringify(commitHash),
   },
 });
-// Generate embroidery.css (themeable рушник bands) from the UPA motif corpus.
-// Bundle the TS generator in-memory, import it as a data: URL, write its output.
-const embRes = await build({
-  entryPoints: ["src/embroidery-css.ts"],
-  bundle: true, format: "esm", write: false, sourcemap: false,
-});
-const embMod = await import(
-  "data:text/javascript;base64," + Buffer.from(embRes.outputFiles[0].text).toString("base64")
-);
-await writeFile("public/embroidery.css", embMod.embroideryCss());
-console.log("Built public/embroidery.css");
 console.log(`Built public/app.js + public/chrome.js (commit: ${commitHash || "none"})`);

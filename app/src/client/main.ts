@@ -1,4 +1,5 @@
 import MiniSearch from "minisearch";
+import { UPA_PALETTE } from "../shared/upa-palette";
 import { type Proverb } from "../shared/corpus";
 import { srcLabel } from "../shared/sources";
 import { isPresentable, deckFor, toggleSaved, nextShown } from "../shared/browse";
@@ -495,17 +496,26 @@ function showResults(results: Array<Proverb & { score?: number }>, head: string,
   renderPage();
 }
 
-// Embroidery motif archive (123 UPA units) for the card hover reveal. Lazy-loaded;
-// each unit becomes a tileable SVG data-URI assigned at random to a card's --card-motif.
-type Motif = { r: number; c: number; m: string[] };
+// Site motifs (UPA bands, today's seed) for the card hover reveal. Lazy-loaded from the
+// public gateway; each unit becomes a tileable SVG data-URI assigned at random to a card's
+// --card-motif. Any failure → no motifs.
+type Motif = { r: number; c: number; m: string[][] };
 let motifUnits: Motif[] = [];
-let motifPalette: Record<string, string> = {};
 let motifsReady: Promise<void> | null = null;
 const MOTIF_CELL = 8;
+const MOTIF_HEX = Object.fromEntries(Object.entries(UPA_PALETTE).map(([k, v]) => [k, "#" + v.map((x) => x.toString(16).padStart(2, "0")).join("")]));
 function loadMotifs(): Promise<void> {
   if (!motifsReady) {
-    motifsReady = fetchJson<{ units: Motif[]; palette: Record<string, string> }>("/data/embroidery-archive.json")
-      .then((d) => { motifUnits = d.units || []; motifPalette = d.palette || {}; })
+    const seed = new Date().toISOString().slice(0, 10);
+    motifsReady = fetch(`https://api.verbacorpus.org/v1/non/random?n=20&kind=band&include=geometry&seed=${seed}`, { credentials: "omit" })
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+      .then((d: any) => {
+        const items: any[] = Array.isArray(d?.items) ? d.items : Array.isArray(d?.data) ? d.data : Array.isArray(d) ? d : [];
+        motifUnits = items.flatMap((it) => {
+          const u = (it?.data ?? it)?.geometry?.unitCell ?? it?.geometry?.unitCell;
+          return Array.isArray(u) && u.length && Array.isArray(u[0]) && u[0].length ? [{ r: u.length, c: u[0].length, m: u as string[][] }] : [];
+        });
+      })
       .catch(() => { motifUnits = []; });
   }
   return motifsReady;
@@ -514,10 +524,9 @@ function motifUri(u: Motif): string {
   const W = u.c * MOTIF_CELL, H = u.r * MOTIF_CELL;
   let rects = "";
   for (let y = 0; y < u.r; y++) {
-    const row = u.m[y];
     for (let x = 0; x < u.c; x++) {
-      const col = motifPalette[row[x]];
-      if (!col) continue;                    // '.'/'*' (empty/fragment) → transparent
+      const col = MOTIF_HEX[u.m[y][x]];
+      if (!col) continue;                    // B (background) → transparent
       rects += `<rect x='${x * MOTIF_CELL}' y='${y * MOTIF_CELL}' width='${MOTIF_CELL}' height='${MOTIF_CELL}' fill='${col}'/>`;
     }
   }
