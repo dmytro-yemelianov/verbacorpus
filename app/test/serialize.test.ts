@@ -39,13 +39,13 @@ describe("serialize", () => {
   it("csv RFC-4180 quoting + header", () => {
     const r = serialize([R("p1")], "csv", { name: "x" });
     const lines = r.body.trim().split("\n");
-    expect(lines[0]).toBe("id,text,modern_text,category,sources,variant_group");
-    expect(lines[1]).toBe('p1,"t,p1","m""p1",a;b,S,');   // comma & quote escaped
+    expect(lines[0]).toBe("id,text,modern_text,category,sources,variant_group,hook,hook_source");
+    expect(lines[1]).toBe('p1,"t,p1","m""p1",a;b,S,,,');   // comma & quote escaped, hook/hook_source empty
     expect(r.filename).toBe("proverbs-x.csv");
   });
   it("csv adds explanation column when withExplanation", () => {
     const r = serialize([R("p1", { explanation: "ex" })], "csv", { withExplanation: true });
-    expect(r.body.split("\n")[0]).toBe("id,text,modern_text,category,sources,variant_group,explanation");
+    expect(r.body.split("\n")[0]).toBe("id,text,modern_text,category,sources,variant_group,hook,hook_source,explanation");
   });
   it("tsv strips tabs/newlines", () => {
     const r = serialize([R("p1", { text: "a\tb\nc" })], "tsv");

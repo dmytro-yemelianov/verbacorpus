@@ -253,3 +253,38 @@ describe("upstream fetches carry an abort signal", () => {
     expect(seen.every(Boolean)).toBe(true);
   });
 });
+
+describe("styles, alignments, and hooks", () => {
+  it.each(["base", "color", "big", "shadowS", "shadowD", "stitch", "invert", "marker"])(
+    "style=%s renders valid PNG with custom hook",
+    async (style) => {
+      const res = await call(`/card/render.png?text=pro:p1&size=square&style=${style}&hook=${encodeURIComponent("море")}`);
+      expect(res.status).toBe(200);
+      expect(res.headers.get("content-type")).toBe("image/png");
+      const { W, H, rgba } = await decode(res);
+      expect([W, H]).toEqual([1080, 1080]);
+      if (style === "invert") {
+        // Content area background uses D (#0A0A0A = 10,10,10)
+        expect(pixel(rgba, W, 20, Math.round(H / 2))).toEqual([10, 10, 10]);
+      }
+    },
+  );
+
+  it.each(["left", "center", "right", "stairR", "stairL"])(
+    "align=%s renders valid PNG",
+    async (align) => {
+      const res = await call(`/card/render.png?text=pro:p1&size=square&align=${align}`);
+      expect(res.status).toBe(200);
+    },
+  );
+
+  it("rejects unknown style, align, or non-substring hook with 400", async () => {
+    const badStyle = await call("/card/render.png?text=pro:p1&style=neon");
+    expect(badStyle.status).toBe(400);
+    const badAlign = await call("/card/render.png?text=pro:p1&align=justify");
+    expect(badAlign.status).toBe(400);
+    const badHook = await call("/card/render.png?text=pro:p1&hook=not_in_text");
+    expect(badHook.status).toBe(400);
+    expect((await badHook.json() as any).error.code).toBe("invalid_hook");
+  });
+});

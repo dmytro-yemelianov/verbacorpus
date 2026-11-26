@@ -118,4 +118,23 @@ describe("cards", () => {
     expect(r.headers.get("x-verba-degraded")).toBe("font");
     expect(r.headers.get("cache-control")).toBe("no-store");
   });
+
+  it("forwards style, align, and hook, and picks style/align deterministically for random", async () => {
+    const pro = renderer();
+    const r = await handle(req("/v1/cards/pro:p1.png?style=invert&align=stairR&hook=auto"), mkEnv(pro));
+    expect(r.status).toBe(200);
+    expect(pro.urls[0]).toContain("style=invert");
+    expect(pro.urls[0]).toContain("align=stairR");
+    expect(pro.urls[0]).toContain("hook=auto");
+    expect((await handle(req("/v1/cards/pro:p1.png?style=bad"), mkEnv())).status).toBe(400);
+    expect((await handle(req("/v1/cards/pro:p1.png?align=bad"), mkEnv())).status).toBe(400);
+
+    const p1 = renderer();
+    const p2 = renderer();
+    await handle(req("/v1/cards/random.png?seed=daily-1"), mkEnv(p1), randomAdapters());
+    await handle(req("/v1/cards/random.png?seed=daily-1"), mkEnv(p2), randomAdapters());
+    expect(p1.urls[0]).toBe(p2.urls[0]);
+    expect(p1.urls[0]).toMatch(/style=(color|big|shadowS|shadowD|stitch|invert|marker)/);
+    expect(p1.urls[0]).toMatch(/align=(left|center|right|stairR|stairL)/);
+  });
 });

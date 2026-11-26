@@ -4,6 +4,24 @@ All notable changes to the verba Ukrainian proverbs corpus are documented here.
 This project adheres to semantic versioning for datasets (MAJOR = schema/breaking,
 MINOR = new source or significant additions, PATCH = corrections).
 
+## [1.0.4] - 2026-11-26
+
+Hook extraction for card highlighting (no schema or count change; 48,787 entries).
+
+- Added `hook` and `hook_source` columns to corpus exports (CSV, JSON, proverbs.json).
+- 48,786 hooks extracted via Gemini 3.1 Flash-Lite (`hook_source: "model"`); 140 fallback rules (`hook_source: "rule"`), including 1 empty hook where no valid fragment matched constraints.
+- Hook validation: exact verbatim substring, 1–4 words, whole-word boundaries, no trailing dot/stopword.
+- Card renderer supports 8 visual styles (`base`, `color`, `big`, `shadowS`, `shadowD`, `stitch`, `invert`, `marker`) and 5 alignments (`left`, `center`, `right`, `stairR`, `stairL`) with hook highlighting.
+- Gateway forwards `style`, `align`, `hook` params; deterministic style/align for seeded random cards.
+
+## [1.0.3] - 2026-11-26
+
+Punctuation cleanup (no schema or count change; 48,787 entries).
+
+- Collapsed double hyphens (`--` / `--word`) into canonical spaced hyphen (` - `) across ~1,908 `text` and ~1,213 `modern_text` entries.
+- Stripped stray spaces before punctuation (`,`, `;`, `:`, `!`, `?`, single `.`) and trailing duplicate end punctuation (`. :`, `. .`, `! !`), preserving ellipses (`...`, `!..`, `?..`).
+- Fixed typo double dots (`..`) and missing spaces after commas, and replaced trailing commas at the end of entries with `.`.
+
 ## [1.0.2] - 2026-06-24
 
 - Proper bibliographic references for all 5 sources: generated `references.bib` BibTeX + `references.csl.json` CSL-JSON + rendered citations.

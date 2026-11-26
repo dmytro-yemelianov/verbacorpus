@@ -3,6 +3,11 @@ import { pickFrame } from "./ornament";
 
 export type CardSize = "fb" | "square" | "story" | "yt" | "sticker" | "telegram";
 export type CardLang = "uk" | "en";
+export type CardStyle = "base" | "color" | "big" | "shadowS" | "shadowD" | "stitch" | "invert" | "marker";
+export type CardAlign = "left" | "center" | "right" | "stairR" | "stairL";
+
+export const CARD_STYLES: readonly CardStyle[] = ["base", "color", "big", "shadowS", "shadowD", "stitch", "invert", "marker"];
+export const CARD_ALIGNS: readonly CardAlign[] = ["left", "center", "right", "stairR", "stairL"];
 
 export interface Recipe {
   text: string; // "pro:<id>" | "contra:<id>"
@@ -10,6 +15,9 @@ export interface Recipe {
   font: string; // "para:<id>" | "pt-serif"
   size: CardSize;
   lang: CardLang;
+  style?: CardStyle;
+  align?: CardAlign;
+  hook?: string; // "auto" | "none" | exact substring
 }
 
 export const DEFAULT_FONT = "para:cozette-13x15";
@@ -62,5 +70,19 @@ export function parseRecipe(qp: URLSearchParams, defaults: { seedKey: string }):
   const lang = qp.get("lang")?.trim() || "uk";
   if (lang !== "uk" && lang !== "en") throw bad("lang must be uk or en");
 
-  return { text, frame, font, size, lang };
+  const out: Recipe = { text, frame, font, size, lang };
+  const style = qp.get("style")?.trim();
+  if (style) {
+    if (!(CARD_STYLES as readonly string[]).includes(style)) throw bad(`style must be one of ${CARD_STYLES.join(", ")}`);
+    out.style = style as CardStyle;
+  }
+  const align = qp.get("align")?.trim();
+  if (align) {
+    if (!(CARD_ALIGNS as readonly string[]).includes(align)) throw bad(`align must be one of ${CARD_ALIGNS.join(", ")}`);
+    out.align = align as CardAlign;
+  }
+  const hook = qp.get("hook");
+  if (hook !== null && hook !== "") out.hook = hook;
+
+  return out;
 }

@@ -23,7 +23,7 @@ describe("/api/v1 formats", () => {
     const res = await call("/api/v1/search?q=&format=csv");
     expect(res.headers.get("content-type")).toContain("text/csv");
     expect(res.headers.get("content-disposition")).toContain("attachment");
-    expect((await res.text()).split("\n")[0]).toBe("id,text,modern_text,category,sources,variant_group");
+    expect((await res.text()).split("\n")[0]).toBe("id,text,modern_text,category,sources,variant_group,hook,hook_source");
   });
   it("Accept negotiation -> jsonl", async () => {
     const res = await call("/api/v1/search?q=", { accept: "application/x-ndjson" });

@@ -134,7 +134,7 @@
       },
       "Proverb": {
         "type": "object",
-        "required": ["id", "text", "modern_text", "category", "sources"],
+        "required": ["id", "text", "modern_text", "category", "sources", "hook", "hook_source"],
         "properties": {
           "id": {
             "type": "string",
@@ -168,6 +168,17 @@
             "nullable": true,
             "description": "Variant group key linking equivalent proverbs.",
             "example": "vg_труд_плід"
+          },
+          "hook": {
+            "type": "string",
+            "description": "Exact short substring selected for emphasis; empty when no valid hook exists.",
+            "example": "нема плода"
+          },
+          "hook_source": {
+            "type": "string",
+            "enum": ["model", "rule"],
+            "description": "Whether the hook came from the model or deterministic fallback.",
+            "example": "model"
           },
           "explanation": {
             "type": "string",
@@ -401,7 +412,7 @@
       "get": {
         "operationId": "getProverb",
         "summary": "Get a single proverb by ID",
-        "description": "Retrieve one proverb by its unique identifier. The response includes the `explanation` field if one exists.",
+        "description": "Retrieve one proverb by its unique identifier. The response includes `hook` and `hook_source`, plus the `explanation` field if one exists.",
         "tags": ["browse"],
         "parameters": [
           {
@@ -430,7 +441,7 @@
       "get": {
         "operationId": "exportProverbs",
         "summary": "Bulk export",
-        "description": "Export the entire corpus (or a filtered subset). The response includes the `explanation` column. For large downloads prefer CSV or TSV. No pagination — all matching records are returned.",
+        "description": "Export the entire corpus (or a filtered subset). The response includes `hook` and `hook_source`, plus the `explanation` column when available. For large downloads prefer CSV or TSV. No pagination — all matching records are returned.",
         "tags": ["browse"],
         "parameters": [
           { "$ref": "#/components/parameters/category" },

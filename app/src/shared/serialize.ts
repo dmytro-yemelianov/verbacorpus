@@ -38,7 +38,7 @@ export function serialize(
   format: Format,
   opts: { single?: boolean; total?: number; limit?: number; offset?: number; withExplanation?: boolean; name?: string } = {},
 ): { body: string; contentType: string; filename?: string } {
-  const cols = ["id", "text", "modern_text", "category", "sources", "variant_group", ...(opts.withExplanation ? ["explanation"] : [])];
+  const cols = ["id", "text", "modern_text", "category", "sources", "variant_group", "hook", "hook_source", ...(opts.withExplanation ? ["explanation"] : [])];
   const fn = (ext: string) => `proverbs-${opts.name ?? "export"}.${ext}`;
 
   if (format === "json") {
@@ -55,6 +55,7 @@ export function serialize(
       `  <proverb id="${xmlEsc(r.id)}">` +
       `<text>${xmlEsc(r.text)}</text><modern_text>${xmlEsc(r.modern_text)}</modern_text>` +
       `<category>${xmlEsc((r.category ?? []).join(";"))}</category><sources>${xmlEsc((r.sources ?? []).join(";"))}</sources>` +
+      `<hook>${xmlEsc(r.hook ?? "")}</hook><hook_source>${xmlEsc(r.hook_source ?? "")}</hook_source>` +
       (opts.withExplanation ? `<explanation>${xmlEsc(r.explanation ?? "")}</explanation>` : "") +
       `</proverb>`).join("\n");
     return { body: `<?xml version="1.0" encoding="UTF-8"?>\n<proverbs>\n${items}\n</proverbs>\n`, contentType: CT.xml, filename: fn("xml") };
