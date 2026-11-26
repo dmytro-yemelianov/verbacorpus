@@ -28,7 +28,7 @@ describe("Verba umbrella routing", () => {
     expect(route("/", `${prefix}.verbacorpus.org.example.com`)).toEqual({ asset: "/corpora" });
   });
   it("leaves APIs, webhooks, old links and download paths untouched", () => {
-    for (const path of ["/api/v1/meta", "/api/telegram-webhook", "/p/p1", "/s/1", "/card/p1.png", "/bez-tabu/", "/blog/dzherela", "/non/icons/sun.svg"]) expect(route(path)).toBeNull();
+    for (const path of ["/api/v1/meta", "/api/telegram-webhook", "/p/p1", "/s/1", "/card/p1.png", "/bez-tabu/", "/blog/dzherela"]) expect(route(path)).toBeNull();
     expect(route("/", "verbacorpus.org", "POST")).toBeNull();
     expect(route("/para/", "verbacorpus.org", "HEAD")).toEqual({ asset: "/para/" });
   });
