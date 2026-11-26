@@ -90,7 +90,7 @@ export class ApiError extends Error {
 export function json(body: unknown, init: { status?: number; cache?: string } = {}): Response {
   const headers: Record<string, string> = {
     "access-control-allow-origin": "*",
-    "access-control-expose-headers": "x-verba-seed",
+    "access-control-expose-headers": "x-verba-seed, x-verba-degraded",
     "content-type": "application/json; charset=utf-8",
   };
   if (init.cache) headers["cache-control"] = init.cache;

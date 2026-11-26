@@ -219,6 +219,65 @@ export const openapi = {
         responses: { "200": itemListResponse("Змішана вибірка (`corpus: \"mixed\"`).", randomHeaders), ...errors },
       },
     },
+    "/v1/cards/{textId}.{ext}": {
+      get: {
+        operationId: "card",
+        summary: "Картка за рецептом (PNG, GIF або JSON)",
+        description:
+          "`textId` — глобальний id `pro:<id>` або `contra:<id>` (двокрапку можна кодувати як `%3A`). " +
+          "`frame` — `non:<id>`, `font` — `para:<id>` або `pt-serif`; шрифт із ліцензією metadata-only дає 422 `font_restricted`. " +
+          "Деградована картка має заголовок `x-verba-degraded` і `cache-control: no-store`.",
+        parameters: [
+          { name: "textId", in: "path", required: true, schema: { type: "string" }, example: "pro:p037464" },
+          { name: "ext", in: "path", required: true, schema: { type: "string", enum: ["png", "gif", "json"] } },
+          { name: "frame", in: "query", schema: { type: "string" }, description: "`non:<patternId>`; за замовчуванням добирається автоматично." },
+          { name: "font", in: "query", schema: { type: "string" }, description: "`para:<fontId>` або `pt-serif`." },
+          { name: "size", in: "query", schema: { type: "string", enum: ["fb", "square", "story", "yt", "sticker", "telegram"], default: "fb" } },
+          { name: "lang", in: "query", schema: { type: "string", enum: ["uk", "en"], default: "uk" } },
+        ],
+        responses: {
+          "200": {
+            description: "Картка.",
+            headers: { "x-verba-degraded": { description: "Список пропущених частин, якщо картку деградовано.", schema: { type: "string" } } },
+            content: {
+              "image/png": { schema: { type: "string", format: "binary" } },
+              "image/gif": { schema: { type: "string", format: "binary" } },
+              "application/json": { schema: { type: "object" } },
+            },
+          },
+          ...errors,
+        },
+      },
+    },
+    "/v1/cards/random.{ext}": {
+      get: {
+        operationId: "randomCard",
+        summary: "Картка з випадковим текстом",
+        description:
+          "Обирає запис із `pro` (типово) або `contra` (лише явно через `corpus=contra`) за `seed`. Відповідь має `x-verba-seed`.",
+        parameters: [
+          { name: "ext", in: "path", required: true, schema: { type: "string", enum: ["png", "gif", "json"] } },
+          seedParam,
+          { name: "corpus", in: "query", schema: { type: "string", enum: ["pro", "contra"], default: "pro" } },
+          { name: "size", in: "query", schema: { type: "string", enum: ["fb", "square", "story", "yt", "sticker", "telegram"], default: "fb" } },
+          { name: "frame", in: "query", schema: { type: "string" } },
+          { name: "font", in: "query", schema: { type: "string" } },
+          { name: "lang", in: "query", schema: { type: "string", enum: ["uk", "en"] } },
+        ],
+        responses: {
+          "200": {
+            description: "Картка.",
+            headers: randomHeaders,
+            content: {
+              "image/png": { schema: { type: "string", format: "binary" } },
+              "image/gif": { schema: { type: "string", format: "binary" } },
+              "application/json": { schema: { type: "object" } },
+            },
+          },
+          ...errors,
+        },
+      },
+    },
   },
   components: {
     schemas: {

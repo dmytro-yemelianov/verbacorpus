@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 
 // Live contract smoke test; runs only with GATEWAY set, e.g.
 // GATEWAY=https://api.verbacorpus.org npx vitest run test/live.test.ts
-const GATEWAY = process.env.GATEWAY;
+const GATEWAY = (globalThis as { process?: { env: Record<string, string | undefined> } }).process?.env.GATEWAY;
 const CORPORA = ["pro", "non", "para", "contra"] as const;
 
 describe.skipIf(!GATEWAY)("live gateway", () => {
@@ -18,5 +18,18 @@ describe.skipIf(!GATEWAY)("live gateway", () => {
     const a = (await (await fetch(`${GATEWAY}/v1/${c}/random?seed=live`)).json()) as any;
     const b = (await (await fetch(`${GATEWAY}/v1/${c}/random?seed=live`)).json()) as any;
     expect(a.items.map((i: any) => i.id)).toEqual(b.items.map((i: any) => i.id));
+  });
+
+  it("serves a random card recipe as JSON", async () => {
+    const r = await fetch(`${GATEWAY}/v1/cards/random.json?seed=live`);
+    expect(r.status).toBe(200);
+    const body = (await r.json()) as any;
+    expect(body.recipe).toBeTruthy();
+  });
+
+  it("serves a PNG card", async () => {
+    const r = await fetch(`${GATEWAY}/v1/cards/pro:p037464.png`);
+    expect(r.status).toBe(200);
+    expect(r.headers.get("content-type")).toContain("image/png");
   });
 });

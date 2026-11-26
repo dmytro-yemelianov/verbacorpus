@@ -72,6 +72,7 @@ export async function pickMixed(
   n: number,
   next: () => number,
   tolerant = false,
+  skipped: Corpus[] = [],
 ): Promise<Item[]> {
   const draws: Corpus[] = [];
   for (let i = 0; i < n; i++) draws.push(corpora[Math.floor(next() * corpora.length)]);
@@ -85,10 +86,11 @@ export async function pickMixed(
       queues.set(corpus, await pickWithHead(adapter, await adapter.list(1, 0, none), count, next, none));
     } catch (e) {
       // Default mix: skip a failing corpus and refill from the rest.
-      if (!tolerant || !(e instanceof ApiError) || (e.status !== 502 && e.status !== 503)) throw e;
+      if (!tolerant) throw e;
       const rest = corpora.filter((c) => c !== corpus);
       if (rest.length === 0) throw e;
-      return pickMixed(adapters, rest, n, next, true);
+      skipped.push(corpus);
+      return pickMixed(adapters, rest, n, next, true, skipped);
     }
   }
   const out: Item[] = [];

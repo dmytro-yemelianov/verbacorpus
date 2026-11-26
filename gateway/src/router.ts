@@ -17,6 +17,7 @@ import { makeNonAdapter } from "./adapters/non.js";
 import { makeParaAdapter } from "./adapters/para.js";
 import { makeProAdapter } from "./adapters/pro.js";
 import { docsHtml, openapi } from "./openapi.js";
+import { checkFont, proxyCard, recipeFrom, type CardExt } from "./cards.js";
 import { pickMixed, pickRandom, rng } from "./random.js";
 
 export interface Env {
@@ -50,7 +51,7 @@ function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
 const API_VERSION = "v1" as const;
 const CORS_HEADERS = {
   "access-control-allow-origin": "*",
-  "access-control-expose-headers": "x-verba-seed",
+  "access-control-expose-headers": "x-verba-seed, x-verba-degraded",
   "access-control-allow-methods": "GET, HEAD, OPTIONS",
   "access-control-allow-headers": "content-type",
   "access-control-max-age": "86400",
@@ -122,7 +123,7 @@ const DEFAULT_MIX: Corpus[] = ["pro", "non", "para"];
 function randomResponse(
   params: URLSearchParams,
   corpus: Corpus | "mixed",
-  pick: (next: () => number) => Promise<Item[]>,
+  pick: (next: () => number, skipped: Corpus[]) => Promise<Item[]>,
 ): Promise<Response> {
   return (async () => {
     const n = intParam(params, "n", 1, 1, 20);
@@ -130,7 +131,8 @@ function randomResponse(
     if (given !== null && given.length > 128) throw new ApiError(400, "invalid_request", "seed must be at most 128 characters");
     const seed = given !== null && given !== "" ? given : crypto.randomUUID();
     const seeded = seed === given;
-    const items = await pick(rng(seed));
+    const skipped: Corpus[] = [];
+    const items = await pick(rng(seed), skipped);
     const body: ItemList & { seed: string } = {
       apiVersion: API_VERSION,
       seed,
@@ -141,13 +143,17 @@ function randomResponse(
       nextOffset: null,
       items,
     };
-    const r = json(body, { cache: seeded ? "public, max-age=86400" : "no-store" });
+    const degraded = skipped.length > 0;
+    const r = json(body, { cache: seeded && !degraded ? "public, max-age=86400" : "no-store" });
+    if (degraded) r.headers.set("x-verba-degraded", skipped.join(","));
     r.headers.set("x-verba-seed", encodeURIComponent(seed));
     return r;
   })();
 }
 
-async function route(request: Request, adapters: Partial<Record<Corpus, Adapter>>): Promise<Response> {
+const bad400 = (m: string) => new ApiError(400, "invalid_request", m);
+
+async function route(request: Request, env: Env, adapters: Partial<Record<Corpus, Adapter>>): Promise<Response> {
   const url = new URL(request.url);
   const parts = url.pathname.split("/").filter((p, i) => i === 0 || p !== "").slice(1);
   if (parts[0] !== "v1") throw new ApiError(404, "not_found", "no such route");
@@ -160,7 +166,7 @@ async function route(request: Request, adapters: Partial<Record<Corpus, Adapter>
     return new Response(docsHtml, {
       headers: {
         "access-control-allow-origin": "*",
-        "access-control-expose-headers": "x-verba-seed",
+        "access-control-expose-headers": "x-verba-seed, x-verba-degraded",
         "content-type": "text/html; charset=utf-8",
         "cache-control": "public, max-age=300",
       },
@@ -182,7 +188,35 @@ async function route(request: Request, adapters: Partial<Record<Corpus, Adapter>
       if (!list.includes(c)) list.push(c);
     }
     for (const c of list) adapterOf(adapters, c);
-    return randomResponse(p, "mixed", (next) => pickMixed(adapters, list, n, next, !explicit));
+    return randomResponse(p, "mixed", (next, skipped) => pickMixed(adapters, list, n, next, !explicit, skipped));
+  }
+
+  if (rest[0] === "cards" && rest.length === 2) {
+    const m = decode(rest[1]).match(/^(.+)\.(png|gif|json)$/);
+    if (!m) throw new ApiError(404, "not_found", "no such route");
+    const ext = m[2] as CardExt;
+    const p = url.searchParams;
+    if (m[1] === "random") {
+      const corpus = p.get("corpus") || "pro";
+      if (corpus !== "pro" && corpus !== "contra") throw bad400("corpus must be pro or contra");
+      const adapter = adapterOf(adapters, corpus);
+      const given = p.get("seed");
+      if (given !== null && given.length > 128) throw bad400("seed must be at most 128 characters");
+      const seed = given ? given : crypto.randomUUID();
+      const [item] = await pickRandom(adapter, 1, rng(seed), new URLSearchParams());
+      if (!item) throw new ApiError(503, "unavailable", `corpus "${corpus}" has no items`);
+      const recipe = recipeFrom(item.id, p);
+      await checkFont(adapters, recipe.font);
+      const r = await proxyCard(env.PRO, recipe, ext);
+      if (r.status === 200 && !r.headers.has("x-verba-degraded")) {
+        r.headers.set("cache-control", given ? "public, max-age=86400" : "no-store");
+      }
+      r.headers.set("x-verba-seed", encodeURIComponent(seed));
+      return r;
+    }
+    const recipe = recipeFrom(m[1], p);
+    await checkFont(adapters, recipe.font);
+    return proxyCard(env.PRO, recipe, ext);
   }
 
   if (rest[0] === "items" && rest.length >= 2) {
@@ -243,7 +277,7 @@ export async function handle(
       r.headers.set("allow", "GET, HEAD, OPTIONS");
       return r;
     }
-    return await route(request, adapters);
+    return await route(request, env, adapters);
   } catch (e) {
     if (e instanceof ApiError) return errorResponse(e);
     return errorResponse(new ApiError(502, "upstream_error", "unexpected upstream failure"));

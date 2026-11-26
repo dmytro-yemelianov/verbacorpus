@@ -186,3 +186,21 @@ describe("random routes", () => {
     expect((await handle(req("/v1/random?seed=a"), {}, allBad)).status).toBe(503);
   });
 });
+
+describe("degraded mixed random", () => {
+  it("marks no-store and x-verba-degraded when a corpus is skipped, tolerating any error", async () => {
+    const broken: Adapter = { ...fakeAdapter("non", 10), list: async () => { throw new TypeError("kaboom"); } };
+    const adapters = { pro: fakeAdapter("pro", 10), non: broken, para: fakeAdapter("para", 10) };
+    let hit = false;
+    for (const seed of ["a", "b", "c", "d", "e", "f"]) {
+      const r = await handle(req(`/v1/random?seed=${seed}&n=10`), {}, adapters);
+      expect(r.status).toBe(200);
+      if (r.headers.get("x-verba-degraded")) {
+        hit = true;
+        expect(r.headers.get("x-verba-degraded")).toBe("non");
+        expect(r.headers.get("cache-control")).toBe("no-store");
+      }
+    }
+    expect(hit).toBe(true);
+  });
+});

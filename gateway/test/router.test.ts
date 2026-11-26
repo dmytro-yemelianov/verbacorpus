@@ -169,9 +169,9 @@ describe("router", () => {
 
   it("random responses expose x-verba-seed to CORS", async () => {
     const r = await handle(req("/v1/pro/random?seed=a"), all());
-    expect(r.headers.get("access-control-expose-headers")).toBe("x-verba-seed");
-    expect((await handle(req("/v1/corpora", { method: "OPTIONS" }), all())).headers.get("access-control-expose-headers")).toBe("x-verba-seed");
-    expect((await handle(req("/v1/docs"), all())).headers.get("access-control-expose-headers")).toBe("x-verba-seed");
+    expect(r.headers.get("access-control-expose-headers")).toBe("x-verba-seed, x-verba-degraded");
+    expect((await handle(req("/v1/corpora", { method: "OPTIONS" }), all())).headers.get("access-control-expose-headers")).toBe("x-verba-seed, x-verba-degraded");
+    expect((await handle(req("/v1/docs"), all())).headers.get("access-control-expose-headers")).toBe("x-verba-seed, x-verba-degraded");
   });
 
   it("corpora is no-store when a corpus is unavailable, cached when all are available", async () => {

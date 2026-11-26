@@ -15,6 +15,8 @@ describe("openapi", () => {
       "/v1/items/{globalId}",
       "/v1/{corpus}/random",
       "/v1/random",
+      "/v1/cards/{textId}.{ext}",
+      "/v1/cards/random.{ext}",
     ]) {
       expect(Object.keys(openapi.paths)).toContain(p);
     }
