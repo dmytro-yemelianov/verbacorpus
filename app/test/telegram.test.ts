@@ -179,3 +179,80 @@ describe("Telegram Bot Integration", () => {
     }
   });
 });
+
+describe("Telegram card photos come from the Verba API gateway", () => {
+  // Captures Telegram API calls (grammy posts JSON bodies) and answers them with ok.
+  const stubTelegram = () => {
+    const calls: Array<{ url: string; body: any }> = [];
+    const realFetch = globalThis.fetch;
+    vi.stubGlobal("fetch", vi.fn(async (input: any, init?: any) => {
+      const url = typeof input === "string" ? input : input.url;
+      if (typeof url === "string" && url.includes("api.telegram.org")) {
+        let body: any = undefined;
+        if (init?.body) { try { body = JSON.parse(init.body as string); } catch { body = init.body; } }
+        calls.push({ url, body });
+        return new Response(JSON.stringify({ ok: true, result: { message_id: 1, date: 0, chat: { id: 1, type: "private" } } }), {
+          status: 200, headers: { "content-type": "application/json" },
+        });
+      }
+      return realFetch(input, init);
+    }));
+    return calls;
+  };
+  const randomCommand = async (extra: Record<string, unknown> = {}) => {
+    const ctx = createExecutionContext();
+    const testEnv = { ...env, TELEGRAM_BOT_TOKEN: "12345:mock_token", TELEGRAM_WEBHOOK_SECRET: "super_secret", ...extra };
+    const update = {
+      update_id: 4,
+      message: {
+        message_id: 1, date: 0, chat: { id: 777, type: "private" }, from: { id: 777, is_bot: false, first_name: "x" },
+        text: "/random", entities: [{ type: "bot_command", offset: 0, length: 7 }],
+      },
+    };
+    const res = await worker.fetch(new Request("https://verbacorpus.org/api/telegram-webhook", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-telegram-bot-api-secret-token": "super_secret" },
+      body: JSON.stringify(update),
+    }), testEnv as any, ctx);
+    await waitOnExecutionContext(ctx);
+    return res;
+  };
+
+  it("/random sends the gateway card URL (default base)", async () => {
+    const calls = stubTelegram();
+    try {
+      expect((await randomCommand()).status).toBe(200);
+      const photo = calls.find((c) => c.url.includes("/sendPhoto"));
+      expect(photo).toBeDefined();
+      expect(photo!.body.photo).toMatch(/^https:\/\/api\.verbacorpus\.org\/v1\/cards\/pro:p\d+\.png\?size=telegram$/);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("VERBA_API_BASE overrides the base", async () => {
+    const calls = stubTelegram();
+    try {
+      await randomCommand({ VERBA_API_BASE: "https://api.example.test" });
+      const photo = calls.find((c) => c.url.includes("/sendPhoto"));
+      expect(photo!.body.photo).toMatch(/^https:\/\/api\.example\.test\/v1\/cards\/pro:p\d+\.png\?size=telegram$/);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("the daily cron posts the gateway card URL", async () => {
+    const calls = stubTelegram();
+    try {
+      const ctx = createExecutionContext();
+      const testEnv = { ...env, TELEGRAM_BOT_TOKEN: "12345:mock_token", TELEGRAM_CHANNEL_ID: "@chan" };
+      await (worker as any).scheduled({ cron: "0 6 * * *" }, testEnv, ctx);
+      await waitOnExecutionContext(ctx);
+      const photo = calls.find((c) => c.url.includes("/sendPhoto"));
+      expect(photo).toBeDefined();
+      expect(photo!.body.photo).toMatch(/^https:\/\/api\.verbacorpus\.org\/v1\/cards\/pro:p\d+\.png\?size=telegram$/);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+});

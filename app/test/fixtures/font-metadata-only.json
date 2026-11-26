@@ -1,0 +1,48 @@
+{
+  "availability": "metadata-only",
+  "cell": {
+    "height": 8,
+    "monospace": true,
+    "nativeScale": 1,
+    "width": 8
+  },
+  "description": "Metadata-only record indexed from Hoard of Bitfonts; raster redistribution has not been verified.",
+  "displayName": "Acorn BBC Micro 8×8",
+  "downloadAllowed": false,
+  "encodings": [],
+  "family": "Acorn BBC Micro",
+  "glyphs": {
+    "count": 0,
+    "defaultGlyph": null,
+    "missingGlyph": null
+  },
+  "id": "hoard-acorn-bbc-bbc-micro",
+  "license": {
+    "attribution": "Hoard of Bitfonts by Rob Hagemans; verify the original font source before use.",
+    "attributionRequired": true,
+    "id": "UNKNOWN",
+    "name": "Permission not verified",
+    "redistributionAllowed": false,
+    "shareAlikeRequired": false,
+    "url": "https://github.com/robhagemans/hoard-of-bitfonts/blob/master/LICENSE.md"
+  },
+  "platform": "acorn",
+  "source": {
+    "author": "Rob Hagemans",
+    "collectionUrl": "https://github.com/robhagemans/hoard-of-bitfonts/",
+    "file": "acorn/bbc/bbc_micro.yaff",
+    "fileSha256": "318edf395c12205dd66e8b7999c34d54d27cbcee9c112dd33d934ee887b3e83d",
+    "name": "Hoard of Bitfonts",
+    "retrievedAt": "2026-07-21",
+    "revision": "d11f085795149f7d246d365abd98b91d56b0789d",
+    "url": "https://github.com/robhagemans/hoard-of-bitfonts/blob/d11f085795149f7d246d365abd98b91d56b0789d/acorn/bbc/bbc_micro.yaff"
+  },
+  "sourceType": "unknown",
+  "tags": [
+    "acorn",
+    "bitmap",
+    "archival",
+    "metadata-only"
+  ],
+  "version": 1
+}

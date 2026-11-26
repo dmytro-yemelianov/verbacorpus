@@ -1,0 +1,51 @@
+{
+  "availability": "downloadable",
+  "cell": {
+    "height": 15,
+    "monospace": true,
+    "nativeScale": 1,
+    "width": 13
+  },
+  "description": "Exact 13×15 bitmap strike normalized from its native BDF source without resampling.",
+  "displayName": "Cozette 13×15",
+  "downloadAllowed": true,
+  "encodings": [
+    {
+      "name": "unicode",
+      "primary": true
+    }
+  ],
+  "family": "Cozette",
+  "glyphs": {
+    "count": 6046,
+    "defaultGlyph": "U+003F",
+    "missingGlyph": "U+003F"
+  },
+  "id": "cozette-13x15",
+  "license": {
+    "attribution": "(c) 2020-2025 Ines <ines@moonwit.ch>",
+    "attributionRequired": true,
+    "id": "MIT",
+    "name": "MIT License",
+    "redistributionAllowed": true,
+    "shareAlikeRequired": false,
+    "url": "https://spdx.org/licenses/MIT.html"
+  },
+  "platform": "terminal",
+  "source": {
+    "author": "The Moonwitch",
+    "file": "cozette-1.30.0.bdf",
+    "fileSha256": "8d740166af3a14053773ac7a8846bf288c8818a44f73ab28d4725d91b03a5639",
+    "name": "Cozette",
+    "retrievedAt": "2026-07-21",
+    "url": "https://github.com/the-moonwitch/Cozette/releases/tag/v.1.30.0"
+  },
+  "sourceType": "original-dump",
+  "tags": [
+    "terminal",
+    "monospace",
+    "bdf",
+    "latin"
+  ],
+  "version": 1
+}

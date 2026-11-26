@@ -88,6 +88,11 @@ function data(env: ContraEnv) {
   return p;
 }
 
+// One entry by stable id (for cards); null when unknown. Throws when the data is unavailable.
+export async function contraEntry(id: string, env: ContraEnv): Promise<ContraEntry | null> {
+  return (await data(env)).byId.get(id) ?? null;
+}
+
 function intParam(qp: URLSearchParams, name: string, fallback: number, min: number, max: number): number | null {
   const raw = qp.get(name);
   if (raw === null) return fallback;

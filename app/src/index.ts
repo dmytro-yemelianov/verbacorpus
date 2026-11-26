@@ -2,16 +2,19 @@ import { searchProverbs, randomProverb, queryProverbs, type Proverb } from "./sh
 import { mapMatches, type Match } from "./shared/semantic";
 import { negotiate, serialize, type Format, type Rec } from "./shared/serialize";
 import openapiDoc from "./openapi.json";
-import { buildProverbPage, cardModel, dailyIndex } from "./shared/meta";
-import { makeVyshyvankaGif, makeVyshyvankaPng } from "./card-gif";
+import { buildProverbPage, dailyIndex } from "./shared/meta";
+import { renderCard } from "./card/render";
+import { parseRecipe, isCardSize, CardRequestError, DEFAULT_FONT, type Recipe } from "./card/recipe";
+import { pickFrame } from "./card/ornament";
 import { parseLang, t, hreflangLinks, DEFAULT_LANG } from "./shared/i18n";
 import { fromShort } from "./shared/shortlink";
 import { directionRoute } from "./shared/directions";
 import { upaRequest } from "./upa";
+import { loadCorpus } from "./corpus-data";
 import { withSiteShell } from './site-shell';
 import { receiveDiagnostics } from './diagnostics';
 import { canonicalAddress, hostDirection, isVerbaHost, publicHref } from './shared/site-addresses';
-import { initBot, formatProverbHtml, draftNews } from "./telegram";
+import { initBot, formatProverbHtml, draftNews, cardPhotoUrl } from "./telegram";
 import { webhookCallback, InlineKeyboard } from "grammy";
 import uk from "../public/i18n/uk.json";
 import en from "../public/i18n/en.json";
@@ -42,30 +45,13 @@ interface Env {
   TELEGRAM_CHANNEL_ID?: string;
   TELEGRAM_WEBHOOK_SECRET?: string;
   NEWS_KV: KVNamespace;
+  VERBA_API_BASE?: string;
 }
 
 const SEMANTIC_MIN_SCORE = 0.4;
 const CORS = { "access-control-allow-origin": "*" };
 
-type CorpusData = { proverbs: Proverb[]; explanations: Record<string, string>; meta: any; byId: Map<string, Proverb> };
-let cache: CorpusData | null = null;
-async function load(env: Env): Promise<CorpusData> {
-  if (cache) return cache;
-  // Pending asset I/O belongs to this invocation. Cache only fully decoded data,
-  // so a cancelled or stalled cold request cannot block another invocation.
-  const get = async (p: string) => {
-    const res = await env.ASSETS.fetch("https://assets" + p);
-    if (!res.ok) throw new Error(`Failed to fetch ${p}: ${res.status}`);
-    return res.json();
-  };
-  const [proverbs, explanations, meta] = await Promise.all([
-    get("/data/proverbs.json") as Promise<Proverb[]>,
-    get("/data/explanations.json") as Promise<Record<string, string>>,
-    get("/data/meta.json") as Promise<any>,
-  ]);
-  cache ??= { proverbs, explanations, meta, byId: new Map(proverbs.map((p) => [p.id, p])) };
-  return cache;
-}
+const load = loadCorpus;
 
 const J = (data: unknown, status = 200) =>
   new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json; charset=utf-8", ...CORS } });
@@ -157,19 +143,30 @@ const application = {
           });
           return HTML(buildProverbPage(p, host, cat, lang, srcCites));
         }
-        const cmGif = raw0.match(/^\/card\/(.+)\.gif$/);
-        if (cmGif) {
-          const key = decodeURIComponent(cmGif[1]);
-          const cacheable = (resp: Response, maxAge: number) => {
-            const r = new Response(resp.body, resp);
-            r.headers.set("cache-control", `public, max-age=${maxAge}${maxAge > 86400 ? ", immutable" : ""}`);
-            r.headers.set("access-control-allow-origin", "*");
-            return r;
-          };
-          const qp = url.searchParams;
-          const format = qp.get("format") || "fb";
-          const cardLang = qp.get("lang") || "uk";
-
+        const qp = url.searchParams;
+        // Recipe cards: /card/render.{png,gif,json}?text&frame&font&size&lang (the gateway's
+        // /v1/cards proxies here).
+        const rm = raw0.match(/^\/card\/render\.(png|gif|json)$/);
+        if (rm) {
+          let recipe: Recipe;
+          try {
+            recipe = parseRecipe(qp, { seedKey: qp.get("text")?.trim() ?? "" });
+          } catch (e) {
+            if (e instanceof CardRequestError) return J({ error: { code: e.code, message: e.message } }, e.status);
+            throw e;
+          }
+          return renderCard(recipe, env, host, {
+            format: rm[1] as "png" | "gif" | "json",
+            minimal: qp.get("minimal") === "1",
+            nochrome: qp.get("nochrome") === "1",
+            explicit: { font: qp.has("font"), frame: qp.has("frame") },
+          });
+        }
+        // Legacy proverb cards: /card/<id>.{png,gif} and /card/daily.{png,gif} with
+        // format/lang/minimal/nochrome, rendered through the same recipe pipeline.
+        const lm = raw0.match(/^\/card\/(.+)\.(png|gif)$/);
+        if (lm) {
+          const key = decodeURIComponent(lm[1]);
           let p: Proverb | undefined;
           if (key === "daily") {
             const pool = proverbs.filter((p) => { const t = p.text.trim(); return /^[А-ЯІЇЄҐ]/.test(t) && t.length >= 18 && t.length <= 90 && t.split(/\s+/).length >= 4; });
@@ -177,44 +174,23 @@ const application = {
           } else {
             p = byId.get(key);
           }
-
           if (!p) return new Response("not found", { status: 404, headers: { "access-control-allow-origin": "*" } });
-
-          const model = cardModel(p, { host: url.host, lang: cardLang, sources: meta.sources });
-          const gifBytes = await makeVyshyvankaGif(model, format, p.id);
-
-          const gifResp = new Response(gifBytes, {
-            headers: { "content-type": "image/gif" }
-          });
-          return cacheable(gifResp, key === "daily" ? 86400 : 31536000);
-        }
-        const cm = raw0.match(/^\/card\/(.+)\.png$/);
-        if (cm) {
-          const key = decodeURIComponent(cm[1]);
-          const cacheable = (resp: Response, maxAge: number) => {
-            const r = new Response(resp.body, resp);
-            r.headers.set("cache-control", `public, max-age=${maxAge}${maxAge > 86400 ? ", immutable" : ""}`);
-            r.headers.set("access-control-allow-origin", "*");
-            return r;
-          };
-          const qp = url.searchParams;
           const format = qp.get("format") || "fb";
-          const cardLang = qp.get("lang") || "uk";
-          const minimal = qp.get("minimal") === "1";
-          const nochrome = qp.get("nochrome") === "1";
-
-          const pngResp = async (pick: Proverb, maxAge: number) => {
-            const bytes = await makeVyshyvankaPng(cardModel(pick, { host: url.host, lang: cardLang, sources: meta.sources }), format, pick.id, { minimal, nochrome });
-            return cacheable(new Response(bytes, { headers: { "content-type": "image/png" } }), maxAge);
+          const text = `pro:${p.id}`;
+          const recipe: Recipe = {
+            text,
+            frame: pickFrame(text),
+            font: DEFAULT_FONT,
+            size: isCardSize(format) ? format : "fb",
+            lang: qp.get("lang") === "en" ? "en" : "uk",
           };
-          if (key === "daily") {
-            const pool = proverbs.filter((p) => { const t = p.text.trim(); return /^[А-ЯІЇЄҐ]/.test(t) && t.length >= 18 && t.length <= 90 && t.split(/\s+/).length >= 4; });
-            const pick = pool[dailyIndex(new Date().toISOString().slice(0, 10), pool.length)] ?? proverbs[0];
-            return pngResp(pick, 86400);
-          }
-          const p = byId.get(key);
-          if (!p) return new Response("not found", { status: 404, headers: { "access-control-allow-origin": "*" } });
-          return pngResp(p, 31536000);
+          return renderCard(recipe, env, host, {
+            format: lm[2] as "png" | "gif",
+            minimal: qp.get("minimal") === "1",
+            nochrome: qp.get("nochrome") === "1",
+            explicit: { font: false, frame: false },
+            maxAge: key === "daily" ? 86400 : 31536000,
+          });
         }
         return new Response("not found", { status: 404, headers: { "access-control-allow-origin": "*" } });
       }
@@ -426,7 +402,7 @@ const application = {
       const pick = pool[dailyIndex(new Date().toISOString().slice(0, 10), pool.length)] ?? proverbs[0];
       const explanation = explanations[pick.id] || null;
       const formatted = formatProverbHtml(pick, explanation, meta.sources);
-      const photoUrl = `https://${host}/card/${pick.id}.png?format=telegram&lang=uk&v=5`;
+      const photoUrl = cardPhotoUrl(env, pick.id);
 
       const keyboard = new InlineKeyboard()
         .url("🔗 Читати на сайті", `https://${host}/p/${pick.id}`)

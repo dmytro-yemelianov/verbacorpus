@@ -31,6 +31,13 @@ export interface TelegramEnv {
     getByIds: (ids: string[]) => Promise<Array<{ id: string; values: number[] }>>;
   };
   NEWS_KV?: KVNamespace;
+  VERBA_API_BASE?: string;
+}
+
+// Card photos come from the Verba API gateway (which proxies to this Worker's /card/render.png).
+export function cardPhotoUrl(env: { VERBA_API_BASE?: string }, proverbId: string): string {
+  const base = (env.VERBA_API_BASE ?? "https://api.verbacorpus.org").replace(/\/+$/, "");
+  return `${base}/v1/cards/pro:${proverbId}.png?size=telegram`;
 }
 
 function escapeHtml(s: string): string {
@@ -163,7 +170,7 @@ export function initBot(
       .url("🔗 На сайті", `https://${host}/p/${p.id}`)
       .row()
       .url("📣 @VerbaCorpus", CHANNEL_URL);
-    await ctx.replyWithPhoto(`https://${host}/card/${p.id}.png?format=telegram&lang=uk&v=5`, {
+    await ctx.replyWithPhoto(cardPhotoUrl(env, p.id), {
       caption: formatProverbHtml(p, explanation, meta.sources),
       parse_mode: "HTML",
       reply_markup: keyboard,
@@ -303,7 +310,7 @@ export function initBot(
 
     const explanation = explanations[p.id] || null;
     const formatted = formatProverbHtml(p, explanation, meta.sources);
-    const photoUrl = `https://${host}/card/${p.id}.png?format=telegram&lang=uk&v=5`;
+    const photoUrl = cardPhotoUrl(env, p.id);
 
     const keyboard = new InlineKeyboard()
       .text("🎲 Ще одне", "random_shuffle")
@@ -343,7 +350,7 @@ export function initBot(
 
     const explanation = explanations[p.id] || null;
     const formatted = formatProverbHtml(p, explanation, meta.sources);
-    const photoUrl = `https://${host}/card/${p.id}.png?format=telegram&lang=uk&v=5`;
+    const photoUrl = cardPhotoUrl(env, p.id);
 
     const keyboard = new InlineKeyboard()
       .text("🎲 Ще з цієї теми", `cat:${categoryKey}`)
@@ -396,7 +403,7 @@ export function initBot(
     const p = byId.get(d.proverbIds[Number(action)]);
     if (!p) { await ctx.answerCallbackQuery("Прислів'я не знайдено"); return; }
     const modern = p.modern_text && p.modern_text.trim() !== p.text.trim() ? prettify(p.modern_text) : "";
-    const pngUrl = `https://${host}/card/${p.id}.png?format=telegram&lang=uk&v=5`;
+    const pngUrl = cardPhotoUrl(env, p.id);
     try {
       await bot.api.sendPhoto(env.TELEGRAM_CHANNEL_ID, pngUrl, {
         caption: newsCaption(d, prettify(p.text), modern), parse_mode: "HTML" });
@@ -438,7 +445,7 @@ export function initBot(
         id: p.id,
         title: pt,
         description: p.modern_text && p.modern_text !== p.text ? `(${prettify(p.modern_text)})` : p.category.map((c) => taxonomy[c] || c).join(", "),
-        thumb_url: `https://${host}/card/${p.id}.png?format=telegram&lang=uk&v=5`,
+        thumb_url: cardPhotoUrl(env, p.id),
         input_message_content: {
           message_text: formatted,
           parse_mode: "HTML" as const,
