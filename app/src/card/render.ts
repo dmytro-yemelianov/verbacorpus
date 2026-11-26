@@ -188,6 +188,37 @@ function wrapCredits(parts: string[], g: GlyphSet, scale: number, maxW: number, 
 // Short-URL label under the QR: scale 2 on tall cards (story, anything >= 1080 px high), else 1.
 export const qrLabelScale = (H: number): number => (H >= 1080 ? 2 : 1);
 
+// Where the short-URL label goes. The right edge never passes `right` (= W - margin, the QR's right margin):
+// the largest scale (<= preferred, >= 1) whose width fits is used, and the label is right-aligned to the QR's
+// right edge (qx + q) - or centred under a centred QR when that still stays inside [margin, right].
+export function qrLabelLayout(
+  measureW: (scale: number) => number, preferred: number,
+  qx: number, q: number, centred: boolean, margin: number, right: number,
+): { scale: number; x: number; width: number } {
+  let scale = preferred;
+  while (scale > 1 && measureW(scale) > right - margin) scale--;
+  const width = measureW(scale);
+  let x = qx + q - width;
+  if (centred) {
+    const cx = Math.round(qx + q / 2 - width / 2);
+    if (cx >= margin && cx + width <= right) x = cx;
+  }
+  x = Math.min(x, right - width);
+  return { scale, x: Math.max(margin, x), width };
+}
+
+// QR + label placement for a size with an n-module matrix; null when the size draws no QR.
+export function qrPlacement(size: CardSize, W: number, H: number, n: number, measureW: (scale: number) => number) {
+  const s = SPECS[size];
+  if (!s.qr) return null;
+  const left = s.pad, right = W - s.pad;
+  const mod = Math.max(1, Math.floor(s.qr / n));
+  const q = mod * n;
+  const centred = !(s.qrBeside || s.align === "left");
+  const qx = centred ? Math.round(W / 2 - q / 2) : right - q;
+  return { mod, q, qx, right, label: qrLabelLayout(measureW, qrLabelScale(H), qx, q, centred, left, right) };
+}
+
 const lineLayout = (lines: string[], scale: number): TextLayout => ({ scale, lines, truncated: false, lineGap: 0 });
 
 function fillRect(rgba: Uint8Array, W: number, H: number, x0: number, y0: number, w: number, h: number, rgb: [number, number, number]) {
@@ -231,15 +262,14 @@ function bitmapContent(
   if (s.qr && chrome && qrUrl) {
     const m = qrMatrix(qrUrl);
     const n = m.length;
-    const mod = Math.max(1, Math.floor(s.qr / n));
-    const q = mod * n;
     const label = qrUrl.replace(/^https?:\/\//, "");
-    const labelScale = qrLabelScale(H);
+    const P = qrPlacement(size, W, H, n, (sc) => measure(label, g, sc))!;
+    const { mod, q, qx } = P, lay = P.label;
+    const labelScale = lay.scale;
     const labelH = cellH * labelScale;
-    const qx = s.qrBeside || s.align === "left" ? right - q : Math.round(centreX - q / 2);
     const qy = bottom - labelH - small - q;
     for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (m[r]![c]) fillRect(rgba, W, H, qx + c * mod, qy + r * mod, mod, mod, SAGE);
-    paintText(rgba, W, H, lineLayout([label], labelScale), g, { x: Math.round(qx + q / 2), y: bottom - labelH }, "center", GRAY);
+    paintText(rgba, W, H, lineLayout([label], labelScale), g, { x: lay.x, y: bottom - labelH }, "left", GRAY);
     if (s.qrBeside) textRight = qx - gap;
     else bottom = qy - gap;
   }

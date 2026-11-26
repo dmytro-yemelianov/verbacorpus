@@ -3,7 +3,7 @@ import { describe, it, expect } from "vitest";
 import UPNG from "upng-js";
 import worker from "../src/index";
 import { UPA_PALETTE, CARD_FRAMES } from "../src/card/ornament";
-import { qrLabelScale } from "../src/card/render";
+import { qrLabelScale, qrPlacement } from "../src/card/render";
 import { fakeFonts, fakeUpa, broken } from "./card-fakes";
 
 async function call(path: string, extra: Record<string, unknown> = { FONTS: fakeFonts(), UPA: fakeUpa() }) {
@@ -201,6 +201,30 @@ describe("QR short-URL label scale", () => {
     expect(qrLabelScale(1080)).toBe(2); // square
     expect(qrLabelScale(720)).toBe(1);
     expect(qrLabelScale(630)).toBe(1);
+  });
+});
+
+describe("QR short-URL label stays inside the card", () => {
+  const SIZES: Record<string, [number, number, number]> = {
+    fb: [1200, 630, 0], square: [1080, 1080, 0], story: [1080, 1920, 0], yt: [1280, 720, 0], sticker: [512, 512, 0], telegram: [1200, 630, 0],
+  };
+  const cellW = 13; // widest possible advance of the cozette face used in tests
+  it.each(Object.keys(SIZES))("%s: label right edge <= W - margin, scale >= 1", (size) => {
+    const [W, H] = SIZES[size]!;
+    for (const label of ["pro.verbacorpus.org/s/31792", "pro.verbacorpus.org/s/4878799"]) {
+      const P = qrPlacement(size as any, W, H, 29, (sc) => label.length * cellW * sc);
+      if (!P) continue; // sticker / telegram draw no QR
+      expect(P.label.scale).toBeGreaterThanOrEqual(1);
+      expect(P.label.x + P.label.width).toBeLessThanOrEqual(P.right);
+      expect(P.label.x).toBeGreaterThanOrEqual(W - P.right);
+    }
+  });
+  it("keeps scale 2 when the label fits, drops to 1 when it does not, right-aligns to the QR", () => {
+    const w = (n: number) => (sc: number) => n * 13 * sc;
+    expect(qrPlacement("story", 1080, 1920, 29, w(27))!.label.scale).toBe(2); // 702 <= 920
+    const sq = qrPlacement("square", 1080, 1080, 29, w(40))!; // 1040 > 900 at scale 2
+    expect(sq.label.scale).toBe(1);
+    expect(sq.label.x + sq.label.width).toBe(sq.right);
   });
 });
 
