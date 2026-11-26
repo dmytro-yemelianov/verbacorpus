@@ -22,7 +22,8 @@ export async function fetchBand(upa: Fetcher, patternId: string): Promise<Band> 
   const id = patternId.startsWith("non:") ? patternId.slice(4) : patternId;
   let res: Response;
   try {
-    res = await upa.fetch(`https://upstream/api/v1/patterns/${encodeURIComponent(id)}`, { signal: upstreamSignal() });
+    // similar=0: only geometry is needed; UPA's similarity search costs ~1 s per request.
+    res = await upa.fetch(`https://upstream/api/v1/patterns/${encodeURIComponent(id)}?similar=0`, { signal: upstreamSignal() });
   } catch (e) {
     throw new CardFrameError("frame_unavailable", String(e));
   }
