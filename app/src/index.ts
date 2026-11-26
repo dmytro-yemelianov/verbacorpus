@@ -31,6 +31,7 @@ interface Env {
   DIAGNOSTICS_LIMITER: Cloudflare.Env['DIAGNOSTICS_LIMITER'];
   VERBA_LOCAL_PREVIEW?: string;
   UPA?: Cloudflare.Env['UPA'];
+  FONTS?: Fetcher;
   ASSETS: { fetch: (req: Request | string) => Promise<Response> };
   AI: { run: (model: string, inputs: { text: string[] }) => Promise<{ data: number[][] }> };
   VECTORIZE: {
