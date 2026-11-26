@@ -3,8 +3,14 @@
     "@language": "en",
     "@vocab": "https://schema.org/",
     "cr": "http://mlcommons.org/croissant/",
-    "data": { "@id": "cr:data", "@type": "@json" },
-    "dataType": { "@id": "cr:dataType", "@type": "@vocab" },
+    "data": {
+      "@id": "cr:data",
+      "@type": "@json"
+    },
+    "dataType": {
+      "@id": "cr:dataType",
+      "@type": "@vocab"
+    },
     "field": "cr:field",
     "fileProperty": "cr:fileProperty",
     "format": "cr:format",
@@ -16,7 +22,7 @@
   "conformsTo": "http://mlcommons.org/croissant/1.0",
   "name": "verba-ukrainian-proverbs-corpus",
   "description": "A canonical, deduplicated, source-attributed corpus of 48,787 Ukrainian proverbs and adages unified from five digitized collections (1841–present). Each entry carries a modern-spelling rendering and 1–3 thematic categories; ~30,500 include scholarly explanations.",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "datePublished": "2026-11-26",
   "license": "https://creativecommons.org/licenses/by/4.0/",
   "url": "https://verbacorpus.org",
@@ -63,7 +69,13 @@
     "name": "Dmytro Yemelianov",
     "sameAs": "https://orcid.org/0009-0002-9244-7426"
   },
-  "keywords": ["Ukrainian", "proverbs", "paremiology", "folklore", "NLP"],
+  "keywords": [
+    "Ukrainian",
+    "proverbs",
+    "paremiology",
+    "folklore",
+    "NLP"
+  ],
   "inLanguage": "uk",
   "distribution": [
     {
@@ -83,13 +95,111 @@
       "name": "proverbs",
       "description": "One record per proverb.",
       "field": [
-        { "@type": "cr:Field", "@id": "proverbs/id", "name": "id", "description": "Stable identifier (pNNNNNN).", "dataType": "sc:Text", "source": { "fileObject": { "@id": "corpus.csv" }, "extract": { "column": "id" } } },
-        { "@type": "cr:Field", "@id": "proverbs/text", "name": "text", "description": "Verbatim proverb in its source orthography.", "dataType": "sc:Text", "source": { "fileObject": { "@id": "corpus.csv" }, "extract": { "column": "text" } } },
-        { "@type": "cr:Field", "@id": "proverbs/modern_text", "name": "modern_text", "description": "Modern standard Ukrainian spelling (LLM-generated).", "dataType": "sc:Text", "source": { "fileObject": { "@id": "corpus.csv" }, "extract": { "column": "modern_text" } } },
-        { "@type": "cr:Field", "@id": "proverbs/category", "name": "category", "description": "1–3 theme keys, ;-joined.", "dataType": "sc:Text", "source": { "fileObject": { "@id": "corpus.csv" }, "extract": { "column": "category" } } },
-        { "@type": "cr:Field", "@id": "proverbs/explanation", "name": "explanation", "description": "Scholarly note (Franko-preferred), cleaned.", "dataType": "sc:Text", "source": { "fileObject": { "@id": "corpus.csv" }, "extract": { "column": "explanation" } } },
-        { "@type": "cr:Field", "@id": "proverbs/sources", "name": "sources", "description": "Source citation keys, ;-joined.", "dataType": "sc:Text", "source": { "fileObject": { "@id": "corpus.csv" }, "extract": { "column": "sources" } } },
-        { "@type": "cr:Field", "@id": "proverbs/variant_group", "name": "variant_group", "description": "Id linking probable dialectal variants.", "dataType": "sc:Text", "source": { "fileObject": { "@id": "corpus.csv" }, "extract": { "column": "variant_group" } } }
+        {
+          "@type": "cr:Field",
+          "@id": "proverbs/id",
+          "name": "id",
+          "description": "Stable identifier (pNNNNNN).",
+          "dataType": "sc:Text",
+          "source": {
+            "fileObject": {
+              "@id": "corpus.csv"
+            },
+            "extract": {
+              "column": "id"
+            }
+          }
+        },
+        {
+          "@type": "cr:Field",
+          "@id": "proverbs/text",
+          "name": "text",
+          "description": "Verbatim proverb in its source orthography.",
+          "dataType": "sc:Text",
+          "source": {
+            "fileObject": {
+              "@id": "corpus.csv"
+            },
+            "extract": {
+              "column": "text"
+            }
+          }
+        },
+        {
+          "@type": "cr:Field",
+          "@id": "proverbs/modern_text",
+          "name": "modern_text",
+          "description": "Modern standard Ukrainian spelling (LLM-generated).",
+          "dataType": "sc:Text",
+          "source": {
+            "fileObject": {
+              "@id": "corpus.csv"
+            },
+            "extract": {
+              "column": "modern_text"
+            }
+          }
+        },
+        {
+          "@type": "cr:Field",
+          "@id": "proverbs/category",
+          "name": "category",
+          "description": "1–3 theme keys, ;-joined.",
+          "dataType": "sc:Text",
+          "source": {
+            "fileObject": {
+              "@id": "corpus.csv"
+            },
+            "extract": {
+              "column": "category"
+            }
+          }
+        },
+        {
+          "@type": "cr:Field",
+          "@id": "proverbs/explanation",
+          "name": "explanation",
+          "description": "Scholarly note (Franko-preferred), cleaned.",
+          "dataType": "sc:Text",
+          "source": {
+            "fileObject": {
+              "@id": "corpus.csv"
+            },
+            "extract": {
+              "column": "explanation"
+            }
+          }
+        },
+        {
+          "@type": "cr:Field",
+          "@id": "proverbs/sources",
+          "name": "sources",
+          "description": "Source citation keys, ;-joined.",
+          "dataType": "sc:Text",
+          "source": {
+            "fileObject": {
+              "@id": "corpus.csv"
+            },
+            "extract": {
+              "column": "sources"
+            }
+          }
+        },
+        {
+          "@type": "cr:Field",
+          "@id": "proverbs/variant_group",
+          "name": "variant_group",
+          "description": "Id linking probable dialectal variants.",
+          "dataType": "sc:Text",
+          "source": {
+            "fileObject": {
+              "@id": "corpus.csv"
+            },
+            "extract": {
+              "column": "variant_group"
+            }
+          }
+        }
       ]
     }
   ]
