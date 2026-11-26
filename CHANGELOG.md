@@ -4,6 +4,14 @@ All notable changes to the verba Ukrainian proverbs corpus are documented here.
 This project adheres to semantic versioning for datasets (MAJOR = schema/breaking,
 MINOR = new source or significant additions, PATCH = corrections).
 
+## [1.0.3] - 2026-11-26
+
+Punctuation cleanup (no schema or count change; 48,787 entries).
+
+- Collapsed double hyphens (`--` / `--word`) into canonical spaced hyphen (` - `) across ~1,908 `text` and ~1,213 `modern_text` entries.
+- Stripped stray spaces before punctuation (`,`, `;`, `:`, `!`, `?`, single `.`) and trailing duplicate end punctuation (`. :`, `. .`, `! !`), preserving ellipses (`...`, `!..`, `?..`).
+- Fixed typo double dots (`..`) and missing spaces after commas, and replaced trailing commas at the end of entries with `.`.
+
 ## [1.0.2] - 2026-06-24
 
 - Proper bibliographic references for all 5 sources: generated `references.bib` BibTeX + `references.csl.json` CSL-JSON + rendered citations.

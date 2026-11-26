@@ -9,6 +9,23 @@ _LOWER_UA = re.compile(r"[а-яіїєґ]")
 _QUOTES = {"«": '"', "»": '"', "„": '"', "“": '"', "”": '"', "‹": '"', "›": '"'}
 _APOS = "'ʼ`´’"  # ' ʼ ` ´ ’  -> '
 _WS = re.compile(r"\s+")
+_DBL_HYPHEN = re.compile(r"\s*--\s*")
+_SPACE_PUNCT = re.compile(r"\s+([,;:!?])")
+_SPACE_DOT = re.compile(r"\s+\.(?!\.)")
+_TRAIL_PUNCT = re.compile(r"([.!?][\"')]*)(?:\s*[,;:]+|\s+[.!?]+(?!\.\.))$")
+_DBL_DOT = re.compile(r"(?<![.!?])\.\.(?!\.)")
+_TRAIL_COMMA = re.compile(r",\s*$")
+_TIGHT_COMMA = re.compile(r",([А-ЯІЇЄҐа-яіїєґ])")
+
+def clean_punct(text: str) -> str:
+    t = _DBL_HYPHEN.sub(" - ", text)
+    t = _SPACE_PUNCT.sub(r"\1", t)
+    t = _SPACE_DOT.sub(".", t)
+    t = _TRAIL_PUNCT.sub(r"\1", t)
+    t = _DBL_DOT.sub(".", t)
+    t = _TRAIL_COMMA.sub(".", t)
+    t = _TIGHT_COMMA.sub(r", \1", t)
+    return _WS.sub(" ", t).strip()
 
 def clean_text(text: str) -> str:
     t = _LIST_NUM.sub("", text, count=1)
@@ -26,5 +43,4 @@ def to_plain(text: str) -> str:
         t = t.replace(ch, "'")
     t = t.replace("…", "...")
     t = t.replace("—", "-").replace("–", "-")        # em/en dash -> hyphen; spacing kept distinguishes тире/дефіс
-    t = _WS.sub(" ", t).strip()
-    return t
+    return clean_punct(t)

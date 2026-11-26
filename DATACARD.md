@@ -1,6 +1,6 @@
 # Data Card — verba: Ukrainian Proverbs Corpus
 
-**Version:** 1.0.2 · **Released:** 2026-06-24 · **Author:** Dmytro Yemelianov ([ORCID](https://orcid.org/0009-0002-9244-7426))
+**Version:** 1.0.3 · **Released:** 2026-11-26 · **Author:** Dmytro Yemelianov ([ORCID](https://orcid.org/0009-0002-9244-7426))
 **Home:** https://verbacorpus.org · **Repo:** https://github.com/dmytro-yemelianov/verbacorpus
 
 ---
@@ -124,7 +124,7 @@ work_labor, poverty_wealth, food_hunger, drink_alcohol, family_kinship, marriage
 | Historical texts | Franko 1901, Nomis 1864, Ilkevich 1841 | Public domain |
 | Modern collections | Bobkova, Mlodzynskyi 2009 | Texts remain under publishers' rights; included for research/education, attributed per `sources`, removed on request |
 
-Cite as: Yemelianov, Dmytro (2026). *verba — Ukrainian Proverbs Corpus* (v1.0.2). https://verbacorpus.org
+Cite as: Yemelianov, Dmytro (2026). *verba — Ukrainian Proverbs Corpus* (v1.0.3). https://verbacorpus.org
 
 ---
 
@@ -171,7 +171,7 @@ The corpus unifies text from five published collections. Full bibliographic data
 ## Citation
 
 ```
-Yemelianov, Dmytro (2026). verba — Ukrainian Proverbs Corpus (v1.0.2). https://verbacorpus.org
+Yemelianov, Dmytro (2026). verba — Ukrainian Proverbs Corpus (v1.0.3). https://verbacorpus.org
 ```
 
 Machine-readable: [`CITATION.cff`](CITATION.cff) (Citation File Format 1.2.0).
