@@ -18,7 +18,7 @@ import { makeParaAdapter } from "./adapters/para.js";
 import { makeProAdapter } from "./adapters/pro.js";
 import { docsHtml, openapi } from "./openapi.js";
 import { checkFont, proxyCard, recipeFrom, type CardExt } from "./cards.js";
-import { pickMixed, pickRandom, rng } from "./random.js";
+import { pickCardFriendly, pickMixed, pickRandom, rng } from "./random.js";
 
 export interface Env {
   PRO?: Fetcher;
@@ -203,7 +203,7 @@ async function route(request: Request, env: Env, adapters: Partial<Record<Corpus
       const given = p.get("seed");
       if (given !== null && given.length > 128) throw bad400("seed must be at most 128 characters");
       const seed = given ? given : crypto.randomUUID();
-      const [item] = await pickRandom(adapter, 1, rng(seed), new URLSearchParams());
+      const item = await pickCardFriendly(adapter, rng(seed), new URLSearchParams());
       if (!item) throw new ApiError(503, "unavailable", `corpus "${corpus}" has no items`);
       const recipe = recipeFrom(item.id, p);
       await checkFont(adapters, recipe.font);

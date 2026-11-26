@@ -64,6 +64,29 @@ export async function pickRandom(
   return pickWithHead(adapter, await adapter.list(1, 0, filters), n, next, filters);
 }
 
+export const CARD_TITLE_MIN = 18;
+export const CARD_TITLE_MAX = 120;
+const CARD_ATTEMPTS = 8;
+
+// One random item that suits a card: draws up to 8 candidates with the seeded rng and takes the first
+// whose title is 18-120 characters; otherwise the shortest drawn. Deterministic for a given rng.
+export async function pickCardFriendly(
+  adapter: Adapter,
+  next: () => number,
+  filters: URLSearchParams,
+): Promise<Item | undefined> {
+  const head = await adapter.list(1, 0, filters);
+  let best: Item | undefined;
+  for (let i = 0; i < CARD_ATTEMPTS; i++) {
+    const [item] = await pickWithHead(adapter, head, 1, next, filters);
+    if (!item) continue;
+    const len = Array.from(item.title).length;
+    if (len >= CARD_TITLE_MIN && len <= CARD_TITLE_MAX) return item;
+    if (!best || len < Array.from(best.title).length) best = item;
+  }
+  return best;
+}
+
 // Assigns a corpus to each of the n draws first, fetches each involved
 // corpus's total once, then picks distinct offsets per corpus.
 export async function pickMixed(

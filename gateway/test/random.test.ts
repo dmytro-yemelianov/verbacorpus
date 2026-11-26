@@ -204,3 +204,29 @@ describe("degraded mixed random", () => {
     expect(hit).toBe(true);
   });
 });
+
+import { pickCardFriendly } from "../src/random";
+
+describe("pickCardFriendly", () => {
+  const mk = (titles: string[]) => ({
+    list: async (_l: number, offset: number) => ({ total: titles.length, items: [{ id: `pro:${offset}`, title: titles[offset] }] }),
+  }) as any;
+  const long = "д".repeat(300), short = "коротко", good = "Добре слово на кожен день, друже";
+  const titles = Array.from({ length: 40 }, (_, i) => (i % 5 === 0 ? long : i % 5 === 1 ? short : good + i));
+  it("prefers titles of 18-120 characters", async () => {
+    for (let i = 0; i < 30; i++) {
+      const it = await pickCardFriendly(mk(titles), rng("s" + i), new URLSearchParams());
+      expect(it!.title.length).toBeGreaterThanOrEqual(18);
+      expect(it!.title.length).toBeLessThanOrEqual(120);
+    }
+  });
+  it("is deterministic for a seed", async () => {
+    const a = await pickCardFriendly(mk(titles), rng("abc"), new URLSearchParams());
+    const b = await pickCardFriendly(mk(titles), rng("abc"), new URLSearchParams());
+    expect(a!.id).toBe(b!.id);
+  });
+  it("falls back to the shortest drawn when none qualifies", async () => {
+    const it = await pickCardFriendly(mk([long, long + "x", "ab"]), rng("z"), new URLSearchParams());
+    expect(it!.title.length).toBeLessThan(18);
+  });
+});
