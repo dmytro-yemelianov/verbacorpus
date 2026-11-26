@@ -85,7 +85,7 @@
 |---|---|---|
 | pro | `pro:p037464` | `id` прислів'я |
 | non | `non:p07_L_b00` | `patternId` UPA |
-| para | `para:cozette-6x13` | `fontId` Nasinnia (після переїзду бібліотеки UPA — і її шрифти, напр. `cozette-13x15`, §8) |
+| para | `para:cozette-13x15` | `fontId` Nasinnia |
 | contra | `contra:<стабільний-id>` | **ще не існує**: `sourceRow` нестабільний (§7) |
 
 Підресурси через `/`: `para:cozette-13x15/U+0456` — гліф. ID у шлюзі — непрозорі рядки;

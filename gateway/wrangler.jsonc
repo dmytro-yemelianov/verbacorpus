@@ -3,6 +3,7 @@
   "main": "src/index.ts",
   "compatibility_date": "2025-10-11",
   "workers_dev": true,
+  "routes": [{ "pattern": "api.verbacorpus.org", "custom_domain": true }],
   "services": [
     { "binding": "PRO", "service": "ukr-proverbs-corpus" },
     { "binding": "UPA", "service": "upa-local-preview" },
