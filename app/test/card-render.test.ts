@@ -3,6 +3,7 @@ import { describe, it, expect } from "vitest";
 import UPNG from "upng-js";
 import worker from "../src/index";
 import { UPA_PALETTE, CARD_FRAMES } from "../src/card/ornament";
+import { qrLabelScale } from "../src/card/render";
 import { fakeFonts, fakeUpa, broken } from "./card-fakes";
 
 async function call(path: string, extra: Record<string, unknown> = { FONTS: fakeFonts(), UPA: fakeUpa() }) {
@@ -191,5 +192,40 @@ describe("legacy /card/<id> routes on the new pipeline", () => {
     const res = await call("/card/p1.png", {});
     expect(res.status).toBe(200);
     expect(res.headers.get("cache-control")).toBe("no-store");
+  });
+});
+
+describe("QR short-URL label scale", () => {
+  it("is 2 on story and any card >= 1080 px tall, 1 on short cards", () => {
+    expect(qrLabelScale(1920)).toBe(2); // story
+    expect(qrLabelScale(1080)).toBe(2); // square
+    expect(qrLabelScale(720)).toBe(1);
+    expect(qrLabelScale(630)).toBe(1);
+  });
+});
+
+describe("render.json does not fetch glyphs", () => {
+  it("only reads font metadata (counting fake FONTS)", async () => {
+    const calls: string[] = [];
+    const res = await call("/card/render.json?text=pro:p1", { FONTS: fakeFonts(calls), UPA: fakeUpa() });
+    const body = await res.json() as any;
+    expect(res.status).toBe(200);
+    expect(body.degraded).toEqual([]);
+    expect(body.attribution[2]).toContain("Moonwitch");
+    expect(calls.length).toBeGreaterThan(0);
+    expect(calls.some((c) => c.includes("/glyphs"))).toBe(false);
+    const png: string[] = [];
+    await call("/card/render.png?text=pro:p1", { FONTS: fakeFonts(png), UPA: fakeUpa() });
+    expect(png.some((c) => c.includes("/glyphs"))).toBe(true);
+  });
+});
+
+describe("upstream fetches carry an abort signal", () => {
+  it("fonts and UPA calls get a signal", async () => {
+    const seen: Array<AbortSignal | undefined> = [];
+    const wrap = (f: Fetcher) => ({ fetch: (u: any, init?: RequestInit) => { seen.push(init?.signal ?? undefined); return f.fetch(u, init); } }) as unknown as Fetcher;
+    await call("/card/render.png?text=pro:p1", { FONTS: wrap(fakeFonts()), UPA: wrap(fakeUpa()) });
+    expect(seen.length).toBeGreaterThanOrEqual(3);
+    expect(seen.every(Boolean)).toBe(true);
   });
 });

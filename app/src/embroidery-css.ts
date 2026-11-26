@@ -19,7 +19,9 @@ export function bandSVG(b: Border, light: boolean): string {
     for (let c = 0; c < b.cols; c++) {
       const ch = b.cells[r][c];
       if (ch === "B" || !(ch in UPA_PALETTE)) continue;
-      rects += `<rect x='${c * CELL}' y='${r * CELL}' width='${CELL}' height='${CELL}' fill='${hex(UPA_PALETTE[ch as keyof typeof UPA_PALETTE])}'/>`;
+      // UPA D is near-black ink: on the dark paper use the dark palette's light ink instead.
+      const fill = ch === "D" && !light ? DARK.ink : hex(UPA_PALETTE[ch as keyof typeof UPA_PALETTE]);
+      rects += `<rect x='${c * CELL}' y='${r * CELL}' width='${CELL}' height='${CELL}' fill='${fill}'/>`;
     }
   }
   const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='${W}' height='${H}' shape-rendering='crispEdges'><rect width='${W}' height='${H}' fill='${light ? PAPER.light : PAPER.dark}'/>${rects}</svg>`;
@@ -106,6 +108,26 @@ ${dark}
 }
 ${iconClasses}
 `;
+}
+
+// Edge-cached variant: only the non-degraded 200 (public cache-control) is stored, keyed by the
+// URL without its query string. `cache` defaults to the Worker's caches.default.
+export async function cachedEmbroideryCssResponse(request: Request, upa: Fetcher | undefined, ctx?: Pick<ExecutionContext, "waitUntil">, cache?: Cache): Promise<Response> {
+  const store = cache ?? (globalThis as any).caches?.default as Cache | undefined;
+  const u = new URL(request.url);
+  const key = new Request(u.origin + u.pathname, { method: "GET" });
+  if (store) {
+    try {
+      const hit = await store.match(key);
+      if (hit) return hit;
+    } catch { /* cache unavailable: render */ }
+  }
+  const res = await embroideryCssResponse(upa);
+  if (store && res.status === 200 && res.headers.get("cache-control")?.startsWith("public")) {
+    const put = store.put(key, res.clone()).catch(() => {});
+    if (ctx) ctx.waitUntil(put); else await put;
+  }
+  return res;
 }
 
 // GET /embroidery.css — bands from UPA; if UPA is missing or fails, a 200 with icons only.

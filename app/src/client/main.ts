@@ -5,6 +5,7 @@ import { srcLabel } from "../shared/sources";
 import { isPresentable, deckFor, toggleSaved, nextShown } from "../shared/browse";
 import { prettify } from "../shared/text";
 import { shortUrl } from "../shared/shortlink";
+import { CARD_VERSION } from "../shared/card-version";
 import "./chrome"; // renders the language switcher (shared with the static pages)
 
 const $ = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -643,7 +644,7 @@ async function openDetail(p: Proverb, opts: { showCustomizer?: boolean } = {}) {
         <h4>${esc(tr("card.customizerTitle", "Налаштування картки"))}</h4>
         <div class="customizer-layout">
           <div class="customizer-preview">
-            <img id="cardPreview" src="/card/${esc(p.id)}.png?v=3" alt="Card Preview" />
+            <img id="cardPreview" src="/card/${esc(p.id)}.png?v=${CARD_VERSION}" alt="Card Preview" />
           </div>
           <div class="customizer-controls">
             <div class="control-field">
@@ -668,7 +669,7 @@ async function openDetail(p: Proverb, opts: { showCustomizer?: boolean } = {}) {
               </select>
             </div>
             <div class="customizer-actions">
-              <a id="cardDownloadBtn" class="more-btn" href="/card/${esc(p.id)}.png?v=3" download="verba-${esc(p.id)}.png" target="_blank">${esc(tr("card.download", "Завантажити картку"))}</a>
+              <a id="cardDownloadBtn" class="more-btn" href="/card/${esc(p.id)}.png?v=${CARD_VERSION}" download="verba-${esc(p.id)}.png" target="_blank">${esc(tr("card.download", "Завантажити картку"))}</a>
               <button id="cardCopyEmbedBtn" class="chip" type="button">${esc(tr("card.copyEmbed", "Копіювати код вставки"))}</button>
             </div>
           </div>
@@ -738,7 +739,7 @@ async function openDetail(p: Proverb, opts: { showCustomizer?: boolean } = {}) {
     const format = formatSelect.value;
     const lang = langSelect.value;
     const ext = typeSelect.value;
-    const cardUrl = `/card/${p.id}.${ext}?format=${format}&lang=${lang}&v=3`;
+    const cardUrl = `/card/${p.id}.${ext}?format=${format}&lang=${lang}&v=${CARD_VERSION}`;
     cardPreview.src = cardUrl; // preview the actually-selected type (png or animated gif)
     cardDownloadBtn.href = cardUrl;
     cardDownloadBtn.download = `verba-${p.id}.${ext}`;
@@ -754,7 +755,7 @@ async function openDetail(p: Proverb, opts: { showCustomizer?: boolean } = {}) {
       const format = formatSelect.value;
       const lang = langSelect.value;
       const ext = typeSelect.value;
-      const cardUrl = `https://${location.host}/card/${p.id}.${ext}?format=${format}&lang=${lang}&v=3`;
+      const cardUrl = `https://${location.host}/card/${p.id}.${ext}?format=${format}&lang=${lang}&v=${CARD_VERSION}`;
       
       let width = 1200, height = 630;
       if (format === "square") { width = 1080; height = 1080; }

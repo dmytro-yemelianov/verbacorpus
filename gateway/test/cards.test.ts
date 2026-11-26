@@ -49,7 +49,7 @@ const fontList = [
 const mkEnv = (pro: Upstream = renderer()) => ({ PRO: pro as any, UPA: fakeUpa() as any, FONTS: fakeNasinnia(fontList.concat(fonts(0))) as any });
 
 describe("cards", () => {
-  it("proxies png with CORS and the verbacorpus.org host", async () => {
+  it("proxies png with CORS and the canonical pro.verbacorpus.org host (no 308 hop)", async () => {
     const pro = renderer();
     const r = await handle(req("/v1/cards/pro:p1.png?size=square"), mkEnv(pro));
     expect(r.status).toBe(200);
@@ -57,7 +57,7 @@ describe("cards", () => {
     expect(r.headers.get("access-control-allow-origin")).toBe("*");
     expect(r.headers.get("access-control-expose-headers")).toContain("x-verba-degraded");
     expect(new Uint8Array(await r.arrayBuffer())).toEqual(PNG);
-    expect(pro.urls[0]).toBe("https://verbacorpus.org/card/render.png?text=pro%3Ap1&size=square");
+    expect(pro.urls[0]).toBe("https://pro.verbacorpus.org/card/render.png?text=pro%3Ap1&size=square");
   });
 
   it("accepts %3A and contra ids, json and gif", async () => {

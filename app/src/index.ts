@@ -6,7 +6,7 @@ import { buildProverbPage, dailyIndex } from "./shared/meta";
 import { renderCard } from "./card/render";
 import { parseRecipe, isCardSize, CardRequestError, DEFAULT_FONT, type Recipe } from "./card/recipe";
 import { pickFrame } from "./card/ornament";
-import { embroideryCssResponse } from "./embroidery-css";
+import { cachedEmbroideryCssResponse } from "./embroidery-css";
 import { parseLang, t, hreflangLinks, DEFAULT_LANG } from "./shared/i18n";
 import { fromShort } from "./shared/shortlink";
 import { directionRoute } from "./shared/directions";
@@ -15,7 +15,7 @@ import { loadCorpus } from "./corpus-data";
 import { withSiteShell } from './site-shell';
 import { receiveDiagnostics } from './diagnostics';
 import { canonicalAddress, hostDirection, isVerbaHost, publicHref } from './shared/site-addresses';
-import { initBot, formatProverbHtml, draftNews, cardPhotoUrl } from "./telegram";
+import { initBot, formatProverbHtml, draftNews, sendCardWithFallback } from "./telegram";
 import { webhookCallback, InlineKeyboard } from "grammy";
 import uk from "../public/i18n/uk.json";
 import en from "../public/i18n/en.json";
@@ -103,7 +103,7 @@ const application = {
       const url = new URL(request.url);
       const upa = await upaRequest(request, env.UPA, env.VERBA_LOCAL_PREVIEW === '1');
       if (upa) return upa;
-      if (url.pathname === '/embroidery.css' && (request.method === 'GET' || request.method === 'HEAD')) return embroideryCssResponse(env.UPA);
+      if (url.pathname === '/embroidery.css' && (request.method === 'GET' || request.method === 'HEAD')) return cachedEmbroideryCssResponse(request, env.UPA, _ctx);
       const { lang, rest } = parseLang(url.pathname);
       // /uk or /uk/... → 301 canonical (unprefixed)
       if (/^\/uk(\/|$)/.test(url.pathname)) {
@@ -404,17 +404,16 @@ const application = {
       const pick = pool[dailyIndex(new Date().toISOString().slice(0, 10), pool.length)] ?? proverbs[0];
       const explanation = explanations[pick.id] || null;
       const formatted = formatProverbHtml(pick, explanation, meta.sources);
-      const photoUrl = cardPhotoUrl(env, pick.id);
 
       const keyboard = new InlineKeyboard()
         .url("🔗 Читати на сайті", `https://${host}/p/${pick.id}`)
         .url("🎲 Випадкове", "https://t.me/verbacorpus_bot?start=random");
 
-      await bot.api.sendPhoto(env.TELEGRAM_CHANNEL_ID, photoUrl, {
-        caption: `🎲 <b>Прислів'я дня</b>\n\n${formatted}`,
-        parse_mode: "HTML",
-        reply_markup: keyboard,
-      });
+      const chatId = env.TELEGRAM_CHANNEL_ID!;
+      const caption = `🎲 <b>Прислів'я дня</b>\n\n${formatted}`;
+      await sendCardWithFallback(env, pick.id,
+        (url) => bot.api.sendPhoto(chatId, url, { caption, parse_mode: "HTML", reply_markup: keyboard }),
+        () => bot.api.sendMessage(chatId, caption, { parse_mode: "HTML", reply_markup: keyboard }));
 
       console.log(`Successfully posted daily proverb ${pick.id} to Telegram`);
     })());

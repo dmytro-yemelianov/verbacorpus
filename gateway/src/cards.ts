@@ -75,7 +75,8 @@ export async function proxyCard(
   if (!pro) throw new ApiError(503, "unavailable", "card renderer is not available");
   const q = new URLSearchParams({ text: recipe.text });
   for (const k of ["frame", "font", "size", "lang"] as const) if (recipe[k]) q.set(k, recipe[k]!);
-  const url = `https://verbacorpus.org/card/render.${ext}?${q}`;
+  // pro.verbacorpus.org is the canonical Verba host: the apex would answer with a 308 hop.
+  const url = `https://pro.verbacorpus.org/card/render.${ext}?${q}`;
   let res: Response;
   try {
     res = await pro.fetch(new Request(url, { signal: AbortSignal.timeout(CARD_TIMEOUT_MS) }));

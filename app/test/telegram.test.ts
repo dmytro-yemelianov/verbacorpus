@@ -256,3 +256,73 @@ describe("Telegram card photos come from the Verba API gateway", () => {
     }
   });
 });
+
+describe("Telegram card photo fallback", () => {
+  // `failPhotos` = how many sendPhoto calls fail (400) before they succeed.
+  const stub = (failPhotos: number) => {
+    const calls: Array<{ method: string; body: any }> = [];
+    let photoCalls = 0;
+    const realFetch = globalThis.fetch;
+    vi.stubGlobal("fetch", vi.fn(async (input: any, init?: any) => {
+      const url = typeof input === "string" ? input : input.url;
+      if (typeof url === "string" && url.includes("api.telegram.org")) {
+        const method = url.split("/").pop()!;
+        let body: any;
+        if (init?.body) { try { body = JSON.parse(init.body as string); } catch { body = init.body; } }
+        calls.push({ method, body });
+        if (method === "sendPhoto" && photoCalls++ < failPhotos) {
+          return new Response(JSON.stringify({ ok: false, error_code: 400, description: "Bad Request: wrong file identifier/HTTP URL specified" }), { status: 400, headers: { "content-type": "application/json" } });
+        }
+        return new Response(JSON.stringify({ ok: true, result: { message_id: 1, date: 0, chat: { id: 1, type: "private" } } }), { status: 200, headers: { "content-type": "application/json" } });
+      }
+      return realFetch(input, init);
+    }));
+    return calls;
+  };
+  const cron = async () => {
+    const ctx = createExecutionContext();
+    const testEnv = { ...env, TELEGRAM_BOT_TOKEN: "12345:mock_token", TELEGRAM_CHANNEL_ID: "@chan" };
+    await (worker as any).scheduled({ cron: "0 6 * * *" }, testEnv, ctx);
+    await waitOnExecutionContext(ctx);
+  };
+
+  it("cron: gateway URL rejected -> retries with the direct Verba URL (v=CARD_VERSION)", async () => {
+    const calls = stub(1);
+    try {
+      await cron();
+      const photos = calls.filter((c) => c.method === "sendPhoto");
+      expect(photos).toHaveLength(2);
+      expect(photos[0].body.photo).toMatch(/^https:\/\/api\.verbacorpus\.org\/v1\/cards\/pro:p\d+\.png\?size=telegram$/);
+      expect(photos[1].body.photo).toMatch(/^https:\/\/pro\.verbacorpus\.org\/card\/p\d+\.png\?format=telegram&v=4$/);
+      expect(calls.some((c) => c.method === "sendMessage")).toBe(false);
+    } finally { vi.unstubAllGlobals(); }
+  });
+
+  it("cron: both URLs rejected -> same caption via sendMessage", async () => {
+    const calls = stub(2);
+    try {
+      await cron();
+      expect(calls.filter((c) => c.method === "sendPhoto")).toHaveLength(2);
+      const msg = calls.find((c) => c.method === "sendMessage");
+      expect(msg).toBeDefined();
+      expect(msg!.body.chat_id).toBe("@chan");
+      expect(msg!.body.text).toContain("Прислів'я дня");
+    } finally { vi.unstubAllGlobals(); }
+  });
+
+  it("bot /random: both photo URLs rejected -> replies with the caption text", async () => {
+    const calls = stub(2);
+    try {
+      const ctx = createExecutionContext();
+      const testEnv = { ...env, TELEGRAM_BOT_TOKEN: "12345:mock_token", TELEGRAM_WEBHOOK_SECRET: "super_secret" };
+      const update = { update_id: 5, message: { message_id: 1, date: 0, chat: { id: 777, type: "private" }, from: { id: 777, is_bot: false, first_name: "x" }, text: "/random", entities: [{ type: "bot_command", offset: 0, length: 7 }] } };
+      const res = await worker.fetch(new Request("https://verbacorpus.org/api/telegram-webhook", {
+        method: "POST", headers: { "content-type": "application/json", "x-telegram-bot-api-secret-token": "super_secret" }, body: JSON.stringify(update),
+      }), testEnv as any, ctx);
+      await waitOnExecutionContext(ctx);
+      expect(res.status).toBe(200);
+      expect(calls.filter((c) => c.method === "sendPhoto")).toHaveLength(2);
+      expect(calls.find((c) => c.method === "sendMessage")?.body.chat_id).toBe(777);
+    } finally { vi.unstubAllGlobals(); }
+  });
+});

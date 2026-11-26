@@ -9,6 +9,7 @@
 import { CARD_SIZES, CardRequestError, DEFAULT_FONT, SERIF_FONT, type CardSize, type Recipe } from "./recipe";
 import { fetchGlyphs, CardFontError, type GlyphSet } from "./glyphs";
 import { layoutText, paintText, type TextLayout } from "./bitmap-text";
+import { upstreamSignal } from "../upstream";
 import { fetchBand, CardFrameError } from "./ornament";
 import { loadCorpus, type CorpusEnv } from "../corpus-data";
 import { cardModel, type CardModel } from "../shared/meta";
@@ -83,7 +84,7 @@ interface FontPick { glyphs: GlyphSet | null; attribution: string; degraded: boo
 type FontMeta = { id?: string; displayName?: string; availability?: string; license?: { id?: string; attribution?: string; redistributionAllowed?: boolean }; source?: { author?: string } };
 
 async function fontMeta(fonts: Fetcher, id: string): Promise<FontMeta | null> {
-  const res = await fonts.fetch(`https://upstream/v1/fonts/${encodeURIComponent(id)}`);
+  const res = await fonts.fetch(`https://upstream/v1/fonts/${encodeURIComponent(id)}`, { signal: upstreamSignal() });
   if (res.status === 404) return null;
   if (!res.ok) throw new Error(`font API ${res.status}`);
   return (await res.json()) as FontMeta;
@@ -91,12 +92,16 @@ async function fontMeta(fonts: Fetcher, id: string): Promise<FontMeta | null> {
 
 const SERIF: FontPick = { glyphs: null, attribution: SERIF_ATTRIBUTION, degraded: false };
 
-async function resolveFont(recipe: Recipe, env: CardEnv, strict: boolean, chars: string): Promise<FontPick> {
+async function resolveFont(recipe: Recipe, env: CardEnv, strict: boolean, chars: string | null): Promise<FontPick> {
   if (recipe.font === SERIF_FONT) return SERIF;
   const degrade: FontPick = { ...SERIF, degraded: true };
   if (!env.FONTS) return degrade;
   const id = recipe.font.slice("para:".length);
-  const [metaR, glyphR] = await Promise.allSettled([fontMeta(env.FONTS, id), fetchGlyphs(env.FONTS, id, chars)]);
+  // chars === null: metadata only (json cards never draw, so no glyph fetch).
+  const [metaR, glyphR] = await Promise.allSettled([
+    fontMeta(env.FONTS, id),
+    chars === null ? Promise.resolve(null as GlyphSet | null) : fetchGlyphs(env.FONTS, id, chars),
+  ]);
   const meta = metaR.status === "fulfilled" ? metaR.value : undefined;
   const notFound = meta === null;
   const restricted = (meta && !(meta.availability === "downloadable" && meta.license?.redistributionAllowed === true)) ||
@@ -180,6 +185,9 @@ function wrapCredits(parts: string[], g: GlyphSet, scale: number, maxW: number, 
   return out;
 }
 
+// Short-URL label under the QR: scale 2 on tall cards (story, anything >= 1080 px high), else 1.
+export const qrLabelScale = (H: number): number => (H >= 1080 ? 2 : 1);
+
 const lineLayout = (lines: string[], scale: number): TextLayout => ({ scale, lines, truncated: false, lineGap: 0 });
 
 function fillRect(rgba: Uint8Array, W: number, H: number, x0: number, y0: number, w: number, h: number, rgb: [number, number, number]) {
@@ -226,11 +234,12 @@ function bitmapContent(
     const mod = Math.max(1, Math.floor(s.qr / n));
     const q = mod * n;
     const label = qrUrl.replace(/^https?:\/\//, "");
-    const labelH = cellH;
+    const labelScale = qrLabelScale(H);
+    const labelH = cellH * labelScale;
     const qx = s.qrBeside || s.align === "left" ? right - q : Math.round(centreX - q / 2);
     const qy = bottom - labelH - small - q;
     for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (m[r]![c]) fillRect(rgba, W, H, qx + c * mod, qy + r * mod, mod, mod, SAGE);
-    paintText(rgba, W, H, lineLayout([label], 1), g, { x: Math.round(qx + q / 2), y: bottom - labelH }, "center", GRAY);
+    paintText(rgba, W, H, lineLayout([label], labelScale), g, { x: Math.round(qx + q / 2), y: bottom - labelH }, "center", GRAY);
     if (s.qrBeside) textRight = qx - gap;
     else bottom = qy - gap;
   }
@@ -262,7 +271,7 @@ export async function renderCard(recipe: Recipe, env: CardEnv, host: string, out
 
     const text = await resolveText(recipe, env, host);
     const chars = text.text + text.attribution + text.qrUrl + BRAND + BASE_CHARS;
-    const [font, frame] = await Promise.all([resolveFont(recipe, env, strictFont, chars), resolveFrame(recipe, env, strictFrame)]);
+    const [font, frame] = await Promise.all([resolveFont(recipe, env, strictFont, out.format === "json" ? null : chars), resolveFrame(recipe, env, strictFrame)]);
 
     const attribution = [text.attribution, ...(frame.degraded ? [] : [FRAME_ATTRIBUTION]), font.attribution];
     const degraded = [...(font.degraded ? ["font"] : []), ...(frame.degraded ? ["frame"] : [])];

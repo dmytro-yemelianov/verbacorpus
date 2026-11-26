@@ -1,3 +1,4 @@
+import { upstreamSignal } from "../upstream";
 // Bitmap glyphs from the Nasinnia font API (reached through the FONTS service binding).
 
 export interface Glyph {
@@ -36,7 +37,7 @@ export async function fetchGlyphs(fonts: Fetcher, fontId: string, text: string):
     `&representation=bit-matrix&includeMissing=true`;
   let res: Response;
   try {
-    res = await fonts.fetch(url);
+    res = await fonts.fetch(url, { signal: upstreamSignal() });
   } catch (e) {
     throw new CardFontError("font_unavailable", String(e));
   }

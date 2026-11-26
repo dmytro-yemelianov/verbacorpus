@@ -2,6 +2,7 @@
 // painted as repeating strips, plus the curated list of frame ids.
 import framesFile from "../../content/card-frames.json";
 
+import { upstreamSignal } from "../upstream";
 import { UPA_PALETTE, type UpaColor } from "../shared/upa-palette";
 export { UPA_PALETTE, type UpaColor };
 
@@ -21,7 +22,7 @@ export async function fetchBand(upa: Fetcher, patternId: string): Promise<Band> 
   const id = patternId.startsWith("non:") ? patternId.slice(4) : patternId;
   let res: Response;
   try {
-    res = await upa.fetch(`https://upstream/api/v1/patterns/${encodeURIComponent(id)}`);
+    res = await upa.fetch(`https://upstream/api/v1/patterns/${encodeURIComponent(id)}`, { signal: upstreamSignal() });
   } catch (e) {
     throw new CardFrameError("frame_unavailable", String(e));
   }

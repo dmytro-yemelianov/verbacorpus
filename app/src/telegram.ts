@@ -1,3 +1,4 @@
+import { CARD_VERSION } from "./shared/card-version";
 import { Bot, InlineKeyboard, Keyboard } from "grammy";
 import { type Proverb, randomProverb, searchProverbs, filterProverbs } from "./shared/corpus";
 import { mapMatches } from "./shared/semantic";
@@ -38,6 +39,34 @@ export interface TelegramEnv {
 export function cardPhotoUrl(env: { VERBA_API_BASE?: string }, proverbId: string): string {
   const base = (env.VERBA_API_BASE ?? "https://api.verbacorpus.org").replace(/\/+$/, "");
   return `${base}/v1/cards/pro:${proverbId}.png?size=telegram`;
+}
+
+// Direct Verba card URL, used when the gateway URL cannot be fetched by Telegram.
+export function directCardUrl(proverbId: string): string {
+  return `https://pro.verbacorpus.org/card/${proverbId}.png?format=telegram&v=${CARD_VERSION}`;
+}
+
+// Gateway URL first; if sending with it throws, retry once with the direct Verba URL; if that
+// also fails, fall back to the text-only `sendText`. Used by every photo-sending site.
+export async function sendCardWithFallback(
+  env: { VERBA_API_BASE?: string },
+  proverbId: string,
+  sendPhoto: (url: string) => Promise<unknown>,
+  sendText: () => Promise<unknown>,
+): Promise<void> {
+  try {
+    await sendPhoto(cardPhotoUrl(env, proverbId));
+    return;
+  } catch (e) {
+    console.warn("card photo (gateway) failed, retrying direct", e);
+  }
+  try {
+    await sendPhoto(directCardUrl(proverbId));
+    return;
+  } catch (e) {
+    console.warn("card photo (direct) failed, sending text", e);
+  }
+  await sendText();
 }
 
 function escapeHtml(s: string): string {
@@ -170,11 +199,10 @@ export function initBot(
       .url("🔗 На сайті", `https://${host}/p/${p.id}`)
       .row()
       .url("📣 @VerbaCorpus", CHANNEL_URL);
-    await ctx.replyWithPhoto(cardPhotoUrl(env, p.id), {
-      caption: formatProverbHtml(p, explanation, meta.sources),
-      parse_mode: "HTML",
-      reply_markup: keyboard,
-    });
+    const caption = formatProverbHtml(p, explanation, meta.sources);
+    await sendCardWithFallback(env, p.id,
+      (url) => ctx.replyWithPhoto(url, { caption, parse_mode: "HTML", reply_markup: keyboard }),
+      () => ctx.reply(caption, { parse_mode: "HTML", reply_markup: keyboard }));
   };
   const sendCategories = (ctx: any) =>
     ctx.reply("🏷️ <b>Оберіть тему для пошуку прислів'їв:</b>", { parse_mode: "HTML", reply_markup: buildCategoriesKeyboard(taxonomy) });
@@ -310,7 +338,6 @@ export function initBot(
 
     const explanation = explanations[p.id] || null;
     const formatted = formatProverbHtml(p, explanation, meta.sources);
-    const photoUrl = cardPhotoUrl(env, p.id);
 
     const keyboard = new InlineKeyboard()
       .text("🎲 Ще одне", "random_shuffle")
@@ -318,15 +345,9 @@ export function initBot(
       .row()
       .url("📣 @VerbaCorpus", CHANNEL_URL);
 
-    await ctx.editMessageMedia(
-      {
-        type: "photo",
-        media: photoUrl,
-        caption: formatted,
-        parse_mode: "HTML",
-      },
-      { reply_markup: keyboard }
-    );
+    await sendCardWithFallback(env, p.id,
+      (url) => ctx.editMessageMedia({ type: "photo", media: url, caption: formatted, parse_mode: "HTML" }, { reply_markup: keyboard }),
+      () => ctx.reply(formatted, { parse_mode: "HTML", reply_markup: keyboard }));
     await ctx.answerCallbackQuery();
   });
 
@@ -350,7 +371,7 @@ export function initBot(
 
     const explanation = explanations[p.id] || null;
     const formatted = formatProverbHtml(p, explanation, meta.sources);
-    const photoUrl = cardPhotoUrl(env, p.id);
+    const caption = `📂 <b>Тема: ${escapeHtml(categoryName)}</b>\n\n${formatted}`;
 
     const keyboard = new InlineKeyboard()
       .text("🎲 Ще з цієї теми", `cat:${categoryKey}`)
@@ -361,16 +382,11 @@ export function initBot(
 
     // If callback came from a text message (like /categories list) we need to reply with a photo message
     // If it came from a photo message, we edit media
+    const text = () => ctx.reply(caption, { parse_mode: "HTML", reply_markup: keyboard });
     if (ctx.callbackQuery.message && "photo" in ctx.callbackQuery.message) {
-      await ctx.editMessageMedia(
-        {
-          type: "photo",
-          media: photoUrl,
-          caption: `📂 <b>Тема: ${escapeHtml(categoryName)}</b>\n\n${formatted}`,
-          parse_mode: "HTML",
-        },
-        { reply_markup: keyboard }
-      );
+      await sendCardWithFallback(env, p.id,
+        (url) => ctx.editMessageMedia({ type: "photo", media: url, caption, parse_mode: "HTML" }, { reply_markup: keyboard }),
+        text);
     } else {
       // Delete selection message and reply with photo
       if (ctx.callbackQuery.message) {
@@ -378,11 +394,9 @@ export function initBot(
           await ctx.deleteMessage();
         } catch {}
       }
-      await ctx.replyWithPhoto(photoUrl, {
-        caption: `📂 <b>Тема: ${escapeHtml(categoryName)}</b>\n\n${formatted}`,
-        parse_mode: "HTML",
-        reply_markup: keyboard,
-      });
+      await sendCardWithFallback(env, p.id,
+        (url) => ctx.replyWithPhoto(url, { caption, parse_mode: "HTML", reply_markup: keyboard }),
+        text);
     }
     await ctx.answerCallbackQuery();
   });
@@ -403,10 +417,11 @@ export function initBot(
     const p = byId.get(d.proverbIds[Number(action)]);
     if (!p) { await ctx.answerCallbackQuery("Прислів'я не знайдено"); return; }
     const modern = p.modern_text && p.modern_text.trim() !== p.text.trim() ? prettify(p.modern_text) : "";
-    const pngUrl = cardPhotoUrl(env, p.id);
     try {
-      await bot.api.sendPhoto(env.TELEGRAM_CHANNEL_ID, pngUrl, {
-        caption: newsCaption(d, prettify(p.text), modern), parse_mode: "HTML" });
+      const caption = newsCaption(d, prettify(p.text), modern);
+      await sendCardWithFallback(env, p.id,
+        (url) => bot.api.sendPhoto(env.TELEGRAM_CHANNEL_ID, url, { caption, parse_mode: "HTML" }),
+        () => bot.api.sendMessage(env.TELEGRAM_CHANNEL_ID, caption, { parse_mode: "HTML" }));
       await delDraft(newsKv, draftId);
       await ctx.editMessageText(`✅ Опубліковано: ${escapeHtml(prettify(p.text)).slice(0, 80)}`, { reply_markup: undefined });
     } catch (e) {

@@ -4,6 +4,8 @@ import { t, hreflangLinks, DEFAULT_LANG } from "./i18n";
 import { srcLabel } from "./sources";
 import { shortUrl } from "./shortlink";
 import { qrDataUri } from "./qr";
+import { CARD_VERSION } from "./card-version";
+export { CARD_VERSION };
 
 export function escapeHtml(s: string): string {
   return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
@@ -49,7 +51,7 @@ export function buildProverbPage(p: Proverb, host: string, cat: Record<string, s
   const e = escapeHtml;
   const pt = prettify(p.text);
   const pm = p.modern_text && p.modern_text.trim() !== p.text.trim() ? prettify(p.modern_text) : "";
-  const img = `https://${e(host)}/card/${e(p.id)}.png?v=3`;
+  const img = `https://${e(host)}/card/${e(p.id)}.png?v=${CARD_VERSION}`;
   const canon = `https://${e(host)}${lang === DEFAULT_LANG ? "" : "/" + e(lang)}/p/${e(p.id)}`;
   const desc = [prettify(p.modern_text), p.sources.map(srcLabel).join(", "), p.category.join(", ")].filter(Boolean).join(" — ");
   const tags = p.category.map((c) => `<span class="tag">${e(c)}</span>`).join("");
@@ -125,14 +127,14 @@ ${hreflang}
   </div>
 </nav>
 <main class="wrap p-detail" style="max-width:760px;padding-block:clamp(2rem,8vw,5rem);">
-<img class="p-card" src="/card/${e(p.id)}.png?v=3" alt="${e(pt)}" width="1200" height="630" />
+<img class="p-card" src="/card/${e(p.id)}.png?v=${CARD_VERSION}" alt="${e(pt)}" width="1200" height="630" />
 <p class="hero-text" style="margin:0;">${e(pt)}</p>
 ${pm ? `<p class="hero-modern">${e(pm)}</p>` : ""}
 <p style="margin-top:1rem;">${tags} <span class="tag-src">${e(p.sources.map(srcLabel).join(" · "))}</span></p>
 ${sourceCitations.length ? `<p style="margin-top:.8rem;font-size:.85rem;color:var(--muted);line-height:1.5;">${sourceCitations.map((c) => e(c)).join("<br>")}</p>` : ""}
 <div class="p-share">
   <button id="copyLink" type="button" data-link="${e(su)}" data-i18n="detail.copyLink">${e(copyLinkLabel)}</button>
-  <a href="/card/${e(p.id)}.png?v=3" target="_blank" rel="noopener" data-i18n="detail.card">${e(cardLabel)}</a>
+  <a href="/card/${e(p.id)}.png?v=${CARD_VERSION}" target="_blank" rel="noopener" data-i18n="detail.card">${e(cardLabel)}</a>
 </div>
 </main>
 <script type="module" src="/chrome.js"></script>

@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import frames from "../../app/content/card-frames.json";
 
 // Live contract smoke test; runs only with GATEWAY set, e.g.
 // GATEWAY=https://api.verbacorpus.org npx vitest run test/live.test.ts
@@ -25,6 +26,11 @@ describe.skipIf(!GATEWAY)("live gateway", () => {
     expect(r.status).toBe(200);
     const body = (await r.json()) as any;
     expect(body.recipe).toBeTruthy();
+  });
+
+  it("serves the first card frame as a non item", async () => {
+    const r = await fetch(`${GATEWAY}/v1/items/${frames.frames[0]}`);
+    expect(r.status).toBe(200);
   });
 
   it("serves a PNG card", async () => {
