@@ -16,7 +16,7 @@ describe("fetchBand", () => {
   it("reads unitCell with only A-G symbols", async () => {
     const { f, calls } = fakeUpa(200, fx["p08_L_b03"]);
     const b = await fetchBand(f, "p08_L_b03");
-    expect(calls[0]).toBe("https://upstream/api/v1/patterns/p08_L_b03");
+    expect(calls[0]).toBe("https://upstream/api/v1/patterns/p08_L_b03?similar=0");
     expect(b.id).toBe("p08_L_b03");
     expect(b.unit.length).toBe(3);
     expect(b.unit.flat().every((c) => /^[A-G]$/.test(c))).toBe(true);
