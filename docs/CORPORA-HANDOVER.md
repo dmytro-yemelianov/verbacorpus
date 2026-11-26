@@ -287,6 +287,29 @@ worker головного сайту; сам словник його не реє
 Перед оновленням оздоблення замінити цей імпорт на відтворюваний знімок із UPA,
 зберігши геометрію, ID орнаменту, версію й атрибуцію.
 
+## Verba API (`api.verbacorpus.org`)
+
+Стан на 2026-11-26: живий. Спека — `docs/superpowers/specs/2026-11-25-verba-api-design.md`,
+план — `docs/superpowers/plans/2026-11-26-verba-api-foundation.md`, опис для споживачів —
+`gateway/README.md`, OpenAPI — `https://api.verbacorpus.org/v1/openapi.json`, Swagger — `/v1/docs`.
+
+- Worker `verba-api` (`gateway/`), домен `api.verbacorpus.org` (custom domain) і
+  `verba-api.miwaniza.workers.dev`. Власного сховища немає.
+- Service bindings: `PRO` → `ukr-proverbs-corpus` (прислів'я й `contra`), `UPA` → `upa-local-preview`,
+  `FONTS` → `nasinnia`. Усі в одному акаунті Cloudflare.
+- Корпуси: `pro` 48 787, `contra` 1 995, `para` 2 260, `non` 167. Права — §5.3 спеки
+  (`non` і `contra` — `terms-pending`, `contra` не входить у змішаний `random` без явного запиту).
+- API «Без табу» живе у Verba: `/api/v1/contra`, `/items`, `/items/{id}`. Стабільні ID —
+  `app/content/bez-tabu-ids.json`; після нової синхронізації джерела запускати
+  `python3 app/sync_bez_tabu.py --ids-only` (або звичайну синхронізацію), інакше Worker логуватиме fallback-ID.
+- Розгортання шлюзу не входить у CI: `cd gateway && npm ci && npx vitest run && npx wrangler deploy`.
+  Жива перевірка: `GATEWAY=https://api.verbacorpus.org npx vitest run test/live.test.ts`.
+  Відкат: `npx wrangler rollback` у `gateway/`.
+- Nasinnia розгортається вручну з `~/github/nasinnia` (`npm run deploy`); каталог D1/R2 —
+  `npm run catalog:sync` лише коли змінилися дані.
+- Відомі нестабільні тести CI (перезапуск проходив): WebKit-тест рамки з reduced motion у UPA,
+  `test/corpus-loading.test.ts` у Verba (тайм-аут 5 с).
+
 ## Межі поточної інтеграції
 
 `app/src/index.ts` завантажує лише прислів’я, пояснення та їхні метадані.
