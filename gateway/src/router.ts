@@ -17,7 +17,7 @@ import { makeNonAdapter } from "./adapters/non.js";
 import { makeParaAdapter } from "./adapters/para.js";
 import { makeProAdapter } from "./adapters/pro.js";
 import { docsHtml, openapi } from "./openapi.js";
-import { checkFont, proxyCard, recipeFrom, type CardExt } from "./cards.js";
+import { CARD_ALIGNS, CARD_STYLES, checkFont, proxyCard, recipeFrom, type CardExt } from "./cards.js";
 import { pickCardFriendly, pickMixed, pickRandom, rng } from "./random.js";
 
 export interface Env {
@@ -206,6 +206,13 @@ async function route(request: Request, env: Env, adapters: Partial<Record<Corpus
       const item = await pickCardFriendly(adapter, rng(seed), new URLSearchParams());
       if (!item) throw new ApiError(503, "unavailable", `corpus "${corpus}" has no items`);
       const recipe = recipeFrom(item.id, p);
+      if (!recipe.style) {
+        const styled = CARD_STYLES.filter((s) => s !== "base");
+        recipe.style = styled[Math.floor(rng(`${seed}:style`)() * styled.length)];
+      }
+      if (!recipe.align) {
+        recipe.align = CARD_ALIGNS[Math.floor(rng(`${seed}:align`)() * CARD_ALIGNS.length)];
+      }
       await checkFont(adapters, recipe.font);
       const r = await proxyCard(env.PRO, recipe, ext);
       if (r.status === 200 && !r.headers.has("x-verba-degraded")) {

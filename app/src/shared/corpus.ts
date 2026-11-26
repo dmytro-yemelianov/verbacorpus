@@ -5,6 +5,8 @@ export type Proverb = {
   category: string[];
   sources: string[];
   variant_group: string;
+  hook?: string;
+  hook_source?: "model" | "rule";
 };
 
 export type SearchOpts = {

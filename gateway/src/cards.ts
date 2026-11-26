@@ -5,6 +5,8 @@ import type { Corpus } from "./contract.js";
 import type { Adapter } from "./adapters/types.js";
 
 export const CARD_SIZES = ["fb", "square", "story", "yt", "sticker", "telegram"] as const;
+export const CARD_STYLES = ["base", "color", "big", "shadowS", "shadowD", "stitch", "invert", "marker"] as const;
+export const CARD_ALIGNS = ["left", "center", "right", "stairR", "stairL"] as const;
 export const CARD_TIMEOUT_MS = 15000;
 export type CardExt = "png" | "gif" | "json";
 
@@ -18,6 +20,9 @@ export interface CardRecipe {
   font?: string;
   size?: string;
   lang?: string;
+  style?: string;
+  align?: string;
+  hook?: string;
 }
 
 export function validateText(text: string): string {
@@ -50,6 +55,18 @@ export function recipeFrom(text: string, qp: URLSearchParams): CardRecipe {
     if (lang !== "uk" && lang !== "en") throw bad("lang must be uk or en");
     r.lang = lang;
   }
+  const style = qp.get("style")?.trim();
+  if (style) {
+    if (!(CARD_STYLES as readonly string[]).includes(style)) throw bad(`style must be one of ${CARD_STYLES.join(", ")}`);
+    r.style = style;
+  }
+  const align = qp.get("align")?.trim();
+  if (align) {
+    if (!(CARD_ALIGNS as readonly string[]).includes(align)) throw bad(`align must be one of ${CARD_ALIGNS.join(", ")}`);
+    r.align = align;
+  }
+  const hook = qp.get("hook");
+  if (hook !== null && hook !== "") r.hook = hook;
   return r;
 }
 
@@ -74,7 +91,7 @@ export async function proxyCard(
 ): Promise<Response> {
   if (!pro) throw new ApiError(503, "unavailable", "card renderer is not available");
   const q = new URLSearchParams({ text: recipe.text });
-  for (const k of ["frame", "font", "size", "lang"] as const) if (recipe[k]) q.set(k, recipe[k]!);
+  for (const k of ["frame", "font", "size", "lang", "style", "align", "hook"] as const) if (recipe[k]) q.set(k, recipe[k]!);
   // pro.verbacorpus.org is the canonical Verba host: the apex would answer with a 308 hop.
   const url = `https://pro.verbacorpus.org/card/render.${ext}?${q}`;
   let res: Response;

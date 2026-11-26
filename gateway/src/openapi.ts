@@ -234,6 +234,9 @@ export const openapi = {
           { name: "font", in: "query", schema: { type: "string" }, description: "`para:<fontId>` або `pt-serif`." },
           { name: "size", in: "query", schema: { type: "string", enum: ["fb", "square", "story", "yt", "sticker", "telegram"], default: "fb" } },
           { name: "lang", in: "query", schema: { type: "string", enum: ["uk", "en"], default: "uk" } },
+          { name: "style", in: "query", schema: { type: "string", enum: ["base", "color", "big", "shadowS", "shadowD", "stitch", "invert", "marker"], default: "color" } },
+          { name: "align", in: "query", schema: { type: "string", enum: ["left", "center", "right", "stairR", "stairL"] } },
+          { name: "hook", in: "query", schema: { type: "string" }, description: "`auto`, `none`, або точний підрядок тексту." },
         ],
         responses: {
           "200": {
@@ -263,6 +266,9 @@ export const openapi = {
           { name: "frame", in: "query", schema: { type: "string" } },
           { name: "font", in: "query", schema: { type: "string" } },
           { name: "lang", in: "query", schema: { type: "string", enum: ["uk", "en"] } },
+          { name: "style", in: "query", schema: { type: "string", enum: ["base", "color", "big", "shadowS", "shadowD", "stitch", "invert", "marker"] } },
+          { name: "align", in: "query", schema: { type: "string", enum: ["left", "center", "right", "stairR", "stairL"] } },
+          { name: "hook", in: "query", schema: { type: "string" } },
         ],
         responses: {
           "200": {

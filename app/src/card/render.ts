@@ -6,16 +6,17 @@
 // response carries `x-verba-degraded: font|frame|font,frame` with `cache-control: no-store`.
 // Only explicit, well-formed requests for something that does not exist or is not allowed
 // fail: see `strict` below.
-import { CARD_SIZES, CardRequestError, DEFAULT_FONT, SERIF_FONT, type CardSize, type Recipe } from "./recipe";
+import { CARD_SIZES, CardRequestError, DEFAULT_FONT, SERIF_FONT, type CardAlign, type CardSize, type CardStyle, type Recipe } from "./recipe";
 import { fetchGlyphs, CardFontError, type GlyphSet } from "./glyphs";
-import { layoutText, paintText, type TextLayout } from "./bitmap-text";
+import { paintText, type TextLayout } from "./bitmap-text";
+import { layoutStyled, paintStyled, styledBlockHeight, tokenizeStyled } from "./styled-text";
 import { upstreamSignal } from "../upstream";
-import { fetchBand, CardFrameError } from "./ornament";
+import { fetchBand, CardFrameError, UPA_PALETTE } from "./ornament";
 import { loadCorpus, type CorpusEnv } from "../corpus-data";
 import { cardModel, type CardModel } from "../shared/meta";
 import { qrMatrix } from "../shared/qr";
 import { bandPx, cleanForCard } from "../card";
-import { encodeCardGif, encodeCardPng, paperCanvas, serifContent, GRAY, INK, RULE, SAGE, type CardScene } from "../card-gif";
+import { encodeCardGif, encodeCardPng, paperCanvas, serifContent, GRAY, INK, PAPER, RULE, SAGE, type CardScene } from "../card-gif";
 
 export interface CardEnv extends CorpusEnv {
   FONTS?: Fetcher;
@@ -49,7 +50,14 @@ const CORS = { "access-control-allow-origin": "*", "access-control-expose-header
 
 // ---------------------------------------------------------------- resolution
 
-interface TextPick { text: string; attribution: string; model: CardModel; qrUrl: string }
+interface TextPick { text: string; hook: string | null; attribution: string; model: CardModel; qrUrl: string }
+
+function pickHook(rawText: string, modelHook: string | undefined, requested: string | undefined): string | null {
+  if (!requested || requested === "auto") return modelHook && rawText.includes(modelHook) ? modelHook : null;
+  if (requested === "none") return null;
+  if (!rawText.includes(requested)) throw new CardRequestError(400, "invalid_hook", "hook must be an exact substring of text");
+  return requested;
+}
 
 async function resolveText(recipe: Recipe, env: CardEnv, host: string): Promise<TextPick> {
   const sep = recipe.text.indexOf(":");
@@ -59,10 +67,13 @@ async function resolveText(recipe: Recipe, env: CardEnv, host: string): Promise<
     const p = byId.get(local);
     if (!p) throw new CardRequestError(404, "not_found", `no proverb ${recipe.text}`);
     const model = cardModel(p, { host, lang: recipe.lang, sources: meta?.sources });
+    const text = cleanForCard(model.text);
+    const hook = pickHook(text, (p as { hook?: string }).hook, recipe.hook);
     return {
-      text: cleanForCard(model.text),
+      text,
+      hook,
       attribution: model.cite ? `${model.cite} — ${PRO_LICENCE}` : PRO_LICENCE,
-      model: { ...model, text: cleanForCard(model.text) },
+      model: { ...model, text },
       qrUrl: model.shortUrl,
     };
   }
@@ -76,7 +87,8 @@ async function resolveText(recipe: Recipe, env: CardEnv, host: string): Promise<
   }
   if (!entry) throw new CardRequestError(404, "not_found", `no contra entry ${recipe.text}`);
   const text = `${entry.synonym} — ${entry.term}`;
-  return { text, attribution: CONTRA_ATTRIBUTION, model: { text, modern: "", footer: "", cite: CONTRA_ATTRIBUTION, qr: "", shortUrl: "" }, qrUrl: "" };
+  const hook = pickHook(text, entry.synonym, recipe.hook);
+  return { text, hook, attribution: CONTRA_ATTRIBUTION, model: { text, modern: "", footer: "", cite: CONTRA_ATTRIBUTION, qr: "", shortUrl: "" }, qrUrl: "" };
 }
 
 interface FontPick { glyphs: GlyphSet | null; attribution: string; degraded: boolean }
@@ -232,10 +244,15 @@ function fillRect(rgba: Uint8Array, W: number, H: number, x0: number, y0: number
 
 function bitmapContent(
   size: CardSize, W: number, H: number, strip: number, g: GlyphSet,
-  text: string, credits: string[], qrUrl: string, chrome: boolean,
+  text: string, hook: string | null, style: CardStyle, align: CardAlign,
+  credits: string[], qrUrl: string, chrome: boolean,
 ): Uint8Array<ArrayBuffer> {
   const s = SPECS[size];
   const rgba = paperCanvas(W, H);
+  const invert = style === "invert";
+  if (invert) fillRect(rgba, W, H, 0, strip, W, H - 2 * strip, UPA_PALETTE.D);
+  const creditInk: [number, number, number] = invert ? [189, 182, 164] : GRAY;
+  const qrInk: [number, number, number] = invert ? PAPER : SAGE;
   const gap = Math.round(H * 0.035);
   const small = Math.max(6, Math.round(gap * 0.6));
   const left = s.pad, right = W - s.pad, cw = right - left;
@@ -247,12 +264,12 @@ function bitmapContent(
   // Credits: text source · frame · font, small, at the very bottom of the content area.
   const creditLines = wrapCredits(credits, g, s.attrScale, cw, 3);
   bottom -= creditLines.length * cellH * s.attrScale;
-  paintText(rgba, W, H, lineLayout(creditLines, s.attrScale), g, { x: s.align === "center" ? centreX : left, y: bottom }, s.align, GRAY);
+  paintText(rgba, W, H, lineLayout(creditLines, s.attrScale), g, { x: s.align === "center" ? centreX : left, y: bottom }, s.align, creditInk);
   bottom -= small;
 
   if (s.brand && chrome) {
     bottom -= cellH * 2;
-    paintText(rgba, W, H, lineLayout([BRAND], 2), g, { x: left, y: bottom }, "left", SAGE);
+    paintText(rgba, W, H, lineLayout([BRAND], 2), g, { x: left, y: bottom }, "left", qrInk);
     bottom -= small;
     fillRect(rgba, W, H, left, bottom - 2, cw, 2, RULE);
     bottom -= 2 + small;
@@ -268,19 +285,18 @@ function bitmapContent(
     const labelScale = lay.scale;
     const labelH = cellH * labelScale;
     const qy = bottom - labelH - small - q;
-    for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (m[r]![c]) fillRect(rgba, W, H, qx + c * mod, qy + r * mod, mod, mod, SAGE);
-    paintText(rgba, W, H, lineLayout([label], labelScale), g, { x: lay.x, y: bottom - labelH }, "left", GRAY);
+    for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (m[r]![c]) fillRect(rgba, W, H, qx + c * mod, qy + r * mod, mod, mod, qrInk);
+    paintText(rgba, W, H, lineLayout([label], labelScale), g, { x: lay.x, y: bottom - labelH }, "left", creditInk);
     if (s.qrBeside) textRight = qx - gap;
     else bottom = qy - gap;
   }
 
   const box = { width: textRight - left, height: bottom - top };
-  const layout = layoutText(text, g, box, { maxScale: s.maxScale, minScale: 2, lineGap: 1 });
-  const rowH = cellH * layout.scale + layout.lineGap * layout.scale;
-  const blockH = layout.lines.length * rowH - layout.lineGap * layout.scale;
+  const tokens = tokenizeStyled(text, hook);
+  const lines = layoutStyled(tokens, g, box, style, { maxScale: s.maxScale, minScale: 2, lineGap: 1 });
+  const blockH = styledBlockHeight(lines, cellH);
   const y = top + Math.max(0, Math.floor((box.height - blockH) / 2));
-  const x = s.align === "center" ? Math.round(left + box.width / 2) : left;
-  paintText(rgba, W, H, layout, g, { x, y }, s.align, INK);
+  paintStyled(rgba, W, H, lines, g, { left, width: box.width, y }, align, style);
   return rgba;
 }
 
@@ -318,8 +334,10 @@ export async function renderCard(recipe: Recipe, env: CardEnv, host: string, out
 
     const { W, H } = CARD_SIZES[recipe.size];
     const strip = stripFor(frame.unit, bandPx(H));
+    const style = recipe.style ?? "color";
+    const align = recipe.align ?? SPECS[recipe.size].align;
     const content = font.glyphs
-      ? bitmapContent(recipe.size, W, H, strip, font.glyphs, text.text, attribution, text.qrUrl, chrome)
+      ? bitmapContent(recipe.size, W, H, strip, font.glyphs, text.text, text.hook, style, align, attribution, text.qrUrl, chrome)
       : await serifContent(text.model, recipe.size, W, H, { minimal: out.minimal, nochrome: out.nochrome, attribution: attribution.join(" · ") });
     const scene: CardScene = { W, H, content, unit: frame.unit, strip };
     const bytes = out.format === "gif" ? encodeCardGif(scene) : encodeCardPng(scene);
