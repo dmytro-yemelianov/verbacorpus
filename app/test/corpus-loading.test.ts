@@ -32,4 +32,6 @@ it("a cold request can load the corpus while another request's asset I/O is stal
   const warm = await call(healthyFetch);
   expect(warm.status).toBe(200);
   expect(healthyFetch).toHaveBeenCalledTimes(3);
-});
+  // The cold import of the whole Worker can exceed vitest's 5 s default on loaded CI runners;
+  // the isolation assertion above keeps its own 1 s bound.
+}, 20_000);
