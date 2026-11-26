@@ -8,7 +8,7 @@ const FONT = Uint8Array.from(atob(ptSerifBase64), (c) => c.charCodeAt(0)).buffer
 // so escape only the structural chars; leave quotes/apostrophes as-is.
 const e = (s: string) => s.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]!));
 
-function cleanForCard(s: string): string {
+export function cleanForCard(s: string): string {
   if (!s) return s;
   return s
     .replace(/\u043e\u0302/g, "\u00f4")
@@ -25,9 +25,14 @@ export function bandPx(height: number): number {
   return Math.round(height * 0.12);
 }
 
-export function renderCard(m: CardModel, opts: { format?: string; state?: number; layer?: boolean; transparent?: boolean; minimal?: boolean; nochrome?: boolean } = {}): Response {
+// PT Serif card via satori. The recipe pipeline (card/render.ts) uses it only as the
+// fallback text layer (layer + transparent) when the Nasinnia bitmap font is unavailable
+// or `font=pt-serif` is asked for; `attribution` is the small credits line at the bottom.
+export function renderCard(m: CardModel, opts: { format?: string; state?: number; layer?: boolean; transparent?: boolean; minimal?: boolean; nochrome?: boolean; attribution?: string } = {}): Response {
   const format = opts.format || "fb";
   const layer = !!opts.layer;
+  const showQr = !opts.minimal && !opts.nochrome && !!m.qr;
+  const attribution = opts.attribution ?? "";
   const bg = opts.transparent ? "transparent" : "#f4f1e8";
   const text = cleanForCard(m.text);
 
@@ -38,7 +43,7 @@ export function renderCard(m: CardModel, opts: { format?: string; state?: number
   const escapedText = e(text);
   const escapedUrl = e((m.shortUrl || "").replace(/^https?:\/\//, ""));
   // QR with the URL stacked beneath it, both the same width (no source/№ line).
-  const qrCol = (size: number) =>
+  const qrCol = (size: number) => !showQr ? "" :
     `<div style="display:flex;flex-direction:column;align-items:center;width:${size}px;">` +
     `<img src="${m.qr}" width="${size}" height="${size}" style="display:flex;" />` +
     `<div style="display:flex;justify-content:center;width:${size}px;margin-top:8px;font-size:${Math.floor(size/12)}px;color:#6f6a5c;letter-spacing:.01em;">${escapedUrl}</div>` +
@@ -97,13 +102,13 @@ export function renderCard(m: CardModel, opts: { format?: string; state?: number
         </div>
       </div>
       <div style="display:flex;flex-direction:column;border-top:2px solid #e5dfcf;padding-top:22px;">
-        <div style="display:flex;align-items:center;">
+        <div style="display:${opts.minimal || opts.nochrome ? "none" : "flex"};align-items:center;">
           <svg viewBox="0 0 40 64" style="width:24px;height:38px;margin-right:12px;display:flex;"><path d="M20 4 C 31 22 30 46 21 60 C 12 46 11 22 20 4 Z" fill="#5e7355"/><path d="M20 11 C 23 28 22 47 21 54" stroke="#f4f1e8" stroke-width="1.6" fill="none" stroke-linecap="round"/></svg>
           <span style="font-size:28px;color:#5e7355;font-weight:bold;letter-spacing:0.02em;">verba</span>
           <span style="font-size:24px;color:#8a8270;margin-left:16px;">verbacorpus.org · @VerbaCorpus</span>
         </div>
         <div style="display:flex;font-size:22px;color:#6f6a5c;line-height:1.35;letter-spacing:.01em;margin-top:14px;">
-          <span>${e(m.cite)}</span>
+          <span>${e(attribution || m.cite)}</span>
         </div>
       </div>
     </div>`;
@@ -117,6 +122,15 @@ export function renderCard(m: CardModel, opts: { format?: string; state?: number
       </div>
       <div style="display:flex;justify-content:flex-end;">${qrCol(132)}</div>
     </div>`;
+  }
+
+  if (attribution && format !== "telegram") {
+    const fs = format === "sticker" ? 12 : format === "story" ? 24 : format === "square" ? 20 : 17;
+    const side = format === "sticker" ? 24 : 72;
+    const bottom = (layer ? bandPx(height) : 0) + Math.round(fs * 0.8);
+    // Extra room at the bottom of the root so the credits never collide with the text/QR.
+    html = html.replace(/^(\s*<div style="[^"]*)"/, `$1padding-bottom:${(layer ? bandPx(height) : 0) + Math.round(fs * 3.6)}px;position:relative;"`)
+      .replace(/<\/div>\s*$/, `<div style="position:absolute;left:${side}px;right:${side}px;bottom:${bottom}px;display:flex;flex-wrap:wrap;justify-content:center;text-align:center;font-size:${fs}px;line-height:1.3;color:#6f6a5c;">${e(attribution)}</div></div>`);
   }
 
   return new ImageResponse(html, {

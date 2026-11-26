@@ -1,80 +1,85 @@
+// Encoders for recipe cards (card/render.ts): a card "scene" is the finished content
+// (paper + text + QR + credits) plus the ornament band that frames it top and bottom.
+// PNG = the scene at phase 0; GIF = the band drifting across a short loop.
 import UPNG from "upng-js";
 import { GIFEncoder, applyPalette } from "gifenc";
-import { renderCard, bandPx } from "./card";
+import { renderCard } from "./card";
 import { type CardModel } from "./shared/meta";
 import { compositeOver } from "./shader/vyshyvanka";
-import { pickBorder, paintBorders } from "./shader/embroidery";
+import { paintBand, UPA_PALETTE } from "./card/ornament";
 
-// Fixed, palette-restricted colour set. Instead of a 256-colour median-cut
-// quantize (which dragged in every text anti-alias shade), every frame snaps to
-// this small list: the two-tone embroidery (cream/red/black), the card's
-// ink/gray/sage text + accents, white for the QR quiet zone, and a short
-// cream->ink ramp so serif glyph edges stay legible. ~12 colours => a 16-slot
-// colour table: crisp, poster-like, palette-locked, and much smaller files.
+export const PAPER: [number, number, number] = [0xf4, 0xf1, 0xe8];
+export const INK: [number, number, number] = [0x23, 0x25, 0x20];
+export const GRAY: [number, number, number] = [0x6f, 0x6a, 0x5c];
+export const SAGE: [number, number, number] = [0x5e, 0x73, 0x55];
+export const RULE: [number, number, number] = [0xe5, 0xdf, 0xcf];
+
+// Fixed palette (≤16 slots): paper, the UPA thread colours, the card's ink/gray/sage/rule,
+// plus a short paper→ink ramp so the PT Serif fallback's anti-aliased edges stay legible.
+// The bitmap pipeline only ever produces exact palette colours.
 const GIF_PALETTE: [number, number, number][] = [
-  [244, 241, 232], // cream  #f4f1e8  background / no-stitch
-  [180, 35, 42],   // red    #b4232a  thread
-  [26, 26, 26],    // black  #1a1a1a  thread
-  [35, 37, 32],    // ink    #232520  proverb text
-  [111, 106, 92],  // gray   #6f6a5c  modern / footer / url
-  [94, 115, 85],   // sage   #5e7355  accent bar / cursor
-  [255, 255, 255], // white  QR quiet zone
-  [192, 190, 182], // cream->ink AA (.25)
-  [140, 139, 132], // cream->ink AA (.50)
-  [87, 88, 82],    // cream->ink AA (.75)
-  [178, 174, 162], // cream->gray AA (.50)
+  PAPER,
+  UPA_PALETTE.A, UPA_PALETTE.C, UPA_PALETTE.D, UPA_PALETTE.E, UPA_PALETTE.F, UPA_PALETTE.G,
+  INK, GRAY, SAGE, RULE,
+  [192, 190, 182], // paper→ink AA (.25)
+  [140, 139, 132], // paper→ink AA (.50)
+  [87, 88, 82],    // paper→ink AA (.75)
+  [178, 174, 162], // paper→gray AA (.50)
 ];
 
 const FRAMES = 14;          // loop length
 const DELAY_MS = 110;       // per-frame delay
 const PALETTE_FMT = "rgb565" as const;
-const CREAM: [number, number, number] = [244, 241, 232]; // linen background
 
-type RenderExtra = { minimal?: boolean; nochrome?: boolean };
-type CardBase = { W: number; H: number; text: Uint8Array; border: ReturnType<typeof pickBorder>; band: number };
-
-// Render the proverb card once in layer mode (transparent bg + extra top/bottom
-// padding so text/bar/QR clear the bands) and pick this proverb's UPA border.
-// Shared by the GIF and the static PNG so both have the identical рушник design.
-async function composeCardBase(model: CardModel, format: string, seedKey: string, extra: RenderExtra = {}): Promise<CardBase> {
-  const png = await renderCard(model, { format, layer: true, transparent: true, ...extra }).arrayBuffer();
-  const img = UPNG.decode(png);
-  const W = img.width, H = img.height;
-  const text = new Uint8Array(UPNG.toRGBA8(img)[0]);
-  return { W, H, text, border: pickBorder(seedKey), band: bandPx(H) };
+export interface CardScene {
+  W: number;
+  H: number;
+  content: Uint8Array; // opaque RGBA, paper-filled, nothing drawn inside the band strips
+  unit: string[][];    // band unitCell (A–G; B = paper)
+  strip: number;       // painted strip height, top rows [0,strip) and bottom rows [H-strip,H)
 }
 
-// One composited frame: cream field → tile the border into top/bottom bands at
-// `phase` → composite the proverb on the clean cream center.
-function renderCardFrame(b: CardBase, phase: number): Uint8Array<ArrayBuffer> {
-  const frame = new Uint8Array(b.W * b.H * 4);
-  for (let o = 0; o < frame.length; o += 4) {
-    frame[o] = CREAM[0]; frame[o + 1] = CREAM[1]; frame[o + 2] = CREAM[2]; frame[o + 3] = 255;
+export function paperCanvas(W: number, H: number): Uint8Array<ArrayBuffer> {
+  const out = new Uint8Array(W * H * 4);
+  for (let o = 0; o < out.length; o += 4) {
+    out[o] = PAPER[0]; out[o + 1] = PAPER[1]; out[o + 2] = PAPER[2]; out[o + 3] = 255;
   }
-  paintBorders(frame, b.W, b.H, b.band, b.border, phase);
-  compositeOver(frame, b.text);
+  return out;
+}
+
+// One frame: the content with both strips painted; the bottom strip drifts the other way.
+function frameAt(s: CardScene, phase: number): Uint8Array<ArrayBuffer> {
+  const frame = new Uint8Array(s.content.length);
+  frame.set(s.content);
+  paintBand(frame, s.W, s.H, 0, s.strip, s.unit, PAPER, phase);
+  paintBand(frame, s.W, s.H, s.H - s.strip, s.strip, s.unit, PAPER, (1 - phase) % 1);
   return frame;
 }
 
-// Animated рушник share-card: an authentic Ukrainian embroidery border (from the
-// UPA pattern corpus, picked per proverb) is tiled into top + bottom bands that
-// frame the card; the proverb sits on the clean cream center. The border gently
-// drifts across the loop. The fixed palette rides frame 0 only as the GCT.
-export async function makeVyshyvankaGif(model: CardModel, format: string, seedKey = ""): Promise<Uint8Array<ArrayBuffer>> {
-  const b = await composeCardBase(model, format, seedKey);
+export function encodeCardPng(s: CardScene): Uint8Array<ArrayBuffer> {
+  return new Uint8Array(UPNG.encode([frameAt(s, 0).buffer], s.W, s.H, 0));
+}
+
+export function encodeCardGif(s: CardScene): Uint8Array<ArrayBuffer> {
   const enc = GIFEncoder();
   for (let i = 0; i < FRAMES; i++) {
-    const indexed = applyPalette(renderCardFrame(b, i / FRAMES), GIF_PALETTE, PALETTE_FMT);
-    enc.writeFrame(indexed, b.W, b.H, { palette: i === 0 ? GIF_PALETTE : undefined, delay: DELAY_MS });
+    const indexed = applyPalette(frameAt(s, i / FRAMES), GIF_PALETTE, PALETTE_FMT);
+    enc.writeFrame(indexed, s.W, s.H, { palette: i === 0 ? GIF_PALETTE : undefined, delay: DELAY_MS });
   }
   enc.finish();
   return enc.bytes();
 }
 
-// Static рушник share-card — the GIF's first frame, encoded as a (lossless) PNG so
-// the PNG endpoint and OG image carry the same border design as the GIF.
-export async function makeVyshyvankaPng(model: CardModel, format: string, seedKey = "", extra: RenderExtra = {}): Promise<Uint8Array<ArrayBuffer>> {
-  const b = await composeCardBase(model, format, seedKey, extra);
-  const frame = renderCardFrame(b, 0);
-  return new Uint8Array(UPNG.encode([frame.buffer], b.W, b.H, 0));
+// PT Serif fallback content: satori renders the card as a transparent layer (padded to
+// clear the bands), composited over paper.
+export async function serifContent(
+  model: CardModel, format: string, W: number, H: number,
+  extra: { minimal?: boolean; nochrome?: boolean; attribution: string },
+): Promise<Uint8Array<ArrayBuffer>> {
+  const png = await renderCard(model, { format, layer: true, transparent: true, ...extra }).arrayBuffer();
+  const img = UPNG.decode(png);
+  const layer = new Uint8Array(UPNG.toRGBA8(img)[0]);
+  const content = paperCanvas(W, H);
+  if (img.width === W && img.height === H) compositeOver(content, layer);
+  return content;
 }

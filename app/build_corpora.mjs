@@ -1,5 +1,5 @@
 import { readFile, writeFile, mkdir } from "node:fs/promises";
-import { escape as esc, sha256, validateRegistry, validateIcon, iconSvg, iconPng } from "./catalog.mjs";
+import { escape as esc, sha256, validateRegistry } from "./catalog.mjs";
 const readJson = async path => JSON.parse(await readFile(path, "utf8"));
 const json = value => JSON.stringify(value, null, 2) + "\n";
 const num = n => Number(n).toLocaleString("uk");
@@ -17,9 +17,6 @@ const tabu = await readJson("public/bez-tabu/data/entries.json");
 const projects = await readJson("content/snapshots/projects.json");
 const font = await readJson("content/snapshots/font-specimen.json");
 const showcase = await readJson("content/snapshots/upa-showcase.json");
-const iconCollection = await readJson("content/pixel-icons.json");
-const icons = iconCollection.icons.map(validateIcon);
-if (new Set(icons.map(i => i.id)).size !== icons.length) throw new Error("Duplicate icon IDs");
 const articles = await readJson("public/blog/latest.json");
 for (const article of articles) {
   if (!/^[a-z0-9-]+$/.test(article.slug)) throw new Error("Invalid article slug");
@@ -42,7 +39,7 @@ const cards = registry.map(c => `<article class="corpus-card direction-${c.prefi
 const template = await readFile("content/corpora.html", "utf8");
 const hub = layout("", "Українська культурна спадщина в даних", "П’ять напрямів Verba Corpus: прислів’я, словник, історії, шрифти та візуальні знаки.", template.replace("{{MASTHEAD}}", masthead("", "Мова · письмо · візуальні знаки", "Українська культурна спадщина в даних", "Від народного вислову до пікселя. Збираємо джерела, зберігаємо їхній контекст і даємо інструменти для дослідження та творчості.")).replace("{{CARDS}}", cards));
 
-await mkdir("public/non/icons", { recursive: true });
+await mkdir("public/non", { recursive: true });
 await mkdir("public/para", { recursive: true });
 await mkdir("public/re", { recursive: true });
 await mkdir("public/contra", { recursive: true });
@@ -54,13 +51,6 @@ await writeFile("public/para/LICENSE.txt", await readFile("content/snapshots/Coz
 const publicFiles = {};
 for (const path of ["/data/projects.json", "/para/font.json", "/para/LICENSE.txt"]) publicFiles[path] = sha256(await readFile(`public${path}`));
 await writeFile("public/data/corpora-provenance.json", json({ schemaVersion: 1, files: publicFiles }));
-await writeFile("public/non/icons.json", json(iconCollection));
-for (const icon of icons) {
-  await writeFile(`public/non/icons/${icon.id}.svg`, iconSvg(icon));
-  await writeFile(`public/non/icons/${icon.id}.png`, iconPng(icon));
-}
-const symbols = icons.map(icon => `<symbol id="${icon.id}" viewBox="0 0 16 16">${iconSvg(icon).replace(/^.*?<title>/, "<title>").replace(/<\/svg>$/, "")}</symbol>`).join("");
-await writeFile("public/non/icons.svg", `<svg xmlns="http://www.w3.org/2000/svg">${symbols}</svg>`);
 const non = directions.find(c => c.prefix === "non");
 const patternName = pattern => `Візерунок №${String(pattern.number).padStart(3, "0")}`;
 const patternKind = pattern => pattern.kind === "medallion" ? "Медальйон" : pattern.width === pattern.height ? "Орнаментальна композиція" : "Орнаментальна смуга";
@@ -94,4 +84,4 @@ const articleCards = articles.map(a => `<article class="story-card"><p class="ey
 await writeFile("public/re/index.html", layout("re", "re.verba — історії та переосмислення", "Редакція Verba Corpus: історії про джерела, слова, літери та знаки.", masthead("re", "Редакція Verba Corpus", "Історії та переосмислення", "Придивляємось до знайомого. Читаємо джерела, пояснюємо знахідки й показуємо, як культурна спадщина стає даними.") + `<p class="section-intro">Редакційний напрям об’єднує історії з корпусів. Нижче — вже опубліковані матеріали; нові історії про Nasinnia та UPA додаватимуться разом із розвитком проєктів.</p><div class="story-grid">${articleCards}</div><div class="corpus-actions"><a href="/blog">Увесь блог</a><a href="https://t.me/verbacorpus">Verba у Telegram</a></div>`));
 const contra = (await readFile("public/bez-tabu/index.html", "utf8")).replace("Українська без табу — Verba Corpus", "contra.verba — Українська без табу").replace("Verba Corpus <span", "contra.verba <span").replaceAll('href="/corpora.html"', 'href="/corpora"');
 await writeFile("public/contra/index.html", contra.replace(/<nav class="topbar">[\s\S]*?<\/nav>/, nav("contra")).replace('class="tabu-page"', 'class="tabu-page umbrella-page"').replace("</head>", '<script type="module" src="/umbrella.js"></script></head>'));
-console.log(`Built Verba umbrella: ${registry.length} directions, ${icons.length} icons, ${font.glyphData.length} specimen glyphs`);
+console.log(`Built Verba umbrella: ${registry.length} directions, ${font.glyphData.length} specimen glyphs`);

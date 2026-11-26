@@ -1,10 +1,12 @@
 import { env, createExecutionContext, waitOnExecutionContext } from "cloudflare:test";
 import { describe, it, expect } from "vitest";
 import worker from "../src/index";
+import { fakeFonts, fakeUpa } from "./card-fakes";
 
-async function call(path: string) {
+// Cards need the Nasinnia (FONTS) and UPA bindings; without them they degrade (see card-render.test.ts).
+async function call(path: string, extra: Record<string, unknown> = { FONTS: fakeFonts(), UPA: fakeUpa() }) {
   const ctx = createExecutionContext();
-  const res = await worker.fetch(new Request("https://example.com" + path), env as any, ctx);
+  const res = await worker.fetch(new Request("https://example.com" + path), { ...env, ...extra } as any, ctx);
   await waitOnExecutionContext(ctx);
   return res;
 }
@@ -24,7 +26,7 @@ describe("/p/:id", () => {
   });
   it("is card-first with the top nav", async () => {
     const html = await (await call("/p/p1")).text();
-    expect(html).toContain('class="p-card" src="/card/p1.png?v=3"');
+    expect(html).toContain('class="p-card" src="/card/p1.png?v=4"');
     expect(html).toContain('data-verba-navigation');
     expect(html).toContain('id="copyLink"');
   });
@@ -67,6 +69,23 @@ describe("/card/:id.png / .gif endpoints", () => {
     const gctSize = hasGCT ? 1 << ((packed & 0x07) + 1) : 0;
     expect(hasGCT).toBe(true);
     expect(gctSize).toBeLessThanOrEqual(16);
+  });
+
+  it("serves square and daily cards as PNG", async () => {
+    for (const path of ["/card/p1.png?format=square", "/card/daily.png", "/card/daily.png?format=story&lang=en&minimal=1&nochrome=1"]) {
+      const res = await call(path);
+      expect(res.status).toBe(200);
+      expect(res.headers.get("content-type")).toBe("image/png");
+    }
+  });
+  it("still serves 200 PNG/GIF when Nasinnia and UPA are missing (degraded, not cached)", async () => {
+    for (const [path, type] of [["/card/p1.png", "image/png"], ["/card/p1.gif?format=sticker", "image/gif"]]) {
+      const res = await call(path, {});
+      expect(res.status).toBe(200);
+      expect(res.headers.get("content-type")).toBe(type);
+      expect(res.headers.get("x-verba-degraded")).toBe("font,frame");
+      expect(res.headers.get("cache-control")).toBe("no-store");
+    }
   });
 
   it("404 for unknown id on cards", async () => {

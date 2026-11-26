@@ -17,6 +17,10 @@
     {
       "binding": "UPA",
       "service": "upa-local-preview"
+    },
+    {
+      "binding": "FONTS",
+      "service": "nasinnia"
     }
   ],
   "workers_dev": true,

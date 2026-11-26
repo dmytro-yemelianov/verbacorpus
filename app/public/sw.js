@@ -1,5 +1,5 @@
-const CACHE = "ukr-proverbs-v36";
-const SHELL = ["/", ...(self.location?.hostname === "pro.verbacorpus.org" ? [] : ["/pro/"]), "/site-shell.css", "/site-shell.js", "/styles.css", "/embroidery.css", "/fonts/spectral.css", "/fonts/spectral-400-normal-cyrillic.woff2", "/fonts/spectral-500-normal-cyrillic.woff2", "/app.js", "/chrome.js", "/manifest.webmanifest", "/data/landing.json", "/data/meta.json", "/data/proverbs.json"];
+const CACHE = "ukr-proverbs-v37";
+const SHELL = ["/", ...(self.location?.hostname === "pro.verbacorpus.org" ? [] : ["/pro/"]), "/site-shell.css", "/site-shell.js", "/styles.css", "/fonts/spectral.css", "/fonts/spectral-400-normal-cyrillic.woff2", "/fonts/spectral-500-normal-cyrillic.woff2", "/app.js", "/chrome.js", "/manifest.webmanifest", "/data/landing.json", "/data/meta.json", "/data/proverbs.json"];
 
 // Network-first for the app shell that changes on deploy (HTML pages, app.js, styles, i18n
 // catalogs) so a new deploy shows immediately when online; cache-first for big/stable assets

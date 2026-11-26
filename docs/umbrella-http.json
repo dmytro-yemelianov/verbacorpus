@@ -55,14 +55,6 @@
       "result": "200 text/html; charset=utf-8"
     },
     {
-      "path": "/non/icons/sun.svg",
-      "result": "200 image/svg+xml"
-    },
-    {
-      "path": "/non/icons/sun.png",
-      "result": "200 image/png"
-    },
-    {
       "path": "/para/font.json",
       "result": "200 application/json"
     }

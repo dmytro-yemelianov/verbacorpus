@@ -1,3 +1,4 @@
+import { CARD_VERSION } from "../src/shared/meta";
 import { describe, it, expect } from "vitest";
 import { escapeHtml, cardModel, buildProverbPage, dailyIndex } from "../src/shared/meta";
 import { type Proverb } from "../src/shared/corpus";
@@ -29,11 +30,11 @@ describe("buildProverbPage", () => {
   it("emits escaped per-proverb OG meta and card-first hero", () => {
     const html = buildProverbPage({ ...P, text: 'a<b' }, "example.com");
     expect(html).toContain('<meta property="og:title" content="a&lt;b"');
-    expect(html).toContain('<meta property="og:image" content="https://example.com/card/p000123.png?v=3"');
+    expect(html).toContain('<meta property="og:image" content="https://example.com/card/p000123.png?v=4"');
     expect(html).toContain('<meta name="twitter:card" content="summary_large_image"');
     expect(html).toContain('https://example.com/p/p000123');
     expect(html).toContain("a&lt;b");
-    expect(html).toContain('<img class="p-card" src="/card/p000123.png?v=3"');
+    expect(html).toContain('<img class="p-card" src="/card/p000123.png?v=4"');
     expect(html).toContain('class="topbar"');
     expect(html).toContain('id="copyLink"');
     expect(html).toContain('data-link="https://example.com/s/123"');
@@ -47,5 +48,14 @@ describe("dailyIndex", () => {
     expect(dailyIndex("2026-06-23", 100)).toBeLessThan(100);
     expect(dailyIndex("2026-06-24", 100)).not.toBe(dailyIndex("2026-06-23", 100)); // different day
     expect(dailyIndex("x", 0)).toBe(0);
+  });
+});
+
+describe("CARD_VERSION cache-buster", () => {
+  it("is 4 and the og:image / card links use it", () => {
+    expect(CARD_VERSION).toBe(4);
+    const html = buildProverbPage(P, "example.com");
+    expect(html).toMatch(/og:image" content="https:\/\/example\.com\/card\/p000123\.png\?v=4"/);
+    expect(html).not.toContain("v=3");
   });
 });

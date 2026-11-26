@@ -42,7 +42,7 @@ describe('canonical Verba addresses', () => {
   it('rewrites cards and cross-site links while local previews stay local', () => {
     const root = new URL('https://verbacorpus.org/'), non = new URL('https://non.verbacorpus.org/');
     expect(publicHref('/para/', root)).toBe('https://para.verbacorpus.org/');
-    expect(publicHref('/non/icons/sun.svg', non)).toBe('/icons/sun.svg');
+    expect(publicHref('/non/upa/page-frames', non)).toBe('/upa/page-frames');
     expect(publicHref('https://para.verbacorpus.org/letters-lab', root, true)).toBe('/letters-lab');
     expect(publicHref('/non/upa/page-frames#title=test', root, true)).toBe('/upa/page-frames#title=test');
     expect(publicHref('/en/blog/?q=source', root, true)).toBe('/en/blog?q=source');
