@@ -29,6 +29,12 @@ export function fakeFonts(calls: string[] = []): Fetcher {
         });
         return json({ fontId: FULL.fontId, representation: "bit-matrix", bitOrder: "msb-left", cell: FULL.cell, glyphs });
       }
+      if (id === "verba-amstrad-pc") {
+        if (!m![2]) return json({ id: "verba-amstrad-pc", displayName: "Amstrad PC · Verba", availability: "downloadable", cell: { width: 8, height: 8 }, license: { id: "CC-BY-SA-4.0", attribution: "VileR / Verba", redistributionAllowed: true } });
+        const chars = [...new Set(Array.from(u.searchParams.get("chars") ?? ""))];
+        const glyphs = chars.map((ch) => ({ codepoint: "U+" + ch.codePointAt(0)!.toString(16).toUpperCase().padStart(4, "0"), character: ch, advanceX: 8, bitmap: Array(8).fill("10101010") }));
+        return json({ fontId: "verba-amstrad-pc", representation: "bit-matrix", cell: { width: 8, height: 8 }, glyphs });
+      }
       if (id === "hoard-acorn-bbc-bbc-micro") {
         return m![2] ? json({ error: { code: "LICENSE_RESTRICTED", message: "metadata-only" } }, 403) : json(fontMetadataOnly);
       }
