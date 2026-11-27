@@ -89,7 +89,15 @@ async function resolveText(recipe: Recipe, env: CardEnv, host: string): Promise<
   if (!entry) throw new CardRequestError(404, "not_found", `no contra entry ${recipe.text}`);
   const text = `${entry.synonym} — ${entry.term}`;
   const hook = pickHook(text, entry.synonym, recipe.hook);
-  return { text, hook, attribution: CONTRA_ATTRIBUTION, model: { text, modern: "", footer: "", cite: CONTRA_ATTRIBUTION, qr: "", shortUrl: "" }, qrUrl: "", corpus: "contra" };
+  const qrUrl = `https://contra.verbacorpus.org/?spelling=${encodeURIComponent(entry.synonym)}`;
+  return {
+    text,
+    hook,
+    attribution: CONTRA_ATTRIBUTION,
+    model: { text, modern: "", footer: "", cite: CONTRA_ATTRIBUTION, qr: "", shortUrl: qrUrl },
+    qrUrl,
+    corpus: "contra",
+  };
 }
 
 interface FontPick { glyphs: GlyphSet | null; attribution: string; degraded: boolean }

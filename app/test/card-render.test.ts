@@ -150,7 +150,7 @@ describe("/card/render.json", () => {
     expect(body.attribution[2]).toContain("PT Serif");
   });
 
-  it("contra text is allowed when asked explicitly and credits the dictionary", async () => {
+  it("contra text is allowed when asked explicitly and renders PNG + Animated WebP with dictionary credits", async () => {
     const res = await call("/card/render.json?text=contra:cd325d32fe");
     expect(res.status).toBe(200);
     const body = await res.json() as any;
@@ -158,6 +158,9 @@ describe("/card/render.json", () => {
     const png = await call("/card/render.png?text=contra:cd325d32fe&size=sticker");
     expect(png.status).toBe(200);
     expect(png.headers.get("content-type")).toBe("image/png");
+    const webp = await call("/card/render.webp?text=contra:cd325d32fe&size=square");
+    expect(webp.status).toBe(200);
+    expect(webp.headers.get("content-type")).toBe("image/webp");
   });
 });
 

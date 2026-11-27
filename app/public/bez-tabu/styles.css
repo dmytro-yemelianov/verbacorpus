@@ -47,6 +47,7 @@
 .tabu-entry .tabu-meaning { font-size:.76rem; line-height:1.6; color:var(--muted); margin:0 0 1.4rem; }
 .tabu-card-bottom { display:flex; justify-content:space-between; align-items:center; gap:.6rem; border-top:1px solid var(--rule); padding-top:.75rem; margin-top:auto; }
 .tabu-row { font:.6rem var(--mono); color:var(--faint); }
+.tabu-actions { display:flex; align-items:center; gap:.85rem; }
 .tabu-card-bottom button { border:0; padding:.2rem 0; background:none; color:var(--willow); font:.72rem var(--sans); cursor:pointer; }
 .tabu-more-wrap { text-align:center; margin:2rem 0; }
 #tabu-more { border-radius:8px; padding:.75rem 1.5rem; font:.8rem var(--sans); }

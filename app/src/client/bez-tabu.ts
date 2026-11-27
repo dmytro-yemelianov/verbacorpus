@@ -59,6 +59,13 @@ function updateStatus(): void {
     ? view === "cards" ? `Знайдено ${filtered.length} · показано ${shown}` : `${filtered.length} рядків у графі`
     : "За цими умовами нічого не знайдено.";
 }
+async function contraCardId(entry: TabuEntry): Promise<string> {
+  const part = (v: string) => v.trim().normalize("NFC");
+  const key = [entry.group, entry.term, entry.synonym].map(part).join("\x1f") + "\x1f" + (entry.isWord ? "1" : "0");
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(key));
+  return [...new Uint8Array(digest)].map(b => b.toString(16).padStart(2, "0")).join("").slice(0, 10);
+}
+
 function append(): void {
   const fragment = document.createDocumentFragment();
   for (const entry of filtered.slice(shown, shown + 60)) {
@@ -73,13 +80,20 @@ function append(): void {
     const meaning = document.createElement("p"); meaning.className = "tabu-meaning"; meaning.textContent = entry.term || "Термін у джерелі не вказано";
     const bottom = document.createElement("div"); bottom.className = "tabu-card-bottom";
     const row = document.createElement("span"); row.className = "tabu-row"; row.textContent = `№ ${String(entry.sourceRow).padStart(4, "0")}`; row.title = "Номер запису у вихідному CSV";
+    const actions = document.createElement("span"); actions.className = "tabu-actions";
+    const cardBtn = document.createElement("button"); cardBtn.type = "button"; cardBtn.textContent = "Картка ↗";
+    cardBtn.setAttribute("aria-label", `Картка WebP: ${entry.synonym}`);
+    cardBtn.addEventListener("click", () => {
+      void contraCardId(entry).then(id => window.open(`/card/render.webp?text=${encodeURIComponent("contra:" + id)}&size=square`, "_blank", "noopener"));
+    });
     const button = document.createElement("button"); button.type = "button"; button.textContent = "Зв’язки ↗";
     button.setAttribute("aria-label", `Зв’язки терміна: ${entry.term || "Термін не вказано"}`);
     button.addEventListener("click", () => {
       graphFocus = termId(entry.group, entry.term); graph.setData(buildTabuGraph(filtered), graphFocus);
       switchView("graph"); document.querySelector("#graph-panel")!.scrollIntoView({ block: "start" });
     });
-    bottom.appendChild(row); bottom.appendChild(button);
+    actions.appendChild(cardBtn); actions.appendChild(button);
+    bottom.appendChild(row); bottom.appendChild(actions);
     card.appendChild(top); card.appendChild(heading); card.appendChild(meaning); card.appendChild(bottom); fragment.appendChild(card);
   }
   shown = Math.min(shown + 60, filtered.length); results.appendChild(fragment);
