@@ -16,6 +16,7 @@ import { withSiteShell } from './site-shell';
 import { receiveDiagnostics } from './diagnostics';
 import { canonicalAddress, hostDirection, isVerbaHost, publicHref } from './shared/site-addresses';
 import { initBot, formatProverbHtml, draftNews, sendCardWithFallback } from "./telegram";
+import { crosspostProverbToInstagram } from "./instagram";
 import { webhookCallback, InlineKeyboard } from "grammy";
 import uk from "../public/i18n/uk.json";
 import en from "../public/i18n/en.json";
@@ -47,6 +48,8 @@ interface Env {
   TELEGRAM_WEBHOOK_SECRET?: string;
   NEWS_KV: KVNamespace;
   VERBA_API_BASE?: string;
+  INSTAGRAM_ACCOUNT_ID?: string;
+  INSTAGRAM_ACCESS_TOKEN?: string;
 }
 
 const SEMANTIC_MIN_SCORE = 0.4;
@@ -414,6 +417,19 @@ const application = {
       await sendCardWithFallback(env, pick.id,
         (url) => bot.api.sendPhoto(chatId, url, { caption, parse_mode: "HTML", reply_markup: keyboard }),
         () => bot.api.sendMessage(chatId, caption, { parse_mode: "HTML", reply_markup: keyboard }));
+
+      if (env.INSTAGRAM_ACCOUNT_ID && env.INSTAGRAM_ACCESS_TOKEN) {
+        try {
+          const ig = await crosspostProverbToInstagram(env as any, pick);
+          if (ig.id) {
+            console.log(`Successfully posted daily proverb ${pick.id} to Instagram (${ig.id})`);
+          } else if (ig.error) {
+            console.warn(`Instagram daily post skipped/failed: ${ig.error}`);
+          }
+        } catch (e) {
+          console.error("Instagram daily post exception", e);
+        }
+      }
 
       console.log(`Successfully posted daily proverb ${pick.id} to Telegram`);
     })());

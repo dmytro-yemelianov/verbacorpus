@@ -325,4 +325,97 @@ describe("Telegram card photo fallback", () => {
       expect(calls.find((c) => c.method === "sendMessage")?.body.chat_id).toBe(777);
     } finally { vi.unstubAllGlobals(); }
   });
+
+  it("bot /story: sends vertical Instagram Story card (1080×1920)", async () => {
+    const calls = stub(0);
+    try {
+      const ctx = createExecutionContext();
+      const testEnv = { ...env, TELEGRAM_BOT_TOKEN: "12345:mock_token", TELEGRAM_WEBHOOK_SECRET: "super_secret" };
+      const update = {
+        update_id: 6,
+        message: {
+          message_id: 2,
+          date: 0,
+          chat: { id: 777, type: "private" },
+          from: { id: 777, is_bot: false, first_name: "x" },
+          text: "/story",
+          entities: [{ type: "bot_command", offset: 0, length: 6 }],
+        },
+      };
+      const res = await worker.fetch(new Request("https://verbacorpus.org/api/telegram-webhook", {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-telegram-bot-api-secret-token": "super_secret" },
+        body: JSON.stringify(update),
+      }), testEnv as any, ctx);
+      await waitOnExecutionContext(ctx);
+      expect(res.status).toBe(200);
+      const photo = calls.find((c) => c.method === "sendPhoto");
+      expect(photo).toBeDefined();
+      expect(photo!.body.photo).toContain("?size=story");
+      expect(photo!.body.caption).toContain("Instagram Story (1080×1920)");
+    } finally { vi.unstubAllGlobals(); }
+  });
+
+  it("bot /post: sends square Instagram Post card (1080×1080)", async () => {
+    const calls = stub(0);
+    try {
+      const ctx = createExecutionContext();
+      const testEnv = { ...env, TELEGRAM_BOT_TOKEN: "12345:mock_token", TELEGRAM_WEBHOOK_SECRET: "super_secret" };
+      const update = {
+        update_id: 7,
+        message: {
+          message_id: 3,
+          date: 0,
+          chat: { id: 777, type: "private" },
+          from: { id: 777, is_bot: false, first_name: "x" },
+          text: "/post",
+          entities: [{ type: "bot_command", offset: 0, length: 5 }],
+        },
+      };
+      const res = await worker.fetch(new Request("https://verbacorpus.org/api/telegram-webhook", {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-telegram-bot-api-secret-token": "super_secret" },
+        body: JSON.stringify(update),
+      }), testEnv as any, ctx);
+      await waitOnExecutionContext(ctx);
+      expect(res.status).toBe(200);
+      const photo = calls.find((c) => c.method === "sendPhoto");
+      expect(photo).toBeDefined();
+      expect(photo!.body.photo).toContain("?size=square");
+      expect(photo!.body.caption).toContain("Instagram Post (1080×1080)");
+    } finally { vi.unstubAllGlobals(); }
+  });
+
+  it("callback query card_size:story switches media to story format", async () => {
+    const calls = stub(0);
+    try {
+      const ctx = createExecutionContext();
+      const testEnv = { ...env, TELEGRAM_BOT_TOKEN: "12345:mock_token", TELEGRAM_WEBHOOK_SECRET: "super_secret" };
+      const update = {
+        update_id: 8,
+        callback_query: {
+          id: "cb_1",
+          from: { id: 777, is_bot: false, first_name: "x" },
+          message: {
+            message_id: 10,
+            date: 0,
+            chat: { id: 777, type: "private" },
+            photo: [{ file_id: "prev_photo" }],
+          },
+          data: "card_size:story:p1",
+        },
+      };
+      const res = await worker.fetch(new Request("https://verbacorpus.org/api/telegram-webhook", {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-telegram-bot-api-secret-token": "super_secret" },
+        body: JSON.stringify(update),
+      }), testEnv as any, ctx);
+      await waitOnExecutionContext(ctx);
+      expect(res.status).toBe(200);
+      const edit = calls.find((c) => c.method === "editMessageMedia");
+      expect(edit).toBeDefined();
+      expect(edit!.body.media.media).toContain("pro:p1.png?size=story");
+      expect(edit!.body.media.caption).toContain("Instagram Story (1080×1920)");
+    } finally { vi.unstubAllGlobals(); }
+  });
 });
