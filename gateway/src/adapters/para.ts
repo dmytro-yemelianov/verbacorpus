@@ -5,6 +5,8 @@ const FILTERS = ["q", "width", "height", "license"] as const;
 
 interface Font {
   id: string;
+  requestedId?: string;
+  aliases?: string[];
   displayName?: string;
   availability?: string;
   license?: {
@@ -66,7 +68,7 @@ export function makeParaAdapter(up: Upstream): Adapter {
     },
     async get(localId) {
       const f = (await fetchJson(up, `/v1/fonts/${encodeURIComponent(localId)}`, true)) as Font | null;
-      return f && f.id === localId ? toItem(f) : null;
+      return f && (f.id === localId || f.requestedId === localId || f.aliases?.includes(localId)) ? toItem(f) : null;
     },
   };
 }

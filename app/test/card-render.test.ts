@@ -287,4 +287,16 @@ describe("styles, alignments, and hooks", () => {
     expect(badHook.status).toBe(400);
     expect((await badHook.json() as any).error.code).toBe("invalid_hook");
   });
+
+  it("renders with alternative font para:verba-amstrad-pc and non-degraded attribution", async () => {
+    const res = await call("/card/render.json?text=pro:p1&font=para:verba-amstrad-pc");
+    expect(res.status).toBe(200);
+    const body = await res.json() as any;
+    expect(body.degraded).toEqual([]);
+    expect(body.recipe.font).toBe("para:verba-amstrad-pc");
+    expect(body.attribution[2]).toContain("Amstrad PC");
+    const png = await call("/card/render.png?text=pro:p1&font=para:verba-amstrad-pc");
+    expect(png.status).toBe(200);
+    expect(png.headers.get("x-verba-degraded")).toBeNull();
+  });
 });

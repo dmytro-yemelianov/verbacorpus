@@ -63,6 +63,12 @@ describe("adapter specifics", () => {
     const up = { fetch: async () => new Response(JSON.stringify({ id: "other", displayName: "O" })) };
     expect(await makeParaAdapter(up).get("f1")).toBeNull();
   });
+  it("para get accepts font when requestedId matches alias", async () => {
+    const up = { fetch: async () => new Response(JSON.stringify({ id: "texted-spleen-6x12", requestedId: "spleen_6x12" })) };
+    const item = await makeParaAdapter(up).get("spleen_6x12");
+    expect(item).not.toBeNull();
+    expect(item?.id).toBe("para:texted-spleen-6x12");
+  });
   it("whitelists filters and encodes ids", async () => {
     const seen: string[] = [];
     const up = { fetch: async (r: Request | string) => { seen.push(typeof r === "string" ? r : r.url); return new Response("{}", { status: 404 }); } };
