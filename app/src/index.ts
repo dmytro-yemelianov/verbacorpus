@@ -149,9 +149,9 @@ const application = {
           return HTML(buildProverbPage(p, host, cat, lang, srcCites));
         }
         const qp = url.searchParams;
-        // Recipe cards: /card/render.{png,gif,json}?text&frame&font&size&lang (the gateway's
+        // Recipe cards: /card/render.{png,gif,webp,json}?text&frame&font&size&lang (the gateway's
         // /v1/cards proxies here).
-        const rm = raw0.match(/^\/card\/render\.(png|gif|json)$/);
+        const rm = raw0.match(/^\/card\/render\.(png|gif|webp|json)$/);
         if (rm) {
           let recipe: Recipe;
           try {
@@ -161,15 +161,15 @@ const application = {
             throw e;
           }
           return renderCard(recipe, env, host, {
-            format: rm[1] as "png" | "gif" | "json",
+            format: rm[1] as "png" | "gif" | "webp" | "json",
             minimal: qp.get("minimal") === "1",
             nochrome: qp.get("nochrome") === "1",
             explicit: { font: qp.has("font"), frame: qp.has("frame") },
           });
         }
-        // Legacy proverb cards: /card/<id>.{png,gif} and /card/daily.{png,gif} with
+        // Legacy proverb cards: /card/<id>.{png,gif,webp} and /card/daily.{png,gif,webp} with
         // format/lang/minimal/nochrome, rendered through the same recipe pipeline.
-        const lm = raw0.match(/^\/card\/(.+)\.(png|gif)$/);
+        const lm = raw0.match(/^\/card\/(.+)\.(png|gif|webp)$/);
         if (lm) {
           const key = decodeURIComponent(lm[1]);
           let p: Proverb | undefined;
@@ -190,7 +190,7 @@ const application = {
             lang: qp.get("lang") === "en" ? "en" : "uk",
           };
           return renderCard(recipe, env, host, {
-            format: lm[2] as "png" | "gif",
+            format: lm[2] as "png" | "gif" | "webp",
             minimal: qp.get("minimal") === "1",
             nochrome: qp.get("nochrome") === "1",
             explicit: { font: false, frame: false },

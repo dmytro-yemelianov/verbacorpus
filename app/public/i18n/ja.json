@@ -185,5 +185,7 @@
   "card.fileType": "ファイル形式",
   "card.fileType.png": "PNG (画像)",
   "card.fileType.gif": "GIF (アニメーション)",
-  "detail.sourceTitle": "情報源"
+  "detail.sourceTitle": "情報源",
+  "card.fileType.webp": "WebP (アニメーション)",
+  "card.format.telegram": "Telegram (1200×630)"
 }

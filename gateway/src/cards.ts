@@ -1,5 +1,5 @@
 // Card routes: validate a recipe, check the font licence, proxy the Verba Worker's
-// /card/render.{png,gif,json}.
+// /card/render.{png,gif,webp,json}.
 import { ApiError, parseGlobalId } from "./contract.js";
 import type { Corpus } from "./contract.js";
 import type { Adapter } from "./adapters/types.js";
@@ -8,7 +8,7 @@ export const CARD_SIZES = ["fb", "square", "story", "yt", "sticker", "telegram"]
 export const CARD_STYLES = ["base", "color", "big", "shadowS", "shadowD", "stitch", "invert", "marker"] as const;
 export const CARD_ALIGNS = ["left", "center", "right", "stairR", "stairL"] as const;
 export const CARD_TIMEOUT_MS = 15000;
-export type CardExt = "png" | "gif" | "json";
+export type CardExt = "png" | "gif" | "webp" | "json";
 
 const FRAME_RE = /^non:[A-Za-z0-9_.\-]+$/;
 const FONT_RE = /^para:[A-Za-z0-9_.\-]+$/;

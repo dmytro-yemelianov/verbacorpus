@@ -222,14 +222,14 @@ export const openapi = {
     "/v1/cards/{textId}.{ext}": {
       get: {
         operationId: "card",
-        summary: "Картка за рецептом (PNG, GIF або JSON)",
+        summary: "Картка за рецептом (PNG, GIF, Animated WebP або JSON)",
         description:
           "`textId` — глобальний id `pro:<id>` або `contra:<id>` (двокрапку можна кодувати як `%3A`). " +
           "`frame` — `non:<id>`, `font` — `para:<id>` або `pt-serif`; шрифт із ліцензією metadata-only дає 422 `font_restricted`. " +
           "Деградована картка має заголовок `x-verba-degraded` і `cache-control: no-store`.",
         parameters: [
           { name: "textId", in: "path", required: true, schema: { type: "string" }, example: "pro:p037464" },
-          { name: "ext", in: "path", required: true, schema: { type: "string", enum: ["png", "gif", "json"] } },
+          { name: "ext", in: "path", required: true, schema: { type: "string", enum: ["png", "gif", "webp", "json"] } },
           { name: "frame", in: "query", schema: { type: "string" }, description: "`non:<patternId>`; за замовчуванням добирається автоматично." },
           { name: "font", in: "query", schema: { type: "string" }, description: "`para:<fontId>` або `pt-serif`." },
           { name: "size", in: "query", schema: { type: "string", enum: ["fb", "square", "story", "yt", "sticker", "telegram"], default: "fb" } },
@@ -245,6 +245,7 @@ export const openapi = {
             content: {
               "image/png": { schema: { type: "string", format: "binary" } },
               "image/gif": { schema: { type: "string", format: "binary" } },
+              "image/webp": { schema: { type: "string", format: "binary" } },
               "application/json": { schema: { type: "object" } },
             },
           },
@@ -259,7 +260,7 @@ export const openapi = {
         description:
           "Обирає запис із `pro` (типово) або `contra` (лише явно через `corpus=contra`) за `seed`. Відповідь має `x-verba-seed`.",
         parameters: [
-          { name: "ext", in: "path", required: true, schema: { type: "string", enum: ["png", "gif", "json"] } },
+          { name: "ext", in: "path", required: true, schema: { type: "string", enum: ["png", "gif", "webp", "json"] } },
           seedParam,
           { name: "corpus", in: "query", schema: { type: "string", enum: ["pro", "contra"], default: "pro" } },
           { name: "size", in: "query", schema: { type: "string", enum: ["fb", "square", "story", "yt", "sticker", "telegram"], default: "fb" } },
@@ -277,6 +278,7 @@ export const openapi = {
             content: {
               "image/png": { schema: { type: "string", format: "binary" } },
               "image/gif": { schema: { type: "string", format: "binary" } },
+              "image/webp": { schema: { type: "string", format: "binary" } },
               "application/json": { schema: { type: "object" } },
             },
           },

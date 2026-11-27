@@ -42,7 +42,7 @@ describe("/card/render.png — recipe pipeline", () => {
     expect([W, H]).toEqual([w, h]);
   });
 
-  it("defaults to fb; top band uses only UPA palette + paper, with UPA colour present", async () => {
+  it("defaults to fb; full 4-sided perimeter uses only UPA palette + paper, with UPA colour on all edges", async () => {
     const { W, H, rgba } = await decode(await call("/card/render.png?text=pro:p1"));
     expect([W, H]).toEqual([1200, 630]);
     const top = rowColours(rgba, W, 2);
@@ -50,6 +50,10 @@ describe("/card/render.png — recipe pipeline", () => {
     expect([...top].some((c) => UPA_COLOURS.has(c))).toBe(true);
     const bottom = rowColours(rgba, W, H - 2);
     expect([...bottom].some((c) => UPA_COLOURS.has(c))).toBe(true);
+    const left = new Set(Array.from({ length: H }, (_, y) => pixel(rgba, W, 2, y).join(",")));
+    const right = new Set(Array.from({ length: H }, (_, y) => pixel(rgba, W, W - 2, y).join(",")));
+    expect([...left].some((c) => UPA_COLOURS.has(c))).toBe(true);
+    expect([...right].some((c) => UPA_COLOURS.has(c))).toBe(true);
   });
 
   it("draws bitmap text in ink in the content area (no anti-aliasing)", async () => {
@@ -57,11 +61,11 @@ describe("/card/render.png — recipe pipeline", () => {
     const colours = new Set<string>();
     for (let y = Math.round(H * 0.15); y < Math.round(H * 0.85); y += 1) for (let x = 0; x < W; x += 1) colours.add(pixel(rgba, W, x, y).join(","));
     expect(colours.has(INK)).toBe(true);
-    // Bitmap text and a flat palette: a handful of exact colours, no AA ramp.
+    // Bitmap text and a flat discrete palette: no AA ramp.
     expect(colours.size).toBeLessThanOrEqual(12);
   });
 
-  it("same recipe twice gives byte-identical PNG and GIF (RF5)", async () => {
+  it("same recipe twice gives byte-identical PNG, GIF, and Animated WebP (RF5)", async () => {
     const q = "/card/render.png?text=pro:p1&frame=non:p08_L_b03&font=para:cozette-13x15&size=square";
     const a = new Uint8Array(await (await call(q)).arrayBuffer());
     const b = new Uint8Array(await (await call(q)).arrayBuffer());
@@ -70,6 +74,17 @@ describe("/card/render.png — recipe pipeline", () => {
     const g1 = new Uint8Array(await (await call(q.replace(".png", ".gif").replace("square", "sticker"))).arrayBuffer());
     const g2 = new Uint8Array(await (await call(q.replace(".png", ".gif").replace("square", "sticker"))).arrayBuffer());
     expect(g2).toEqual(g1);
+    const wRes = await call(q.replace(".png", ".webp").replace("square", "sticker"));
+    expect(wRes.status).toBe(200);
+    expect(wRes.headers.get("content-type")).toBe("image/webp");
+    const w1 = new Uint8Array(await wRes.arrayBuffer());
+    const w2 = new Uint8Array(await (await call(q.replace(".png", ".webp").replace("square", "sticker"))).arrayBuffer());
+    expect(w2).toEqual(w1);
+    // RIFF....WEBPVP8X header + ANIM + ANMF chunks
+    const ascii = (off: number) => String.fromCharCode(...w1.slice(off, off + 4));
+    expect(ascii(0)).toBe("RIFF");
+    expect(ascii(8)).toBe("WEBP");
+    expect(ascii(12)).toBe("VP8X");
   });
 
   it("FONTS throwing degrades to PT Serif: 200 + x-verba-degraded: font, not cached", async () => {
@@ -264,8 +279,8 @@ describe("styles, alignments, and hooks", () => {
       const { W, H, rgba } = await decode(res);
       expect([W, H]).toEqual([1080, 1080]);
       if (style === "invert") {
-        // Content area background uses D (#0A0A0A = 10,10,10)
-        expect(pixel(rgba, W, 20, Math.round(H / 2))).toEqual([10, 10, 10]);
+        // Content area halo substrate uses D (#0A0A0A = 10,10,10) inside protected margin (outside 24px border)
+        expect(pixel(rgba, W, 72, Math.round(H / 2))).toEqual([10, 10, 10]);
       }
     },
   );

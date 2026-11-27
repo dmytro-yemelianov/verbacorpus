@@ -57,6 +57,17 @@ describe("/card/:id.png / .gif endpoints", () => {
     expect(res.headers.get("content-type")).toContain("image/gif");
     expect(res.headers.get("cache-control")).toContain("public, max-age=");
   });
+  it("serves animated webp card with cache control across square, story, and telegram", async () => {
+    for (const fmt of ["square", "story", "telegram"]) {
+      const res = await call(`/card/p1.webp?format=${fmt}&lang=uk`);
+      expect(res.status).toBe(200);
+      expect(res.headers.get("content-type")).toBe("image/webp");
+      expect(res.headers.get("cache-control")).toContain("public, max-age=");
+      const bytes = new Uint8Array(await res.arrayBuffer());
+      expect(String.fromCharCode(...bytes.slice(0, 4))).toBe("RIFF");
+      expect(String.fromCharCode(...bytes.slice(8, 12))).toBe("WEBP");
+    }
+  });
   it("animated gif is palette-restricted (small global color table)", async () => {
     const res = await call("/card/p1.gif?format=square&lang=uk");
     expect(res.status).toBe(200);

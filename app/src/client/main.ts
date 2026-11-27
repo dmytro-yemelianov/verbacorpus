@@ -644,7 +644,7 @@ async function openDetail(p: Proverb, opts: { showCustomizer?: boolean } = {}) {
         <h4>${esc(tr("card.customizerTitle", "Налаштування картки"))}</h4>
         <div class="customizer-layout">
           <div class="customizer-preview">
-            <img id="cardPreview" src="/card/${esc(p.id)}.png?v=${CARD_VERSION}" alt="Card Preview" />
+            <img id="cardPreview" src="/card/${esc(p.id)}.webp?v=${CARD_VERSION}" alt="Card Preview" />
           </div>
           <div class="customizer-controls">
             <div class="control-field">
@@ -654,13 +654,15 @@ async function openDetail(p: Proverb, opts: { showCustomizer?: boolean } = {}) {
                 <option value="square">${esc(tr("card.format.square", "Instagram Пост (1:1)"))}</option>
                 <option value="story">${esc(tr("card.format.story", "Instagram Історія (9:16)"))}</option>
                 <option value="yt">${esc(tr("card.format.yt", "YouTube Пост (16:9)"))}</option>
+                <option value="telegram">${esc(tr("card.format.telegram", "Telegram (1200×630)"))}</option>
               </select>
             </div>
             <div class="control-field">
               <label for="cardTypeSelect">${esc(tr("card.fileType", "Формат файлу"))}</label>
               <select id="cardTypeSelect">
+                <option value="webp">WebP (${esc(tr("card.fileType.webp", "Анімація (WebP)"))})</option>
                 <option value="png">PNG (${esc(tr("card.fileType.png", "Зображення"))})</option>
-                <option value="gif">GIF (${esc(tr("card.fileType.gif", "Анімація"))})</option>
+                <option value="gif">GIF (${esc(tr("card.fileType.gif", "Анімація (GIF)"))})</option>
               </select>
             </div>
             <div class="control-field">
@@ -669,7 +671,7 @@ async function openDetail(p: Proverb, opts: { showCustomizer?: boolean } = {}) {
               </select>
             </div>
             <div class="customizer-actions">
-              <a id="cardDownloadBtn" class="more-btn" href="/card/${esc(p.id)}.png?v=${CARD_VERSION}" download="verba-${esc(p.id)}.png" target="_blank">${esc(tr("card.download", "Завантажити картку"))}</a>
+              <a id="cardDownloadBtn" class="more-btn" href="/card/${esc(p.id)}.webp?v=${CARD_VERSION}" download="verba-${esc(p.id)}.webp" target="_blank">${esc(tr("card.download", "Завантажити картку"))}</a>
               <button id="cardCopyEmbedBtn" class="chip" type="button">${esc(tr("card.copyEmbed", "Копіювати код вставки"))}</button>
             </div>
           </div>

@@ -8,15 +8,15 @@
 // fail: see `strict` below.
 import { CARD_SIZES, CardRequestError, DEFAULT_FONT, SERIF_FONT, type CardAlign, type CardSize, type CardStyle, type Recipe } from "./recipe";
 import { fetchGlyphs, CardFontError, type GlyphSet } from "./glyphs";
-import { paintText, type TextLayout } from "./bitmap-text";
 import { layoutStyled, paintStyled, styledBlockHeight, tokenizeStyled } from "./styled-text";
 import { upstreamSignal } from "../upstream";
-import { fetchBand, CardFrameError, UPA_PALETTE } from "./ornament";
+import { fetchBand, CardFrameError, perimeterCells } from "./ornament";
 import { loadCorpus, type CorpusEnv } from "../corpus-data";
 import { cardModel, type CardModel } from "../shared/meta";
 import { qrMatrix } from "../shared/qr";
 import { bandPx, cleanForCard } from "../card";
-import { encodeCardGif, encodeCardPng, paperCanvas, serifContent, GRAY, INK, PAPER, RULE, SAGE, type CardScene } from "../card-gif";
+import { encodeCardGif, encodeCardPng, encodeCardWebp, paperCanvas, serifContent, INK, PAPER, type CardScene } from "../card-gif";
+import { computeDistanceGrid, QUANTUM_PALETTE, type QuantumSceneMeta } from "./quantum";
 
 export interface CardEnv extends CorpusEnv {
   FONTS?: Fetcher;
@@ -24,7 +24,7 @@ export interface CardEnv extends CorpusEnv {
 }
 
 export interface RenderOut {
-  format: "png" | "gif" | "json";
+  format: "png" | "gif" | "webp" | "json";
   minimal?: boolean;  // no QR / short link / brand line (credits and frame stay)
   nochrome?: boolean; // same as minimal (kept for the legacy thumbnail URLs)
   // Was the font / frame named by the caller? Explicit + missing/forbidden → 4xx;
@@ -50,7 +50,7 @@ const CORS = { "access-control-allow-origin": "*", "access-control-expose-header
 
 // ---------------------------------------------------------------- resolution
 
-interface TextPick { text: string; hook: string | null; attribution: string; model: CardModel; qrUrl: string }
+interface TextPick { text: string; hook: string | null; attribution: string; model: CardModel; qrUrl: string; corpus: "pro" | "contra" }
 
 function pickHook(rawText: string, modelHook: string | undefined, requested: string | undefined): string | null {
   if (!requested || requested === "auto") return modelHook && rawText.includes(modelHook) ? modelHook : null;
@@ -75,6 +75,7 @@ async function resolveText(recipe: Recipe, env: CardEnv, host: string): Promise<
       attribution: model.cite ? `${model.cite} — ${PRO_LICENCE}` : PRO_LICENCE,
       model: { ...model, text },
       qrUrl: model.shortUrl,
+      corpus: "pro",
     };
   }
   // contra only ever arrives here by an explicit text=contra:… (never picked by default).
@@ -88,7 +89,7 @@ async function resolveText(recipe: Recipe, env: CardEnv, host: string): Promise<
   if (!entry) throw new CardRequestError(404, "not_found", `no contra entry ${recipe.text}`);
   const text = `${entry.synonym} — ${entry.term}`;
   const hook = pickHook(text, entry.synonym, recipe.hook);
-  return { text, hook, attribution: CONTRA_ATTRIBUTION, model: { text, modern: "", footer: "", cite: CONTRA_ATTRIBUTION, qr: "", shortUrl: "" }, qrUrl: "" };
+  return { text, hook, attribution: CONTRA_ATTRIBUTION, model: { text, modern: "", footer: "", cite: CONTRA_ATTRIBUTION, qr: "", shortUrl: "" }, qrUrl: "", corpus: "contra" };
 }
 
 interface FontPick { glyphs: GlyphSet | null; attribution: string; degraded: boolean }
@@ -165,38 +166,6 @@ const SPECS: Record<CardSize, Spec> = {
   telegram: { pad: 80, align: "left",   maxScale: 7, qr: 0,   qrBeside: false, attrScale: 2, brand: true },
 };
 
-const glyphW = (g: GlyphSet, ch: string) => (g.glyphs.get(ch) ?? g.fallback).advanceX;
-const measure = (s: string, g: GlyphSet, scale: number) => Array.from(s).reduce((w, ch) => w + glyphW(g, ch) * scale, 0);
-
-// Greedy word wrap for the small credit lines (scale 1 allowed, unlike layoutText).
-// Credits are joined with " · " and a separator stays on the line of the part it ends.
-function wrapCredits(parts: string[], g: GlyphSet, scale: number, maxW: number, maxLines: number): string[] {
-  const words: string[] = [];
-  parts.forEach((part, i) => {
-    const ws = part.split(/ +/).filter(Boolean);
-    if (i < parts.length - 1 && ws.length) ws[ws.length - 1] += " ·";
-    words.push(...ws);
-  });
-  const lines: string[] = [];
-  let cur = "";
-  for (const w of words) {
-    const cand = cur ? `${cur} ${w}` : w;
-    if (!cur || measure(cand, g, scale) <= maxW) { cur = cand; continue; }
-    lines.push(cur);
-    cur = w;
-  }
-  if (cur) lines.push(cur);
-  // A line still too wide (one very long word) or the last kept line of an overflow ends in "…".
-  const ellipsize = (l: string) => {
-    const a = Array.from(l);
-    while (a.length && measure(a.join("").trimEnd() + "…", g, scale) > maxW) a.pop();
-    return a.join("").trimEnd() + "…";
-  };
-  const out = lines.slice(0, maxLines).map((l) => (measure(l, g, scale) > maxW ? ellipsize(l) : l));
-  if (lines.length > maxLines) out[maxLines - 1] = ellipsize(out[maxLines - 1]!);
-  return out;
-}
-
 // Short-URL label under the QR: scale 2 on tall cards (story, anything >= 1080 px high), else 1.
 export const qrLabelScale = (H: number): number => (H >= 1080 ? 2 : 1);
 
@@ -231,73 +200,138 @@ export function qrPlacement(size: CardSize, W: number, H: number, n: number, mea
   return { mod, q, qx, right, label: qrLabelLayout(measureW, qrLabelScale(H), qx, q, centred, left, right) };
 }
 
-const lineLayout = (lines: string[], scale: number): TextLayout => ({ scale, lines, truncated: false, lineGap: 0 });
-
-function fillRect(rgba: Uint8Array, W: number, H: number, x0: number, y0: number, w: number, h: number, rgb: [number, number, number]) {
-  for (let y = Math.max(0, y0); y < Math.min(H, y0 + h); y++) {
-    for (let x = Math.max(0, x0); x < Math.min(W, x0 + w); x++) {
-      const o = (y * W + x) * 4;
-      rgba[o] = rgb[0]; rgba[o + 1] = rgb[1]; rgba[o + 2] = rgb[2]; rgba[o + 3] = 255;
+// Scans interior grid cells [T .. GW-T) x [T .. GH-T) for any non-substrate foreground pixels
+// (text, shadows, markers, QR) to construct the exact occupancy mask for protective halo SDF.
+function buildForegroundMask(
+  rgba: Uint8Array,
+  W: number,
+  H: number,
+  GW: number,
+  GH: number,
+  M: number,
+  substrate: [number, number, number],
+): Uint8Array {
+  const mask = new Uint8Array(GW * GH);
+  const [sr, sg, sb] = substrate;
+  for (let gy = 0; gy < GH; gy++) {
+    const y0 = gy * M;
+    const y1 = Math.min(H, y0 + M);
+    for (let gx = 0; gx < GW; gx++) {
+      const x0 = gx * M;
+      const x1 = Math.min(W, x0 + M);
+      let hit = false;
+      for (let py = y0; py < y1 && !hit; py++) {
+        for (let px = x0; px < x1; px++) {
+          const o = (py * W + px) * 4;
+          if (rgba[o] !== sr || rgba[o + 1] !== sg || rgba[o + 2] !== sb) {
+            hit = true;
+            break;
+          }
+        }
+      }
+      if (hit) mask[gy * GW + gx] = 1;
     }
   }
+  return mask;
 }
 
 function bitmapContent(
-  size: CardSize, W: number, H: number, strip: number, g: GlyphSet,
-  text: string, hook: string | null, style: CardStyle, align: CardAlign,
-  credits: string[], qrUrl: string, chrome: boolean,
-): Uint8Array<ArrayBuffer> {
+  size: CardSize,
+  W: number,
+  H: number,
+  unit: string[][],
+  g: GlyphSet,
+  text: string,
+  hook: string | null,
+  style: CardStyle,
+  align: CardAlign,
+  qrUrl: string,
+  chrome: boolean,
+  corpus: "pro" | "contra",
+): { content: Uint8Array<ArrayBuffer>; quantum: QuantumSceneMeta } {
   const s = SPECS[size];
-  const rgba = paperCanvas(W, H);
+  const M = size === "sticker" ? 4 : 8; // 8px quantum on all full cards (4px on 512 sticker)
+  const GW = Math.ceil(W / M);
+  const GH = Math.ceil(H / M);
+  const T = perimeterCells(unit);
   const invert = style === "invert";
-  if (invert) fillRect(rgba, W, H, 0, strip, W, H - 2 * strip, UPA_PALETTE.D);
-  const creditInk: [number, number, number] = invert ? [189, 182, 164] : GRAY;
-  const qrInk: [number, number, number] = invert ? PAPER : SAGE;
-  const gap = Math.round(H * 0.035);
-  const small = Math.max(6, Math.round(gap * 0.6));
-  const left = s.pad, right = W - s.pad, cw = right - left;
-  const top = strip + gap;
-  let bottom = H - strip - gap;
-  const cellH = g.cell.height;
-  const centreX = Math.round(W / 2);
+  const substrate = invert ? QUANTUM_PALETTE.DARK_BG : PAPER;
+  const rgba = paperCanvas(W, H, substrate);
 
-  // Credits: text source · frame · font, small, at the very bottom of the content area.
-  const creditLines = wrapCredits(credits, g, s.attrScale, cw, 3);
-  bottom -= creditLines.length * cellH * s.attrScale;
-  paintText(rgba, W, H, lineLayout(creditLines, s.attrScale), g, { x: s.align === "center" ? centreX : left, y: bottom }, s.align, creditInk);
-  bottom -= small;
+  // Content safe margins snapped to M-pixel quantum cells (no text/QR credit clutter on card)
+  const padCells = Math.max(T + 4, Math.round(s.pad / M));
+  const leftCells = padCells;
+  const rightCells = GW - padCells;
+  const topCells = T + 4;
+  let bottomCells = GH - T - 4;
+  let textRightCells = rightCells;
 
-  if (s.brand && chrome) {
-    bottom -= cellH * 2;
-    paintText(rgba, W, H, lineLayout([BRAND], 2), g, { x: left, y: bottom }, "left", qrInk);
-    bottom -= small;
-    fillRect(rgba, W, H, left, bottom - 2, cw, 2, RULE);
-    bottom -= 2 + small;
-  }
-
-  let textRight = right;
-  if (s.qr && chrome && qrUrl) {
+  // Single QR code aligned strictly 1:1 (1 module = 1 cell = M x M px)
+  let qrMeta: QuantumSceneMeta["qr"] | undefined;
+  const drawQr = (size === "telegram" || s.qr > 0) && chrome && Boolean(qrUrl);
+  if (drawQr) {
     const m = qrMatrix(qrUrl);
-    const n = m.length;
-    const label = qrUrl.replace(/^https?:\/\//, "");
-    const P = qrPlacement(size, W, H, n, (sc) => measure(label, g, sc))!;
-    const { mod, q, qx } = P, lay = P.label;
-    const labelScale = lay.scale;
-    const labelH = cellH * labelScale;
-    const qy = bottom - labelH - small - q;
-    for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (m[r]![c]) fillRect(rgba, W, H, qx + c * mod, qy + r * mod, mod, mod, qrInk);
-    paintText(rgba, W, H, lineLayout([label], labelScale), g, { x: lay.x, y: bottom - labelH }, "left", creditInk);
-    if (s.qrBeside) textRight = qx - gap;
-    else bottom = qy - gap;
+    const qrN = m.length;
+    const qrBeside = s.qrBeside || size === "telegram";
+    let qrGX: number;
+    let qrGY: number;
+    if (size === "story" || (!qrBeside && align === "center")) {
+      qrGX = Math.floor((GW - qrN) / 2);
+      qrGY = GH - T - qrN - 5;
+    } else if (qrBeside) {
+      qrGX = rightCells - qrN;
+      qrGY = Math.max(T + 3, Math.floor((GH - qrN) / 2));
+    } else {
+      qrGX = GW - T - qrN - 4;
+      qrGY = GH - T - qrN - 4;
+    }
+
+    const qrInk = invert ? PAPER : INK;
+    for (let r = 0; r < qrN; r++) {
+      for (let c = 0; c < qrN; c++) {
+        if (!m[r]?.[c]) continue;
+        const py0 = (qrGY + r) * M;
+        const px0 = (qrGX + c) * M;
+        for (let dy = 0; dy < M; dy++) {
+          const py = py0 + dy;
+          if (py < 0 || py >= H) continue;
+          for (let dx = 0; dx < M; dx++) {
+            const px = px0 + dx;
+            if (px < 0 || px >= W) continue;
+            const o = (py * W + px) * 4;
+            rgba[o] = qrInk[0]; rgba[o + 1] = qrInk[1]; rgba[o + 2] = qrInk[2]; rgba[o + 3] = 255;
+          }
+        }
+      }
+    }
+    qrMeta = { gx: qrGX, gy: qrGY, n: qrN, matrix: m };
+    if (qrBeside) textRightCells = Math.max(leftCells + 20, qrGX - 4);
+    else bottomCells = Math.max(topCells + 20, qrGY - 4);
   }
 
-  const box = { width: textRight - left, height: bottom - top };
+  const boxLeft = leftCells * M;
+  const boxW = Math.max(M * 16, (textRightCells - leftCells) * M);
+  const boxTop = topCells * M;
+  const boxH = Math.max(M * 16, (bottomCells - topCells) * M);
+  const cellH = g.cell.height;
+
   const tokens = tokenizeStyled(text, hook);
-  const lines = layoutStyled(tokens, g, box, style, { maxScale: s.maxScale, minScale: 2, lineGap: 1 });
+  const lines = layoutStyled(tokens, g, { width: boxW, height: boxH }, style, {
+    maxScale: M,
+    minScale: Math.max(2, Math.floor(M / 2)),
+    lineGap: 2,
+  });
   const blockH = styledBlockHeight(lines, cellH);
-  const y = top + Math.max(0, Math.floor((box.height - blockH) / 2));
-  paintStyled(rgba, W, H, lines, g, { left, width: box.width, y }, align, style);
-  return rgba;
+  const y = boxTop + Math.floor(Math.max(0, boxH - blockH) / (2 * M)) * M;
+  paintStyled(rgba, W, H, lines, g, { left: boxLeft, width: boxW, y }, align, style);
+
+  const fgMask = buildForegroundMask(rgba, W, H, GW, GH, M, substrate);
+  const dist = computeDistanceGrid(fgMask, GW, GH);
+
+  return {
+    content: rgba,
+    quantum: { W, H, M, GW, GH, T, corpus, invert, dist, qr: qrMeta, unit },
+  };
 }
 
 // ---------------------------------------------------------------- entry point
@@ -317,7 +351,10 @@ export async function renderCard(recipe: Recipe, env: CardEnv, host: string, out
 
     const text = await resolveText(recipe, env, host);
     const chars = text.text + text.attribution + text.qrUrl + BRAND + BASE_CHARS;
-    const [font, frame] = await Promise.all([resolveFont(recipe, env, strictFont, out.format === "json" ? null : chars), resolveFrame(recipe, env, strictFrame)]);
+    const [font, frame] = await Promise.all([
+      resolveFont(recipe, env, strictFont, out.format === "json" ? null : chars),
+      resolveFrame(recipe, env, strictFrame),
+    ]);
 
     const attribution = [text.attribution, ...(frame.degraded ? [] : [FRAME_ATTRIBUTION]), font.attribution];
     const degraded = [...(font.degraded ? ["font"] : []), ...(frame.degraded ? ["frame"] : [])];
@@ -336,12 +373,46 @@ export async function renderCard(recipe: Recipe, env: CardEnv, host: string, out
     const strip = stripFor(frame.unit, bandPx(H));
     const style = recipe.style ?? "color";
     const align = recipe.align ?? SPECS[recipe.size].align;
-    const content = font.glyphs
-      ? bitmapContent(recipe.size, W, H, strip, font.glyphs, text.text, text.hook, style, align, attribution, text.qrUrl, chrome)
-      : await serifContent(text.model, recipe.size, W, H, { minimal: out.minimal, nochrome: out.nochrome, attribution: attribution.join(" · ") });
-    const scene: CardScene = { W, H, content, unit: frame.unit, strip };
-    const bytes = out.format === "gif" ? encodeCardGif(scene) : encodeCardPng(scene);
-    return new Response(bytes, { headers: { ...headers, "content-type": out.format === "gif" ? "image/gif" : "image/png" } });
+
+    let scene: CardScene;
+    if (font.glyphs) {
+      const built = bitmapContent(recipe.size, W, H, frame.unit, font.glyphs, text.text, text.hook, style, align, text.qrUrl, chrome, text.corpus);
+      scene = { W, H, content: built.content, unit: frame.unit, strip, quantum: built.quantum };
+    } else {
+      const content = await serifContent(text.model, recipe.size, W, H, { minimal: out.minimal, nochrome: out.nochrome, attribution: attribution.join(" · ") });
+      const M = recipe.size === "sticker" ? 4 : 8;
+      const GW = Math.ceil(W / M), GH = Math.ceil(H / M);
+      scene = {
+        W,
+        H,
+        content,
+        unit: frame.unit,
+        strip,
+        quantum: {
+          W,
+          H,
+          M,
+          GW,
+          GH,
+          T: perimeterCells(frame.unit),
+          corpus: text.corpus,
+          invert: false,
+          noBackgroundShader: true,
+          dist: new Float32Array(GW * GH),
+          unit: frame.unit,
+        },
+      };
+    }
+
+    const bytes =
+      out.format === "webp" ? encodeCardWebp(scene)
+      : out.format === "gif" ? encodeCardGif(scene)
+      : encodeCardPng(scene);
+    const contentType =
+      out.format === "webp" ? "image/webp"
+      : out.format === "gif" ? "image/gif"
+      : "image/png";
+    return new Response(bytes, { headers: { ...headers, "content-type": contentType } });
   } catch (e) {
     if (e instanceof CardRequestError) return errorResponse(e);
     throw e;

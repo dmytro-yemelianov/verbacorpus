@@ -185,5 +185,7 @@
   "card.fileType": "Formato do arquivo",
   "card.fileType.png": "PNG (Imagem)",
   "card.fileType.gif": "GIF (Animação)",
-  "detail.sourceTitle": "Fonte"
+  "detail.sourceTitle": "Fonte",
+  "card.fileType.webp": "WebP (Animação)",
+  "card.format.telegram": "Telegram (1200×630)"
 }

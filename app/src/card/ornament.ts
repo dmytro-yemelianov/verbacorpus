@@ -81,6 +81,83 @@ export function paintBand(
   }
 }
 
+/**
+ * Thickness (in quantum cells) for 1:1 perimeter rendering.
+ * Keeps 1:1 stitch fidelity without 1:N scaling: 1-row solids get 3 cells (24 px),
+ * standard bands (3–8 rows) keep exact height, oversized charts clip to 8 rows.
+ */
+export function perimeterCells(unit: string[][]): number {
+  if (!unit.length) return 0;
+  if (unit.length === 1) return 3;
+  return Math.min(unit.length, 8);
+}
+
+/**
+ * Paints a closed 4-sided 1:1 ornament perimeter across the quantum grid (M px/cell)
+ * with symmetric 45-degree miter corner joins and a continuous clockwise conveyor shift.
+ */
+export function paintPerimeter1to1(
+  rgba: Uint8Array,
+  W: number,
+  H: number,
+  unit: string[][],
+  paper: [number, number, number],
+  shiftStitches: number,
+  quantum = 8,
+): void {
+  if (!unit.length || !unit[0]!.length) return;
+  const T = perimeterCells(unit);
+  const P = unit[0]!.length;
+  const GW = Math.ceil(W / quantum);
+  const GH = Math.ceil(H / quantum);
+  const symAt = (r: number, c: number) => unit[r % unit.length]![((c % P) + P) % P]!;
+
+  for (let gy = 0; gy < GH; gy++) {
+    const isTop = gy < T;
+    const isBottom = gy >= GH - T;
+    for (let gx = 0; gx < GW; gx++) {
+      const isLeft = gx < T;
+      const isRight = gx >= GW - T;
+      if (!isTop && !isBottom && !isLeft && !isRight) continue;
+
+      let sym = "B";
+      if (isTop && isLeft) {
+        sym = gx >= gy ? symAt(gy, gx - shiftStitches) : symAt(gx, gy + shiftStitches);
+      } else if (isTop && isRight) {
+        const lx = GW - 1 - gx;
+        sym = lx >= gy ? symAt(gy, gx - shiftStitches) : symAt(lx, gy - shiftStitches);
+      } else if (isBottom && isLeft) {
+        const ly = GH - 1 - gy;
+        sym = gx >= ly ? symAt(ly, gx + shiftStitches) : symAt(gx, gy + shiftStitches);
+      } else if (isBottom && isRight) {
+        const lx = GW - 1 - gx;
+        const ly = GH - 1 - gy;
+        sym = lx >= ly ? symAt(ly, gx + shiftStitches) : symAt(lx, gy - shiftStitches);
+      } else if (isTop) {
+        sym = symAt(gy, gx - shiftStitches);
+      } else if (isBottom) {
+        sym = symAt(GH - 1 - gy, gx + shiftStitches);
+      } else if (isLeft) {
+        sym = symAt(gx, gy + shiftStitches);
+      } else {
+        sym = symAt(GW - 1 - gx, gy - shiftStitches);
+      }
+
+      const [r, g, b] = sym === "B" ? paper : (UPA_PALETTE[sym as UpaColor] ?? paper);
+      const yStart = gy * quantum;
+      const yEnd = Math.min(H, yStart + quantum);
+      const xStart = gx * quantum;
+      const xEnd = Math.min(W, xStart + quantum);
+      for (let py = yStart; py < yEnd; py++) {
+        for (let px = xStart; px < xEnd; px++) {
+          const o = (py * W + px) * 4;
+          rgba[o] = r; rgba[o + 1] = g; rgba[o + 2] = b; rgba[o + 3] = 255;
+        }
+      }
+    }
+  }
+}
+
 export const CARD_FRAMES: readonly string[] = framesFile.frames;
 
 // Deterministic pick of a global frame id ("non:<patternId>") by FNV-1a over the seed key.

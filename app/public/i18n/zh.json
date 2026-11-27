@@ -185,5 +185,7 @@
   "card.fileType": "文件格式",
   "card.fileType.png": "PNG (图片)",
   "card.fileType.gif": "GIF (动画)",
-  "detail.sourceTitle": "来源"
+  "detail.sourceTitle": "来源",
+  "card.fileType.webp": "WebP (动画)",
+  "card.format.telegram": "Telegram (1200×630)"
 }

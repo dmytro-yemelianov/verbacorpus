@@ -19,7 +19,7 @@ function renderer(opts: { headers?: Record<string, string>; status?: number } = 
       if (u.pathname.startsWith("/card/render.")) {
         spy.urls.push(r.url);
         const ext = u.pathname.split(".").pop()!;
-        const type = ext === "png" ? "image/png" : ext === "gif" ? "image/gif" : "application/json";
+        const type = ext === "png" ? "image/png" : ext === "gif" ? "image/gif" : ext === "webp" ? "image/webp" : "application/json";
         return new Response(ext === "json" ? JSON.stringify({ recipe: { text: u.searchParams.get("text") } }) : PNG, {
           status: opts.status ?? 200,
           headers: { "content-type": type, "cache-control": "public, max-age=31536000, immutable", ...opts.headers },
@@ -60,11 +60,13 @@ describe("cards", () => {
     expect(pro.urls[0]).toBe("https://pro.verbacorpus.org/card/render.png?text=pro%3Ap1&size=square");
   });
 
-  it("accepts %3A and contra ids, json and gif", async () => {
+  it("accepts %3A and contra ids, json, gif, and webp", async () => {
     const pro = renderer();
     expect((await handle(req("/v1/cards/contra:x.json"), mkEnv(pro))).status).toBe(200);
     expect((await handle(req("/v1/cards/pro%3Ap1.gif"), mkEnv(pro))).headers.get("content-type")).toBe("image/gif");
+    expect((await handle(req("/v1/cards/pro%3Ap1.webp?size=square"), mkEnv(pro))).headers.get("content-type")).toBe("image/webp");
     expect(pro.urls[1]).toContain("text=pro%3Ap1");
+    expect(pro.urls[2]).toBe("https://pro.verbacorpus.org/card/render.webp?text=pro%3Ap1&size=square");
   });
 
   it("random never yields contra by default, and sets x-verba-seed", async () => {

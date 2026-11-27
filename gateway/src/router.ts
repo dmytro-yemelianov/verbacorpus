@@ -192,7 +192,7 @@ async function route(request: Request, env: Env, adapters: Partial<Record<Corpus
   }
 
   if (rest[0] === "cards" && rest.length === 2) {
-    const m = decode(rest[1]).match(/^(.+)\.(png|gif|json)$/);
+    const m = decode(rest[1]).match(/^(.+)\.(png|gif|webp|json)$/);
     if (!m) throw new ApiError(404, "not_found", "no such route");
     const ext = m[2] as CardExt;
     const p = url.searchParams;
