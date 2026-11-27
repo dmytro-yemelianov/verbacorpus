@@ -14,7 +14,7 @@ const SAMPLE_PROVERB: Proverb = {
   modern_text: "За парою видно, що вариться.",
   sources: ["Nomis1864"],
   category: ["людина"],
-  type: "прислів'я",
+  variant_group: "vg_1",
 };
 
 describe("Instagram integration", () => {
