@@ -5,6 +5,8 @@ import { mapMatches } from "./shared/semantic";
 import { srcLabel } from "./shared/sources";
 import { prettify } from "./shared/text";
 import { gatherNews, pickUnseen, matchProverbs, putDraft, markSeen, newsId, NEWS_BATCH, getDraft, delDraft, type Draft } from "./news";
+import type { CardSize } from "./card/recipe";
+import { crosspostProverbToInstagram } from "./instagram";
 
 // Public Telegram channel for the corpus — surfaced as a tappable button on card replies.
 const CHANNEL_URL = "https://t.me/VerbaCorpus";
@@ -33,17 +35,19 @@ export interface TelegramEnv {
   };
   NEWS_KV?: KVNamespace;
   VERBA_API_BASE?: string;
+  INSTAGRAM_ACCOUNT_ID?: string;
+  INSTAGRAM_ACCESS_TOKEN?: string;
 }
 
 // Card photos come from the Verba API gateway (which proxies to this Worker's /card/render.png).
-export function cardPhotoUrl(env: { VERBA_API_BASE?: string }, proverbId: string): string {
+export function cardPhotoUrl(env: { VERBA_API_BASE?: string }, proverbId: string, size: CardSize = "telegram"): string {
   const base = (env.VERBA_API_BASE ?? "https://api.verbacorpus.org").replace(/\/+$/, "");
-  return `${base}/v1/cards/pro:${proverbId}.png?size=telegram`;
+  return `${base}/v1/cards/pro:${proverbId}.png?size=${size}`;
 }
 
 // Direct Verba card URL, used when the gateway URL cannot be fetched by Telegram.
-export function directCardUrl(proverbId: string): string {
-  return `https://pro.verbacorpus.org/card/${proverbId}.png?format=telegram&v=${CARD_VERSION}`;
+export function directCardUrl(proverbId: string, size: CardSize = "telegram"): string {
+  return `https://pro.verbacorpus.org/card/${proverbId}.png?format=${size}&v=${CARD_VERSION}`;
 }
 
 // Gateway URL first; if sending with it throws, retry once with the direct Verba URL; if that
@@ -53,20 +57,51 @@ export async function sendCardWithFallback(
   proverbId: string,
   sendPhoto: (url: string) => Promise<unknown>,
   sendText: () => Promise<unknown>,
+  size: CardSize = "telegram",
 ): Promise<void> {
   try {
-    await sendPhoto(cardPhotoUrl(env, proverbId));
+    await sendPhoto(cardPhotoUrl(env, proverbId, size));
     return;
   } catch (e) {
     console.warn("card photo (gateway) failed, retrying direct", e);
   }
   try {
-    await sendPhoto(directCardUrl(proverbId));
+    await sendPhoto(directCardUrl(proverbId, size));
     return;
   } catch (e) {
     console.warn("card photo (direct) failed, sending text", e);
   }
   await sendText();
+}
+
+export function buildCardInlineKeyboard(pId: string, currentSize: CardSize, host: string): InlineKeyboard {
+  const kb = new InlineKeyboard();
+  if (currentSize === "story") {
+    kb.text("🎲 Інше сторіз", "story_shuffle")
+      .text("🖼️ Пост (1080×1080)", `card_size:square:${pId}`)
+      .row()
+      .text("↩️ Звичайна картка", `card_size:telegram:${pId}`)
+      .url("🔗 На сайті", `https://${host}/p/${pId}`)
+      .row()
+      .url("📣 @VerbaCorpus", CHANNEL_URL);
+  } else if (currentSize === "square") {
+    kb.text("🎲 Інший пост", "square_shuffle")
+      .text("📱 Сторіз (1080×1920)", `card_size:story:${pId}`)
+      .row()
+      .text("↩️ Звичайна картка", `card_size:telegram:${pId}`)
+      .url("🔗 На сайті", `https://${host}/p/${pId}`)
+      .row()
+      .url("📣 @VerbaCorpus", CHANNEL_URL);
+  } else {
+    kb.text("🎲 Ще одне", "random_shuffle")
+      .url("🔗 На сайті", `https://${host}/p/${pId}`)
+      .row()
+      .text("📱 Сторіз", `card_size:story:${pId}`)
+      .text("🖼️ Пост", `card_size:square:${pId}`)
+      .row()
+      .url("📣 @VerbaCorpus", CHANNEL_URL);
+  }
+  return kb;
 }
 
 function escapeHtml(s: string): string {
@@ -184,9 +219,9 @@ export function initBot(
 
   // Persistent reply-keyboard menu — users tap instead of typing commands.
   const mainKeyboard = new Keyboard()
-    .text("🎲 Випадкове").text("🏷️ Категорії").row()
-    .text("🎨 Стікери").text("ℹ️ Довідка").row()
-    .text("❤️ Підтримати")
+    .text("🎲 Випадкове").text("📱 Сторіз").row()
+    .text("🏷️ Категорії").text("🎨 Стікери").row()
+    .text("ℹ️ Довідка").text("❤️ Підтримати")
     .resized().persistent();
 
   // Card-sending helpers reused by /commands, the reply keyboard (hears), and ?start deep links.
@@ -194,15 +229,34 @@ export function initBot(
     const p = randomProverb(corpus, {});
     if (!p) return ctx.reply("❌ Не вдалося знайти прислів'я.");
     const explanation = explanations[p.id] || null;
-    const keyboard = new InlineKeyboard()
-      .text("🎲 Ще одне", "random_shuffle")
-      .url("🔗 На сайті", `https://${host}/p/${p.id}`)
-      .row()
-      .url("📣 @VerbaCorpus", CHANNEL_URL);
+    const keyboard = buildCardInlineKeyboard(p.id, "telegram", host);
     const caption = formatProverbHtml(p, explanation, meta.sources);
     await sendCardWithFallback(env, p.id,
       (url) => ctx.replyWithPhoto(url, { caption, parse_mode: "HTML", reply_markup: keyboard }),
-      () => ctx.reply(caption, { parse_mode: "HTML", reply_markup: keyboard }));
+      () => ctx.reply(caption, { parse_mode: "HTML", reply_markup: keyboard }),
+      "telegram");
+  };
+  const sendStoryCard = async (ctx: any, targetId?: string) => {
+    const p = targetId ? byId.get(targetId) : randomProverb(corpus, {});
+    if (!p) return ctx.reply("❌ Не вдалося знайти прислів'я.");
+    const explanation = explanations[p.id] || null;
+    const keyboard = buildCardInlineKeyboard(p.id, "story", host);
+    const caption = `📱 <b>Картка для Instagram Story (1080×1920)</b>\n\n${formatProverbHtml(p, explanation, meta.sources)}`;
+    await sendCardWithFallback(env, p.id,
+      (url) => ctx.replyWithPhoto(url, { caption, parse_mode: "HTML", reply_markup: keyboard }),
+      () => ctx.reply(caption, { parse_mode: "HTML", reply_markup: keyboard }),
+      "story");
+  };
+  const sendSquareCard = async (ctx: any, targetId?: string) => {
+    const p = targetId ? byId.get(targetId) : randomProverb(corpus, {});
+    if (!p) return ctx.reply("❌ Не вдалося знайти прислів'я.");
+    const explanation = explanations[p.id] || null;
+    const keyboard = buildCardInlineKeyboard(p.id, "square", host);
+    const caption = `🖼️ <b>Картка для Instagram Post (1080×1080)</b>\n\n${formatProverbHtml(p, explanation, meta.sources)}`;
+    await sendCardWithFallback(env, p.id,
+      (url) => ctx.replyWithPhoto(url, { caption, parse_mode: "HTML", reply_markup: keyboard }),
+      () => ctx.reply(caption, { parse_mode: "HTML", reply_markup: keyboard }),
+      "square");
   };
   const sendCategories = (ctx: any) =>
     ctx.reply("🏷️ <b>Оберіть тему для пошуку прислів'їв:</b>", { parse_mode: "HTML", reply_markup: buildCategoriesKeyboard(taxonomy) });
@@ -227,6 +281,8 @@ export function initBot(
     ctx.reply(
       `📖 <b>Довідка бота verba</b>\n\n` +
         `• /random — випадкове прислів'я з усього корпусу.\n` +
+        `• /story [номер] — вертикальна картка для Instagram Story (1080×1920).\n` +
+        `• /post [номер] — квадратна картка для Instagram Post (1080×1080).\n` +
         `• /categories — 27 тематичних категорій.\n` +
         `• /search <code>&lt;слово&gt;</code> — пошук за словом або фразою.\n` +
         `• /semantic <code>&lt;фраза&gt;</code> — пошук за змістом (AI).\n` +
@@ -238,11 +294,12 @@ export function initBot(
 
   bot.command("start", async (ctx) => {
     if (ctx.match === "random") return sendRandomCard(ctx);   // deep link t.me/<bot>?start=random
+    if (ctx.match === "story") return sendStoryCard(ctx);
     const welcome =
       `🇺🇦 <b>Вітаємо у verba bot!</b>\n\n` +
       `Це офіційний бот корпусу українських прислів'їв та приказок (<a href="https://verbacorpus.org">verbacorpus.org</a>).\n\n` +
       `Користуйтеся кнопками нижче або командами:\n` +
-      `🎲 /random · 🏷️ /categories · 🔍 /search · 🧠 /semantic · 🎨 /stickers · ❤️ /donate\n\n` +
+      `🎲 /random · 📱 /story · 🖼️ /post · 🏷️ /categories · 🔍 /search · 🧠 /semantic · 🎨 /stickers · ❤️ /donate\n\n` +
       `💡 <i>Мене можна використовувати в будь-якому чаті — введіть <code>@${ctx.me.username} &lt;запит&gt;</code>, щоб поділитися карткою.</i>`;
     await ctx.reply(welcome, { parse_mode: "HTML", link_preview_options: { is_disabled: true }, reply_markup: mainKeyboard });
   });
@@ -250,11 +307,14 @@ export function initBot(
   bot.command("help", (ctx) => sendHelp(ctx));
   bot.command("stickers", (ctx) => sendStickers(ctx));
   bot.command("random", (ctx) => sendRandomCard(ctx));
+  bot.command("story", (ctx) => sendStoryCard(ctx, ctx.match?.trim() || undefined));
+  bot.command("post", (ctx) => sendSquareCard(ctx, ctx.match?.trim() || undefined));
   bot.command("categories", (ctx) => sendCategories(ctx));
   bot.command("donate", (ctx) => sendDonate(ctx));
 
   // Reply-keyboard buttons send their label as text → route to the same actions.
   bot.hears("🎲 Випадкове", (ctx) => sendRandomCard(ctx));
+  bot.hears("📱 Сторіз", (ctx) => sendStoryCard(ctx));
   bot.hears("🏷️ Категорії", (ctx) => sendCategories(ctx));
   bot.hears("🎨 Стікери", (ctx) => sendStickers(ctx));
   bot.hears("❤️ Підтримати", (ctx) => sendDonate(ctx));
@@ -338,16 +398,70 @@ export function initBot(
 
     const explanation = explanations[p.id] || null;
     const formatted = formatProverbHtml(p, explanation, meta.sources);
-
-    const keyboard = new InlineKeyboard()
-      .text("🎲 Ще одне", "random_shuffle")
-      .url("🔗 На сайті", `https://${host}/p/${p.id}`)
-      .row()
-      .url("📣 @VerbaCorpus", CHANNEL_URL);
+    const keyboard = buildCardInlineKeyboard(p.id, "telegram", host);
 
     await sendCardWithFallback(env, p.id,
       (url) => ctx.editMessageMedia({ type: "photo", media: url, caption: formatted, parse_mode: "HTML" }, { reply_markup: keyboard }),
-      () => ctx.reply(formatted, { parse_mode: "HTML", reply_markup: keyboard }));
+      () => ctx.reply(formatted, { parse_mode: "HTML", reply_markup: keyboard }),
+      "telegram");
+    await ctx.answerCallbackQuery();
+  });
+
+  bot.callbackQuery("story_shuffle", async (ctx) => {
+    const p = randomProverb(corpus, {});
+    if (!p) return ctx.answerCallbackQuery("Помилка");
+
+    const explanation = explanations[p.id] || null;
+    const formatted = `📱 <b>Картка для Instagram Story (1080×1920)</b>\n\n${formatProverbHtml(p, explanation, meta.sources)}`;
+    const keyboard = buildCardInlineKeyboard(p.id, "story", host);
+
+    await sendCardWithFallback(env, p.id,
+      (url) => ctx.editMessageMedia({ type: "photo", media: url, caption: formatted, parse_mode: "HTML" }, { reply_markup: keyboard }),
+      () => ctx.reply(formatted, { parse_mode: "HTML", reply_markup: keyboard }),
+      "story");
+    await ctx.answerCallbackQuery();
+  });
+
+  bot.callbackQuery("square_shuffle", async (ctx) => {
+    const p = randomProverb(corpus, {});
+    if (!p) return ctx.answerCallbackQuery("Помилка");
+
+    const explanation = explanations[p.id] || null;
+    const formatted = `🖼️ <b>Картка для Instagram Post (1080×1080)</b>\n\n${formatProverbHtml(p, explanation, meta.sources)}`;
+    const keyboard = buildCardInlineKeyboard(p.id, "square", host);
+
+    await sendCardWithFallback(env, p.id,
+      (url) => ctx.editMessageMedia({ type: "photo", media: url, caption: formatted, parse_mode: "HTML" }, { reply_markup: keyboard }),
+      () => ctx.reply(formatted, { parse_mode: "HTML", reply_markup: keyboard }),
+      "square");
+    await ctx.answerCallbackQuery();
+  });
+
+  bot.callbackQuery(/^card_size:(story|square|telegram):(.+)$/, async (ctx) => {
+    const [, size, pId] = ctx.match as [unknown, CardSize, string];
+    const p = byId.get(pId);
+    if (!p) return ctx.answerCallbackQuery("Прислів'я не знайдено");
+
+    const explanation = explanations[p.id] || null;
+    const baseFormatted = formatProverbHtml(p, explanation, meta.sources);
+    const caption = size === "story"
+      ? `📱 <b>Картка для Instagram Story (1080×1920)</b>\n\n${baseFormatted}`
+      : size === "square"
+      ? `🖼️ <b>Картка для Instagram Post (1080×1080)</b>\n\n${baseFormatted}`
+      : baseFormatted;
+    const keyboard = buildCardInlineKeyboard(p.id, size, host);
+
+    if (ctx.callbackQuery.message && "photo" in ctx.callbackQuery.message) {
+      await sendCardWithFallback(env, p.id,
+        (url) => ctx.editMessageMedia({ type: "photo", media: url, caption, parse_mode: "HTML" }, { reply_markup: keyboard }),
+        () => ctx.reply(caption, { parse_mode: "HTML", reply_markup: keyboard }),
+        size);
+    } else {
+      await sendCardWithFallback(env, p.id,
+        (url) => ctx.replyWithPhoto(url, { caption, parse_mode: "HTML", reply_markup: keyboard }),
+        () => ctx.reply(caption, { parse_mode: "HTML", reply_markup: keyboard }),
+        size);
+    }
     await ctx.answerCallbackQuery();
   });
 
@@ -423,7 +537,24 @@ export function initBot(
         (url) => bot.api.sendPhoto(env.TELEGRAM_CHANNEL_ID, url, { caption, parse_mode: "HTML" }),
         () => bot.api.sendMessage(env.TELEGRAM_CHANNEL_ID, caption, { parse_mode: "HTML" }));
       await delDraft(newsKv, draftId);
-      await ctx.editMessageText(`✅ Опубліковано: ${escapeHtml(prettify(p.text)).slice(0, 80)}`, { reply_markup: undefined });
+
+      let igNotice = "";
+      if (env.INSTAGRAM_ACCOUNT_ID && env.INSTAGRAM_ACCESS_TOKEN) {
+        try {
+          const ig = await crosspostProverbToInstagram(env, p, {
+            newsSource: { title: d.newsTitle, source: d.source },
+          });
+          if (ig.id) {
+            igNotice = " та Instagram";
+          } else if (ig.error) {
+            igNotice = ` (Instagram: ${ig.error})`;
+          }
+        } catch (e: any) {
+          igNotice = ` (Instagram: ${e?.message || e})`;
+        }
+      }
+
+      await ctx.editMessageText(`✅ Опубліковано: ${escapeHtml(prettify(p.text)).slice(0, 80)}${igNotice}`, { reply_markup: undefined });
     } catch (e) {
       console.error("news post failed", e);
       await ctx.answerCallbackQuery("Помилка публікації, спробуйте ще раз");
