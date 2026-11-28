@@ -7,12 +7,14 @@ import { INK, PAPER } from "../card-gif";
 export interface TextToken {
   w: string;
   h: boolean;
+  br?: boolean; // explicit newline paragraph/line marker
 }
 
 export interface StyledLine {
   tokens: TextToken[];
   scale: number;
   lineGap: number;
+  boxWidth?: number; // per-line available horizontal width (when narrower near QR)
 }
 
 type RGB = [number, number, number];
@@ -38,13 +40,17 @@ export function tokenizeStyled(rawText: string, hook: string | null): TextToken[
   const text = rawText.replace(/\.\s*$/, "").replace(/ — /g, "\u00A0— ");
   const out: TextToken[] = [];
   const push = (seg: string, h: boolean) => {
-    for (const part of seg.split(/ +/).filter(Boolean)) {
-      if (/^[.,!?;:…»)]+$/.test(part) && out.length) {
-        out[out.length - 1]!.w += part;
-      } else {
-        out.push({ w: part, h });
+    const rawParas = seg.split(/\r?\n/);
+    rawParas.forEach((para, idx) => {
+      if (idx > 0) out.push({ w: "", h: false, br: true });
+      for (const part of para.split(/ +/).filter(Boolean)) {
+        if (/^[.,!?;:…»)]+$/.test(part) && out.length && !out[out.length - 1]!.br) {
+          out[out.length - 1]!.w += part;
+        } else {
+          out.push({ w: part, h });
+        }
       }
-    }
+    });
   };
   const cleanHook = hook ? hook.replace(/ — /g, "\u00A0— ") : "";
   const idx = cleanHook ? text.indexOf(cleanHook) : -1;
@@ -58,22 +64,76 @@ export function tokenizeStyled(rawText: string, hook: string | null): TextToken[
   return out;
 }
 
-function wrapTokens(tokens: TextToken[], g: GlyphSet, scale: number, maxW: number): TextToken[][] {
-  const lines: TextToken[][] = [];
-  let cur: TextToken[] = [];
-  let cw = 0;
-  const sp = glyphOf(g, " ").advanceX * scale;
-  for (const t of tokens) {
-    const ww = wordWidth(t.w, g, scale);
-    if (cur.length && cw + sp + ww > maxW) {
-      lines.push(cur);
-      cur = [];
-      cw = 0;
+function splitWordToWidth(word: string, h: boolean, g: GlyphSet, scale: number, maxW: number): TextToken[] {
+  const parts: TextToken[] = [];
+  let cur = "";
+  for (const ch of Array.from(word)) {
+    if (cur && wordWidth(cur + ch, g, scale) > maxW) {
+      parts.push({ w: cur, h });
+      cur = "";
     }
-    cw += (cur.length ? sp : 0) + ww;
-    cur.push(t);
+    cur += ch;
   }
-  if (cur.length) lines.push(cur);
+  if (cur) parts.push({ w: cur, h });
+  return parts;
+}
+
+export interface QrAvoidBox {
+  gyPx: number;       // top of QR zone relative to text box top (boxTop)
+  narrowWidth: number; // reduced line width to clear left edge of QR
+}
+
+function wrapTokens(
+  tokens: TextToken[],
+  g: GlyphSet,
+  scale: number,
+  maxW: number,
+  lineGap: number,
+  qrAvoid?: QrAvoidBox,
+): StyledLine[] {
+  const lines: StyledLine[] = [];
+  const queue = [...tokens];
+  const sp = glyphOf(g, " ").advanceX * scale;
+  const lineStep = (g.cell.height + lineGap) * scale;
+  let y = 0;
+
+  while (queue.length > 0) {
+    const first = queue[0]!;
+    if (first.br) {
+      queue.shift();
+      // Compact vertical gap when consecutive newlines form a paragraph break
+      if (queue[0]?.br) {
+        queue.shift();
+        y += Math.max(lineGap * scale, Math.round(g.cell.height * scale * 0.45));
+      }
+      continue;
+    }
+
+    const activeMaxW = qrAvoid && y + g.cell.height * scale > qrAvoid.gyPx ? qrAvoid.narrowWidth : maxW;
+    const cur: TextToken[] = [];
+    let cw = 0;
+    while (queue.length > 0) {
+      const next = queue[0]!;
+      if (next.br) break;
+      const ww = wordWidth(next.w, g, scale);
+      if (cur.length && cw + sp + ww > activeMaxW) break;
+      queue.shift();
+      if (!cur.length && ww > activeMaxW) {
+        const chunks = splitWordToWidth(next.w, next.h, g, scale, activeMaxW);
+        cur.push(chunks[0]!);
+        cw = wordWidth(chunks[0]!.w, g, scale);
+        if (chunks.length > 1) queue.unshift(...chunks.slice(1));
+        break;
+      }
+      cw += (cur.length ? sp : 0) + ww;
+      cur.push(next);
+    }
+
+    if (cur.length) {
+      lines.push({ tokens: cur, scale, lineGap, boxWidth: activeMaxW });
+      y += lineStep;
+    }
+  }
   return lines;
 }
 
@@ -82,25 +142,32 @@ export function layoutStyled(
   g: GlyphSet,
   box: { width: number; height: number },
   style: CardStyle,
-  opts: { maxScale: number; minScale: number; lineGap: number },
+  opts: { maxScale: number; minScale: number; lineGap: number; qrAvoid?: QrAvoidBox },
 ): StyledLine[] {
   if (!tokens.length) return [];
   const hasHook = tokens.some((t) => t.h);
   const big = style === "big" && hasHook;
   for (let s = Math.max(opts.maxScale, opts.minScale); s >= opts.minScale; s--) {
     const hs = big ? Math.max(s + 1, Math.round(s * 1.6)) : s;
+    // Try fitting cleanly above QR first when qrAvoid is provided
+    if (opts.qrAvoid && !big) {
+      const topLines = wrapTokens(tokens, g, s, box.width, opts.lineGap);
+      const topH = styledBlockHeight(topLines, g.cell.height);
+      const topFitsW = topLines.every((l) => lineWidth(l.tokens, g, l.scale) <= box.width);
+      if (topH <= opts.qrAvoid.gyPx && topFitsW) return topLines;
+    }
     const lines: StyledLine[] = big
       ? [
-          ...wrapTokens(tokens.filter((t) => !t.h), g, s, box.width).map((toks) => ({ tokens: toks, scale: s, lineGap: opts.lineGap })),
-          ...wrapTokens(tokens.filter((t) => t.h), g, hs, box.width).map((toks) => ({ tokens: toks, scale: hs, lineGap: opts.lineGap })),
+          ...wrapTokens(tokens.filter((t) => !t.h && !t.br), g, s, box.width, opts.lineGap, opts.qrAvoid),
+          ...wrapTokens(tokens.filter((t) => t.h && !t.br), g, hs, box.width, opts.lineGap, opts.qrAvoid),
         ]
-      : wrapTokens(tokens, g, s, box.width).map((toks) => ({ tokens: toks, scale: s, lineGap: opts.lineGap }));
-    const totalH = lines.reduce((acc, l) => acc + (g.cell.height + l.lineGap) * l.scale, 0);
-    const fitsW = lines.every((l) => lineWidth(l.tokens, g, l.scale) <= box.width);
+      : wrapTokens(tokens, g, s, box.width, opts.lineGap, opts.qrAvoid);
+    const totalH = styledBlockHeight(lines, g.cell.height);
+    const fitsW = lines.every((l) => lineWidth(l.tokens, g, l.scale) <= (l.boxWidth ?? box.width));
     if (totalH <= box.height && fitsW) return lines;
   }
   const s = opts.minScale;
-  return wrapTokens(tokens, g, s, box.width).map((toks) => ({ tokens: toks, scale: s, lineGap: opts.lineGap }));
+  return wrapTokens(tokens, g, s, box.width, opts.lineGap, opts.qrAvoid);
 }
 
 function setPx(rgba: Uint8Array, W: number, H: number, x: number, y: number, rgb: RGB): void {
@@ -160,7 +227,7 @@ export function paintStyled(
 
   lines.forEach((line, li) => {
     const lw = lineWidth(line.tokens, g, line.scale);
-    const slack = Math.max(0, box.width - lw);
+    const slack = Math.max(0, (line.boxWidth ?? box.width) - lw);
     const f = n > 1 ? li / (n - 1) : 0;
     const off =
       align === "center" ? slack / 2

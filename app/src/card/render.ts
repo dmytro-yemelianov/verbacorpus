@@ -8,7 +8,7 @@
 // fail: see `strict` below.
 import { CARD_SIZES, CardRequestError, DEFAULT_FONT, SERIF_FONT, type CardAlign, type CardSize, type CardStyle, type Recipe } from "./recipe";
 import { fetchGlyphs, CardFontError, type GlyphSet } from "./glyphs";
-import { layoutStyled, paintStyled, styledBlockHeight, tokenizeStyled } from "./styled-text";
+import { layoutStyled, paintStyled, styledBlockHeight, tokenizeStyled, type QrAvoidBox } from "./styled-text";
 import { upstreamSignal } from "../upstream";
 import { fetchBand, CardFrameError, perimeterCells } from "./ornament";
 import { loadCorpus, type CorpusEnv } from "../corpus-data";
@@ -16,7 +16,13 @@ import { cardModel, type CardModel } from "../shared/meta";
 import { qrMatrix } from "../shared/qr";
 import { bandPx, cleanForCard } from "../card";
 import { encodeCardGif, encodeCardPng, encodeCardWebp, paperCanvas, serifContent, INK, PAPER, type CardScene } from "../card-gif";
-import { computeDistanceGrid, QUANTUM_PALETTE, type QuantumSceneMeta } from "./quantum";
+import {
+  computeDistanceGrid,
+  QUANTUM_PALETTE,
+  type QuantumDitherName,
+  type QuantumSceneMeta,
+  type QuantumShaderName,
+} from "./quantum";
 
 export interface CardEnv extends CorpusEnv {
   FONTS?: Fetcher;
@@ -276,6 +282,8 @@ function bitmapContent(
 
   // Single QR code aligned strictly 1:1 (1 module = 1 cell = M x M px)
   let qrMeta: QuantumSceneMeta["qr"] | undefined;
+  let qrAvoid: QrAvoidBox | undefined;
+  let fitsAboveBottomQr = true;
   const drawQr = (size === "telegram" || s.qr > 0) && chrome && Boolean(qrUrl);
   if (drawQr) {
     const m = qrMatrix(qrUrl);
@@ -313,8 +321,17 @@ function bitmapContent(
       }
     }
     qrMeta = { gx: qrGX, gy: qrGY, n: qrN, matrix: m };
-    if (qrBeside) textRightCells = Math.max(leftCells + 20, qrGX - 4);
-    else bottomCells = Math.max(topCells + 20, qrGY - 4);
+    if (qrBeside) {
+      textRightCells = Math.max(leftCells + 20, qrGX - 4);
+    } else if (size === "story" || align === "center") {
+      bottomCells = Math.max(topCells + 20, qrGY - 4);
+    } else {
+      // Bottom-right QR (e.g. square): allow lines above QR at full width, wrap lower lines left of QR
+      qrAvoid = {
+        gyPx: Math.max(M * 4, (qrGY - 4 - topCells) * M),
+        narrowWidth: Math.max(M * 8, (qrGX - 4 - leftCells) * M),
+      };
+    }
   }
 
   const boxLeft = leftCells * M;
@@ -328,17 +345,35 @@ function bitmapContent(
     maxScale: M,
     minScale: Math.max(2, Math.floor(M / 2)),
     lineGap: 2,
+    qrAvoid,
   });
   const blockH = styledBlockHeight(lines, cellH);
-  const y = boxTop + Math.floor(Math.max(0, boxH - blockH) / (2 * M)) * M;
+  fitsAboveBottomQr = !qrAvoid || blockH <= qrAvoid.gyPx;
+  // Never shift down after per-row QR-avoid wrapping if lines already sit next to QR
+  const y = fitsAboveBottomQr
+    ? boxTop + Math.floor(Math.max(0, (qrAvoid ? qrAvoid.gyPx : boxH) - blockH) / (2 * M)) * M
+    : boxTop;
   paintStyled(rgba, W, H, lines, g, { left: boxLeft, width: boxW, y }, align, style);
 
   const fgMask = buildForegroundMask(rgba, W, H, GW, GH, M, substrate);
   const dist = computeDistanceGrid(fgMask, GW, GH);
 
+  const shader: QuantumShaderName =
+    invert ? "indigo_night"
+    : corpus === "contra" ? "halftone_brutalist"
+    : size === "story" ? "rushnyk_aura"
+    : size === "fb" || size === "telegram" || size === "yt" ? "polissya_moss"
+    : "kilim_drift";
+  const dither: QuantumDitherName =
+    invert ? "plakhta"
+    : corpus === "contra" ? "bayer4"
+    : size === "story" ? "bayer8"
+    : size === "fb" || size === "telegram" || size === "yt" ? "aida"
+    : "plakhta";
+
   return {
     content: rgba,
-    quantum: { W, H, M, GW, GH, T, corpus, invert, dist, qr: qrMeta, unit },
+    quantum: { W, H, M, GW, GH, T, corpus, invert, shader, dither, dist, qr: qrMeta, unit },
   };
 }
 

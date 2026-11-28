@@ -317,4 +317,21 @@ describe("styles, alignments, and hooks", () => {
     expect(png.status).toBe(200);
     expect(png.headers.get("x-verba-degraded")).toBeNull();
   });
+
+  it("uvc-ported quantum shader & QR shimmer achieve seamless frame[0] === frame[N] parity", async () => {
+    const { renderQuantumFrame } = await import("../src/card/quantum");
+    const W = 64, H = 64, M = 8, GW = 8, GH = 8;
+    const base = new Uint8Array(W * H * 4).fill(255);
+    const meta = {
+      W, H, M, GW, GH, T: 1,
+      corpus: "pro" as const,
+      invert: false,
+      dist: new Float32Array(GW * GH).fill(10),
+      qr: { gx: 2, gy: 2, n: 4, matrix: [[true, false, true, true], [false, true, true, false], [true, true, false, true], [true, false, true, false]] },
+      unit: [["A", "B"], ["B", "D"]],
+    };
+    const f0 = renderQuantumFrame(base, meta, 0, 0);
+    const f1 = renderQuantumFrame(base, meta, 1, 2);
+    expect(Buffer.compare(f1, f0)).toBe(0);
+  });
 });
