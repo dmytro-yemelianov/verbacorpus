@@ -262,6 +262,8 @@ function bitmapContent(
   qrUrl: string,
   chrome: boolean,
   corpus: "pro" | "contra",
+  shaderOpt?: QuantumShaderName,
+  ditherOpt?: QuantumDitherName,
 ): { content: Uint8Array<ArrayBuffer>; quantum: QuantumSceneMeta } {
   const s = SPECS[size];
   const M = size === "sticker" ? 4 : 8; // 8px quantum on all full cards (4px on 512 sticker)
@@ -359,17 +361,19 @@ function bitmapContent(
   const dist = computeDistanceGrid(fgMask, GW, GH);
 
   const shader: QuantumShaderName =
-    invert ? "indigo_night"
+    shaderOpt ??
+    (invert ? "indigo_night"
     : corpus === "contra" ? "halftone_brutalist"
     : size === "story" ? "rushnyk_aura"
     : size === "fb" || size === "telegram" || size === "yt" ? "polissya_moss"
-    : "kilim_drift";
+    : "kilim_drift");
   const dither: QuantumDitherName =
-    invert ? "plakhta"
+    ditherOpt ??
+    (invert ? "plakhta"
     : corpus === "contra" ? "bayer4"
     : size === "story" ? "bayer8"
     : size === "fb" || size === "telegram" || size === "yt" ? "aida"
-    : "plakhta";
+    : "plakhta");
 
   return {
     content: rgba,
@@ -419,7 +423,7 @@ export async function renderCard(recipe: Recipe, env: CardEnv, host: string, out
 
     let scene: CardScene;
     if (font.glyphs) {
-      const built = bitmapContent(recipe.size, W, H, frame.unit, font.glyphs, text.text, text.hook, style, align, text.qrUrl, chrome, text.corpus);
+      const built = bitmapContent(recipe.size, W, H, frame.unit, font.glyphs, text.text, text.hook, style, align, text.qrUrl, chrome, text.corpus, recipe.shader, recipe.dither);
       scene = { W, H, content: built.content, unit: frame.unit, strip, quantum: built.quantum };
     } else {
       const content = await serifContent(text.model, recipe.size, W, H, { minimal: out.minimal, nochrome: out.nochrome, attribution: attribution.join(" · ") });

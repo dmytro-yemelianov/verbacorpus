@@ -139,4 +139,14 @@ describe("cards", () => {
     expect(p1.urls[0]).toMatch(/style=(color|big|shadowS|shadowD|stitch|invert|marker)/);
     expect(p1.urls[0]).toMatch(/align=(left|center|right|stairR|stairL)/);
   });
+
+  it("forwards shader and dither params and rejects invalid ones with 400", async () => {
+    const pro = renderer();
+    const r = await handle(req("/v1/cards/pro:p1.webp?shader=polissya_moss&dither=aida"), mkEnv(pro));
+    expect(r.status).toBe(200);
+    expect(pro.urls[0]).toContain("shader=polissya_moss");
+    expect(pro.urls[0]).toContain("dither=aida");
+    expect((await handle(req("/v1/cards/pro:p1.png?shader=unknown"), mkEnv())).status).toBe(400);
+    expect((await handle(req("/v1/cards/pro:p1.png?dither=unknown"), mkEnv())).status).toBe(400);
+  });
 });

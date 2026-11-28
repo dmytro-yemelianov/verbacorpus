@@ -1,5 +1,6 @@
 // A card recipe: which text, which ornament frame, which font, which size.
 import { pickFrame } from "./ornament";
+import type { QuantumDitherName, QuantumShaderName } from "./quantum";
 
 export type CardSize = "fb" | "square" | "story" | "yt" | "sticker" | "telegram";
 export type CardLang = "uk" | "en";
@@ -8,6 +9,8 @@ export type CardAlign = "left" | "center" | "right" | "stairR" | "stairL";
 
 export const CARD_STYLES: readonly CardStyle[] = ["base", "color", "big", "shadowS", "shadowD", "stitch", "invert", "marker"];
 export const CARD_ALIGNS: readonly CardAlign[] = ["left", "center", "right", "stairR", "stairL"];
+export const CARD_SHADERS: readonly QuantumShaderName[] = ["kilim_drift", "rushnyk_aura", "halftone_brutalist", "indigo_night", "polissya_moss"];
+export const CARD_DITHERS: readonly QuantumDitherName[] = ["plakhta", "bayer8", "aida", "bayer4"];
 
 export interface Recipe {
   text: string; // "pro:<id>" | "contra:<id>"
@@ -18,6 +21,8 @@ export interface Recipe {
   style?: CardStyle;
   align?: CardAlign;
   hook?: string; // "auto" | "none" | exact substring
+  shader?: QuantumShaderName;
+  dither?: QuantumDitherName;
 }
 
 export const DEFAULT_FONT = "para:cozette-13x15";
@@ -83,6 +88,16 @@ export function parseRecipe(qp: URLSearchParams, defaults: { seedKey: string }):
   }
   const hook = qp.get("hook");
   if (hook !== null && hook !== "") out.hook = hook;
+  const shader = qp.get("shader")?.trim();
+  if (shader) {
+    if (!(CARD_SHADERS as readonly string[]).includes(shader)) throw bad(`shader must be one of ${CARD_SHADERS.join(", ")}`);
+    out.shader = shader as QuantumShaderName;
+  }
+  const dither = qp.get("dither")?.trim();
+  if (dither) {
+    if (!(CARD_DITHERS as readonly string[]).includes(dither)) throw bad(`dither must be one of ${CARD_DITHERS.join(", ")}`);
+    out.dither = dither as QuantumDitherName;
+  }
 
   return out;
 }

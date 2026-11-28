@@ -670,6 +670,27 @@ async function openDetail(p: Proverb, opts: { showCustomizer?: boolean } = {}) {
               <select id="cardLangSelect">
               </select>
             </div>
+            <div class="control-field">
+              <label for="cardShaderSelect">${esc(tr("card.shader", "Текстура тла (Шейдер)"))}</label>
+              <select id="cardShaderSelect">
+                <option value="">${esc(tr("card.shader.auto", "Автоматично")) }</option>
+                <option value="kilim_drift">${esc(tr("card.shader.kilim_drift", "Килимовий дрифт")) }</option>
+                <option value="rushnyk_aura">${esc(tr("card.shader.rushnyk_aura", "Рушникова аура")) }</option>
+                <option value="polissya_moss">${esc(tr("card.shader.polissya_moss", "Поліський мох")) }</option>
+                <option value="halftone_brutalist">${esc(tr("card.shader.halftone_brutalist", "Брутальний растр")) }</option>
+                <option value="indigo_night">${esc(tr("card.shader.indigo_night", "Нічне індиго")) }</option>
+              </select>
+            </div>
+            <div class="control-field">
+              <label for="cardDitherSelect">${esc(tr("card.dither", "Дизеринг (Ткання)"))}</label>
+              <select id="cardDitherSelect">
+                <option value="">${esc(tr("card.dither.auto", "Автоматично")) }</option>
+                <option value="plakhta">${esc(tr("card.dither.plakhta", "Плахта 8×8")) }</option>
+                <option value="aida">${esc(tr("card.dither.aida", "Канва Aida 8×8")) }</option>
+                <option value="bayer8">${esc(tr("card.dither.bayer8", "Bayer 8×8")) }</option>
+                <option value="bayer4">${esc(tr("card.dither.bayer4", "Bayer 4×4")) }</option>
+              </select>
+            </div>
             <div class="customizer-actions">
               <a id="cardDownloadBtn" class="more-btn" href="/card/${esc(p.id)}.webp?v=${CARD_VERSION}" download="verba-${esc(p.id)}.webp" target="_blank">${esc(tr("card.download", "Завантажити картку"))}</a>
               <button id="cardCopyEmbedBtn" class="chip" type="button">${esc(tr("card.copyEmbed", "Копіювати код вставки"))}</button>
@@ -732,17 +753,26 @@ async function openDetail(p: Proverb, opts: { showCustomizer?: boolean } = {}) {
 
   const formatSelect = dlg.querySelector("#cardFormatSelect") as HTMLSelectElement | null;
   const typeSelect = dlg.querySelector("#cardTypeSelect") as HTMLSelectElement | null;
+  const shaderSelect = dlg.querySelector("#cardShaderSelect") as HTMLSelectElement | null;
+  const ditherSelect = dlg.querySelector("#cardDitherSelect") as HTMLSelectElement | null;
   const cardPreview = dlg.querySelector("#cardPreview") as HTMLImageElement | null;
   const cardDownloadBtn = dlg.querySelector("#cardDownloadBtn") as HTMLAnchorElement | null;
   const cardCopyEmbedBtn = dlg.querySelector("#cardCopyEmbedBtn") as HTMLButtonElement | null;
+
+  const buildCardPath = (ext: string, format: string, lang: string) => {
+    const q = new URLSearchParams({ format, lang, v: String(CARD_VERSION) });
+    if (shaderSelect?.value) q.set("shader", shaderSelect.value);
+    if (ditherSelect?.value) q.set("dither", ditherSelect.value);
+    return `/card/${p.id}.${ext}?${q}`;
+  };
 
   const updateCardUrl = () => {
     if (!formatSelect || !langSelect || !cardPreview || !cardDownloadBtn || !typeSelect) return;
     const format = formatSelect.value;
     const lang = langSelect.value;
     const ext = typeSelect.value;
-    const cardUrl = `/card/${p.id}.${ext}?format=${format}&lang=${lang}&v=${CARD_VERSION}`;
-    cardPreview.src = cardUrl; // preview the actually-selected type (png or animated gif)
+    const cardUrl = buildCardPath(ext, format, lang);
+    cardPreview.src = cardUrl; // preview the actually-selected type (png, webp or gif)
     cardDownloadBtn.href = cardUrl;
     cardDownloadBtn.download = `verba-${p.id}.${ext}`;
   };
@@ -750,6 +780,8 @@ async function openDetail(p: Proverb, opts: { showCustomizer?: boolean } = {}) {
   if (formatSelect) formatSelect.addEventListener("change", updateCardUrl);
   if (typeSelect) typeSelect.addEventListener("change", updateCardUrl);
   if (langSelect) langSelect.addEventListener("change", updateCardUrl);
+  if (shaderSelect) shaderSelect.addEventListener("change", updateCardUrl);
+  if (ditherSelect) ditherSelect.addEventListener("change", updateCardUrl);
 
   if (cardCopyEmbedBtn) {
     cardCopyEmbedBtn.addEventListener("click", async () => {
@@ -757,7 +789,7 @@ async function openDetail(p: Proverb, opts: { showCustomizer?: boolean } = {}) {
       const format = formatSelect.value;
       const lang = langSelect.value;
       const ext = typeSelect.value;
-      const cardUrl = `https://${location.host}/card/${p.id}.${ext}?format=${format}&lang=${lang}&v=${CARD_VERSION}`;
+      const cardUrl = `https://${location.host}${buildCardPath(ext, format, lang)}`;
       
       let width = 1200, height = 630;
       if (format === "square") { width = 1080; height = 1080; }

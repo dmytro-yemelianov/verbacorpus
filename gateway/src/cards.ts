@@ -7,6 +7,8 @@ import type { Adapter } from "./adapters/types.js";
 export const CARD_SIZES = ["fb", "square", "story", "yt", "sticker", "telegram"] as const;
 export const CARD_STYLES = ["base", "color", "big", "shadowS", "shadowD", "stitch", "invert", "marker"] as const;
 export const CARD_ALIGNS = ["left", "center", "right", "stairR", "stairL"] as const;
+export const CARD_SHADERS = ["kilim_drift", "rushnyk_aura", "halftone_brutalist", "indigo_night", "polissya_moss"] as const;
+export const CARD_DITHERS = ["plakhta", "bayer8", "aida", "bayer4"] as const;
 export const CARD_TIMEOUT_MS = 15000;
 export type CardExt = "png" | "gif" | "webp" | "json";
 
@@ -23,6 +25,8 @@ export interface CardRecipe {
   style?: string;
   align?: string;
   hook?: string;
+  shader?: string;
+  dither?: string;
 }
 
 export function validateText(text: string): string {
@@ -67,6 +71,16 @@ export function recipeFrom(text: string, qp: URLSearchParams): CardRecipe {
   }
   const hook = qp.get("hook");
   if (hook !== null && hook !== "") r.hook = hook;
+  const shader = qp.get("shader")?.trim();
+  if (shader) {
+    if (!(CARD_SHADERS as readonly string[]).includes(shader)) throw bad(`shader must be one of ${CARD_SHADERS.join(", ")}`);
+    r.shader = shader;
+  }
+  const dither = qp.get("dither")?.trim();
+  if (dither) {
+    if (!(CARD_DITHERS as readonly string[]).includes(dither)) throw bad(`dither must be one of ${CARD_DITHERS.join(", ")}`);
+    r.dither = dither;
+  }
   return r;
 }
 
@@ -91,7 +105,7 @@ export async function proxyCard(
 ): Promise<Response> {
   if (!pro) throw new ApiError(503, "unavailable", "card renderer is not available");
   const q = new URLSearchParams({ text: recipe.text });
-  for (const k of ["frame", "font", "size", "lang", "style", "align", "hook"] as const) if (recipe[k]) q.set(k, recipe[k]!);
+  for (const k of ["frame", "font", "size", "lang", "style", "align", "hook", "shader", "dither"] as const) if (recipe[k]) q.set(k, recipe[k]!);
   // pro.verbacorpus.org is the canonical Verba host: the apex would answer with a 308 hop.
   const url = `https://pro.verbacorpus.org/card/render.${ext}?${q}`;
   let res: Response;

@@ -334,4 +334,28 @@ describe("styles, alignments, and hooks", () => {
     const f1 = renderQuantumFrame(base, meta, 1, 2);
     expect(Buffer.compare(f1, f0)).toBe(0);
   });
+
+  it("supports explicit shader & dither query parameters on render and legacy routes", async () => {
+    const resA = await call("/card/render.png?text=pro:p1&size=square&shader=kilim_drift&dither=plakhta");
+    const resB = await call("/card/render.png?text=pro:p1&size=square&shader=polissya_moss&dither=aida");
+    expect(resA.status).toBe(200);
+    expect(resB.status).toBe(200);
+    const decA = await decode(resA);
+    const decB = await decode(resB);
+    expect(Buffer.compare(decA.rgba, decB.rgba)).not.toBe(0);
+
+    // Check discrete palette integrity on shader=polissya_moss&dither=aida
+    const colours = new Set<string>();
+    for (let y = Math.round(decB.H * 0.15); y < Math.round(decB.H * 0.85); y += 2) {
+      for (let x = 0; x < decB.W; x += 2) colours.add(pixel(decB.rgba, decB.W, x, y).join(","));
+    }
+    expect(colours.size).toBeLessThanOrEqual(12);
+
+    const legacy = await call("/card/p1.webp?format=square&shader=indigo_night&dither=bayer8");
+    expect(legacy.status).toBe(200);
+    expect(legacy.headers.get("content-type")).toBe("image/webp");
+
+    expect((await call("/card/render.png?text=pro:p1&shader=invalid_shader")).status).toBe(400);
+    expect((await call("/card/render.png?text=pro:p1&dither=invalid_dither")).status).toBe(400);
+  });
 });

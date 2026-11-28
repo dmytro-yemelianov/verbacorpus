@@ -4,7 +4,7 @@ import { negotiate, serialize, type Format, type Rec } from "./shared/serialize"
 import openapiDoc from "./openapi.json";
 import { buildProverbPage, dailyIndex } from "./shared/meta";
 import { renderCard } from "./card/render";
-import { parseRecipe, isCardSize, CardRequestError, DEFAULT_FONT, type Recipe } from "./card/recipe";
+import { parseRecipe, isCardSize, CARD_SHADERS, CARD_DITHERS, CardRequestError, DEFAULT_FONT, type Recipe } from "./card/recipe";
 import { pickFrame } from "./card/ornament";
 import { cachedEmbroideryCssResponse } from "./embroidery-css";
 import { parseLang, t, hreflangLinks, DEFAULT_LANG } from "./shared/i18n";
@@ -182,12 +182,16 @@ const application = {
           if (!p) return new Response("not found", { status: 404, headers: { "access-control-allow-origin": "*" } });
           const format = qp.get("format") || "fb";
           const text = `pro:${p.id}`;
+          const shaderParam = qp.get("shader")?.trim();
+          const ditherParam = qp.get("dither")?.trim();
           const recipe: Recipe = {
             text,
             frame: pickFrame(text),
             font: DEFAULT_FONT,
             size: isCardSize(format) ? format : "fb",
             lang: qp.get("lang") === "en" ? "en" : "uk",
+            ...(shaderParam && (CARD_SHADERS as readonly string[]).includes(shaderParam) ? { shader: shaderParam as Recipe["shader"] } : {}),
+            ...(ditherParam && (CARD_DITHERS as readonly string[]).includes(ditherParam) ? { dither: ditherParam as Recipe["dither"] } : {}),
           };
           return renderCard(recipe, env, host, {
             format: lm[2] as "png" | "gif" | "webp",

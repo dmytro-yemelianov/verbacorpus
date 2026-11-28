@@ -237,6 +237,8 @@ export const openapi = {
           { name: "style", in: "query", schema: { type: "string", enum: ["base", "color", "big", "shadowS", "shadowD", "stitch", "invert", "marker"], default: "color" } },
           { name: "align", in: "query", schema: { type: "string", enum: ["left", "center", "right", "stairR", "stairL"] } },
           { name: "hook", in: "query", schema: { type: "string" }, description: "`auto`, `none`, або точний підрядок тексту." },
+          { name: "shader", in: "query", schema: { type: "string", enum: ["kilim_drift", "rushnyk_aura", "halftone_brutalist", "indigo_night", "polissya_moss"] } },
+          { name: "dither", in: "query", schema: { type: "string", enum: ["plakhta", "bayer8", "aida", "bayer4"] } },
         ],
         responses: {
           "200": {
@@ -270,6 +272,8 @@ export const openapi = {
           { name: "style", in: "query", schema: { type: "string", enum: ["base", "color", "big", "shadowS", "shadowD", "stitch", "invert", "marker"] } },
           { name: "align", in: "query", schema: { type: "string", enum: ["left", "center", "right", "stairR", "stairL"] } },
           { name: "hook", in: "query", schema: { type: "string" } },
+          { name: "shader", in: "query", schema: { type: "string", enum: ["kilim_drift", "rushnyk_aura", "halftone_brutalist", "indigo_night", "polissya_moss"] } },
+          { name: "dither", in: "query", schema: { type: "string", enum: ["plakhta", "bayer8", "aida", "bayer4"] } },
         ],
         responses: {
           "200": {
